@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="{{ url_for('static', filename='web/web_index.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='web/web_im.css') }}"> 
+
+    <script src="{{ url_for('static', filename='web/web_im.js') }}"></script>
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <script>
+        const currentUserId = "{{ current_user.id }}";
+        const avatarsBaseUrl = "{{ url_for('serve_avatars', filename='') }}"; 
+        const defaultAvatarsUrl = "{{ url_for('serve_icons', filename='rotatingdandelion.gif') }}";
+    </script>
+</head>
+<body>
+
+
+
+    <div class="message-container" id="messageContainer" style="border: none;">
+        {% for message in messages %}
+            <div class="message {% if message.sender_id == current_user.id %}sent{% else %}received{% endif %}">
+                {% if message.sender_id != current_user.id %} 
+                <a href="{{ url_for('user_profile.profile', username=message.sender.username) }}" class="avatar-and-username">
+                    <img style="border-radius: 50%;object-fit: cover;" 
+                        src="{% if message.sender and message.sender.avatar and message.sender.avatar not in ['null', 'None', 'Null', ''] %}
+                                {{ url_for('serve_avatars', filename=message.sender.avatar) }}
+                            {% else %}
+                                {{ url_for('serve_icons', filename='rotatingdandelion.gif') }} 
+                            {% endif %}" 
+                        class="message-avatar" width="40" height="40">
+                    <span class="username">{{ message.sender.username }}</span>
+                </a>
+                {% endif %}
+                <div class="message-content">
+                    <p class="message-text">{{ message.text }}</p>
+                    <div class="time-and-read">
+                        <span class="timestamp">{{ message.timestamp.strftime('%H:%M') }}</span>
+                        {% if message.sender_id == current_user.id %}
+                            <span class="read-mark" style="color: #0084b2;" {% if not message.read %} style="color:grey;" {% endif %}>✓</span>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        {% endfor %}
+        
+        <!-- Сообщения будут загружены сюда -->
+        <form id="messageForm"> 
+            <input type="hidden" id="recipientUsername" name="recipient_username" value=""> 
+            <input type="text" id="messageInput" name="message" placeholder="Напишите сообщение..." required></input>
+            <button type="submit"><img src="{{ url_for('serve_icons', filename='send.png') }}"></button>
+        </form> 
+    </div>
+</body>
+</html>

@@ -1,0 +1,335 @@
+/* src/static/profile.css */
+
+body {
+    font-family: 'Roboto', sans-serif;
+    background-color: #1a1a1a;
+    margin: 0;
+    padding: 0;
+    color: #ffffff; /* Цвет текста по умолчанию - белый */
+}
+
+header {
+    background-color: #2e2e2e;
+    padding: 10px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+header h1 {
+    margin: 0;
+    color: #ffffff;
+}
+
+header nav {
+    display: flex;
+    align-items: center;
+}
+
+header nav a {
+    color: #ffffff;
+    text-decoration: none;
+    margin-left: 20px;
+}
+
+.profile-container {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    margin-top: 20px;
+}
+
+.profile-header {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    margin-bottom: 20px;
+}
+
+.profile-avatar {
+    width: 150px;
+    height: 150px;
+    border-radius: 50%;
+    object-fit: cover;
+    margin-bottom: 10px;
+}
+
+.profile-username {
+    font-size: 24px;
+    font-weight: bold;
+}
+
+#changeavatar {
+    background-color: #2e2e2e;
+    padding: 20px;
+    border-radius: 10px;
+    margin: 10px;
+    width: 50%; /* Ограничиваем ширину формы */
+    margin-bottom: 80px;
+}
+
+#changeavatar h3 {
+    margin-top: 15px; /* Добавляем отступ сверху для заголовков */
+}
+
+#changeavatar input,
+#changeavatar select,
+#changeavatar button {
+    border-radius: 10px;
+    padding: 10px;
+    margin-bottom: 10px; /* Добавляем отступ снизу для элементов */
+    width: calc(100% - 22px); /* Занимаем всю доступную ширину с учетом padding */
+    background-color: #1a1a1a;
+    color: #ffffff; /* Цвет текста для input и select */
+    border: none; /* Убираем границы */
+}
+
+#changeavatar button {
+    background-color: #3b3b3b; /* Цвет фона для кнопок */
+    color: white;
+    border: none;
+    cursor: pointer;
+    width: auto; /* Автоматическая ширина для кнопок */
+}
+
+#changeavatar button:hover {
+    opacity: 0.8;
+}
+
+#emailDisplay {
+    display: block; /* Делаем emailDisplay блочным элементом */
+    margin-bottom: 10px;
+}
+
+.separator {
+    width: 99%;
+    height: 1px; /* Или другая желаемая высота */
+    background-color: #ccc; /* Или другой желаемый цвет */
+    margin: 20px auto; /* Отступы сверху и снизу, центрирование по горизонтали */
+}
+
+@media (max-width: 800px) {
+    #changeavatar {
+      width: 80%; /* Wider on very small screens */
+    }
+}
+
+#createPostBtn {
+    user-select: none; /* Отключает выделение текста */
+    display: inline-block; 
+    vertical-align: middle; 
+    width: auto;
+    height: 30px;
+    border-radius: 10px;
+    background-color: #2a2a2a;
+    padding-bottom: 4px;
+    padding-left: 5px;
+    padding-right: 5px;
+    transition: all 0.4s;
+    box-shadow: 0px 0px 5px rgba(0, 0, 0, 0.5); /* Добавляем тень */
+}
+
+#createPostBtn:hover {
+    background-color: #333;
+    color: #fff;
+}
+
+/* Стили для кнопки настроек */
+#settingsBtn {
+    cursor: pointer; /* Добавляем курсор-указатель */
+}
+/* Стили для панели создания поста */
+#createPostPanel {
+    display: none;
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: 50%; /* Ширина по умолчанию */
+    max-width: 900px;
+    min-height: 400px;
+    max-height: 700px;
+    background-color: #1a1a1a;
+    z-index: 1000; /* Выше остальных элементов */
+    padding: 20px;
+    box-sizing: border-box;
+    border-radius: 10px;
+    transition: width 0.3s ease-in-out; /* Плавное изменение ширины */
+    user-select: none; /* Отключает выделение текста */
+}
+/* Затемнение и размытие фона */
+#overlay {
+    display: none;
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.5);
+    backdrop-filter: blur(5px); /* Размытие фона */
+    z-index: 999; /* Ниже панели создания поста */
+}
+
+@media (max-width: 899px) {
+    #createPostPanel {
+        width: 80%;
+    }
+}
+@media (max-width: 599px) {
+    #createPostPanel {
+        width: 100%;
+    }
+}
+/* Стили для загрузки изображения */
+#createPostPanel .image-upload-area {
+    width: 40%;
+    height: 100%;
+    border-right: 1px solid #ccc;
+    padding: 10px;
+}
+#createPostPanel .image-upload-area label {
+    display: block;
+    width: 100%;
+    min-height: 30px;
+    height: auto;
+    max-height: 100px;
+    border: 2px dashed #ccc;
+    cursor: pointer;
+    text-align: center;
+    align-content: center;
+    line-height: 20px;
+}
+#createPostPanel .image-upload-area img {
+    display: none;
+    max-width: 100%;
+    height: auto;
+    margin: 10px auto;
+}
+/* Стили для текстового поля и кнопки */
+#createPostPanel .text-area {
+    width: 60%;
+    padding: 10px;
+}
+#createPostPanel .text-area textarea {
+    width: 100%;
+    height: 300px;
+    resize: none;
+    border: none;
+    outline: none;
+    background-color: #1a1a1a;
+    color: white;
+}
+#createPostPanel .text-area button {
+    float: right;
+    border: none;
+    width: 150px;
+    height: auto;
+    padding: 10px;
+    border-radius: 50px;
+    background-color: #2a2a2a;
+    color: white;
+}
+
+/* Стили для блока поста */
+.post {
+    width: 500px;
+    min-height: 60px;
+    max-height: 800px;
+    background-color: #2e2e2e;
+    border: 3px solid #2e2e2e;
+    margin-bottom: 20px;
+    border-radius: 20px;
+}
+
+.post img {
+    width: 100%;
+    border-radius: 20px;
+    height: auto;
+    max-height: 500px;
+    object-fit: cover;
+    transition: 0.5s;
+}
+
+.post img.zoomed {
+    transform: scale(1.2);
+}
+
+@media (min-width: 660px) {
+
+    .post img.zoomed {
+        transform: scale(2);
+    }
+}
+
+@media (max-width: 600px) {
+    .post {
+        width: 80%;
+        margin-left: 10%;
+        margin-right: 10%;
+    }
+}
+
+.post-text {
+    margin-top: -20px;
+    padding: 10px;
+    max-width: 500px;
+    word-wrap: break-word;
+    white-space: pre-line; /* Сохраняем переводы строк и пробелы */
+}
+
+.post-author img {
+    /* padding: 5px 10px; */
+    object-fit: cover;
+    border-radius: 50%;
+    width: 30px;
+    height: auto;
+}
+
+.post-author {
+    background-color: #2a2a2a;
+    border-radius: 20px;
+    padding: 10px;
+    display: flex;
+    align-items: center; /* Выравнивание по вертикали */
+    justify-content: space-between; /* Распределение пространства между элементами */
+}
+
+.delete-post-button {
+    width: 20px;
+    height: 20px;
+    cursor: pointer;
+}
+
+.post-author-content {
+    display: flex;
+    align-items: center;
+    width: 250px;
+    font-size: small;
+}
+
+.post-author-details {
+    display: flex;
+    flex-direction: column; /* Размещаем элементы вертикально */
+}
+
+.post-author-fullname {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.publish-data {
+    margin-top: 5px; /* Отступ между именем и датой */
+    font-size: smaller;
+}
+
+.post-author-avatar {
+    width: 30px;
+    height: 30px;
+    border-radius: 50%;
+    margin-right: 10px;
+}
+
+#postsContainer {
+    margin-bottom: 80px;
+}
