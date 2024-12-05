@@ -32,8 +32,7 @@
 
 ## Контакты
 
-Если у вас есть вопросы или предложения, свяжитесь с нами по адресу [spanishiwasc2@gmail.com](mailto:spanishiwasc2@gmail.com).
+Если у вас есть вопросы или предложения, свяжитесь со мной по адресу [spanishiwasc2@gmail.com](mailto:spanishiwasc2@gmail.com).
 
-Или найдя нас в приложении: _[naz.aptemochka](https://connect-ion.ru/profile/naz.aptemochka)_
 
 
