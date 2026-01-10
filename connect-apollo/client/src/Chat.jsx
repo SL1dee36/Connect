@@ -4,7 +4,6 @@ import remarkGfm from 'remark-gfm';
 import Modal from "./Modal";
 import Cropper from 'react-easy-crop';
 
-// --- ИЗМЕНЕНИЕ: Создаем переменную для URL ---
 const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || "http://localhost:3001";
 
 const MessageItem = React.memo(({ msg, username, setImageModalSrc, onDelete }) => {
@@ -49,58 +48,37 @@ const MessageItem = React.memo(({ msg, username, setImageModalSrc, onDelete }) =
     );
 });
 
-const createImage = (url) => new Promise((resolve, reject) => {
-    const image = new Image();
-    image.addEventListener('load', () => resolve(image));
-    image.addEventListener('error', (error) => reject(error));
-    image.setAttribute('crossOrigin', 'anonymous');
-    image.src = url;
-});
-
-async function getCroppedImg(imageSrc, pixelCrop, filters) {
-    const image = await createImage(imageSrc);
-    const canvas = document.createElement('canvas');
-    canvas.width = pixelCrop.width;
-    canvas.height = pixelCrop.height;
-    const ctx = canvas.getContext('2d');
-
-    if (!ctx) return null;
-    
-    ctx.filter = `brightness(${filters.brightness}%) contrast(${filters.contrast}%) saturate(${filters.saturate}%) blur(${filters.blur}px)`;
-    ctx.drawImage(
-        image,
-        pixelCrop.x, pixelCrop.y, pixelCrop.width, pixelCrop.height,
-        0, 0, pixelCrop.width, pixelCrop.height
-    );
-
-    return new Promise((resolve) => {
-        canvas.toBlob((blob) => {
-            if (blob) resolve(blob);
-        }, 'image/webp', 0.8);
-    });
-}
 
 function Chat({ socket, username, room, setRoom }) {
+    // State
     const [currentMessage, setCurrentMessage] = useState("");
     const [messageList, setMessageList] = useState([]);
     const [friends, setFriends] = useState([]);
     const [myChats, setMyChats] = useState(["General"]);
     const [hasMore, setHasMore] = useState(true);
     const [isLoadingHistory, setIsLoadingHistory] = useState(false);
+    
+    // UI
     const [activeModal, setActiveModal] = useState(null);
     const [notification, setNotification] = useState(null);
     const [typingText, setTypingText] = useState("");
     const [showMenu, setShowMenu] = useState(false);
     const [isMobile, setIsMobile] = useState(window.innerWidth <= 768);
     const [showMobileChat, setShowMobileChat] = useState(false);
+    
+    // Media
     const [imageModalSrc, setImageModalSrc] = useState(null);
     const [attachedFiles, setAttachedFiles] = useState([]); 
     const [isRecording, setIsRecording] = useState(false);
     const [recordingTime, setRecordingTime] = useState(0);
+
+    // Inputs & Search
     const [newChatName, setNewChatName] = useState("");
     const [searchQuery, setSearchQuery] = useState("");
     const [searchResults, setSearchResults] = useState([]);
     const [searchGroupResults, setSearchGroupResults] = useState([]);
+
+    // Profile & Avatars
     const [myProfile, setMyProfile] = useState({ bio: "", phone: "", avatar_url: "" });
     const [viewProfileData, setViewProfileData] = useState(null);
     const [profileForm, setProfileForm] = useState({ bio: "", phone: "" });
@@ -111,6 +89,9 @@ function Chat({ socket, username, room, setRoom }) {
         isOpen: false, image: null, crop: { x: 0, y: 0 }, zoom: 1,
         croppedAreaPixels: null, filters: { brightness: 100, contrast: 100, saturate: 100, blur: 0 }
     });
+
+
+    // Refs
     const messagesEndRef = useRef(null);
     const chatBodyRef = useRef(null);
     const typingTimeoutRef = useRef(null);
@@ -121,19 +102,74 @@ function Chat({ socket, username, room, setRoom }) {
     const mediaRecorderRef = useRef(null);
     const audioChunksRef = useRef([]);
     const timerIntervalRef = useRef(null);
+    
+    const createImage = useCallback((url) => 
+        new Promise((resolve, reject) => {
+            const image = new Image();
+            image.addEventListener('load', () => resolve(image));
+            image.addEventListener('error', (error) => reject(error));
+            image.setAttribute('crossOrigin', 'anonymous');
+            image.src = url;
+        }), 
+    []);
 
+    const getCroppedImg = useCallback(async (imageSrc, pixelCrop, filters) => {
+        const image = await createImage(imageSrc);
+        const canvas = document.createElement('canvas');
+        canvas.width = pixelCrop.width;
+        canvas.height = pixelCrop.height;
+        const ctx = canvas.getContext('2d');
+
+        if (!ctx) return null;
+        
+        ctx.filter = `brightness(${filters.brightness}%) contrast(${filters.contrast}%) saturate(${filters.saturate}%) blur(${filters.blur}px)`;
+        ctx.drawImage(
+            image,
+            pixelCrop.x, pixelCrop.y, pixelCrop.width, pixelCrop.height,
+            0, 0, pixelCrop.width, pixelCrop.height
+        );
+
+        return new Promise((resolve) => {
+            canvas.toBlob((blob) => {
+                if (blob) resolve(blob);
+            }, 'image/webp', 0.8);
+        });
+    }, [createImage]);
+
+    // --- DELETE HANDLER ---
     const handleDeleteMessage = useCallback((id) => {
         if (window.confirm("Удалить это сообщение?")) {
             socket.emit("delete_message", id);
         }
     }, [socket]);
 
+    // --- INIT ---
+    const switchChat = useCallback((targetName) => {
+        const getRoomId = (target) => myChats.includes(target) ? target : [username, target].sort().join("_");
+        const roomId = getRoomId(targetName);
+        setMyRole('member');
+        if (roomId !== room) {
+            setRoom(roomId);
+            localStorage.setItem("apollo_room", roomId);
+            setMessageList([]);
+            setHasMore(true);
+            setIsLoadingHistory(false);
+            previousScrollHeight.current = 0;
+            setTypingText("");
+            setAttachedFiles([]);
+            setCurrentMessage("");
+            socket.emit("join_room", { username, room: roomId });
+        }
+        if (isMobile) setShowMobileChat(true);
+    }, [room, setRoom, username, isMobile, myChats, socket]);
+    
     useEffect(() => {
         const handleResize = () => setIsMobile(window.innerWidth <= 768);
         window.addEventListener('resize', handleResize);
         
         socket.emit("login_user", username);
         socket.emit("get_my_profile", username);
+
         socket.on("user_groups", (groups) => setMyChats(prev => Array.from(new Set([...prev, ...groups]))));
         socket.on("receive_message", (data) => setMessageList((list) => [...list, data]));
         socket.on("message_deleted", (deletedId) => setMessageList((prev) => prev.filter((msg) => msg.id !== deletedId)));
@@ -152,6 +188,7 @@ function Chat({ socket, username, room, setRoom }) {
         socket.on("friends_list", (list) => setFriends(list));
         socket.on("search_results", (results) => setSearchResults(results.filter(u => u.username !== username)));
         socket.on("search_groups_results", (results) => setSearchGroupResults(results));
+
         const handleJoin = (data) => {
             setMyChats(prev => (!prev.includes(data.room) ? [...prev, data.room] : prev));
             switchChat(data.room);
@@ -159,6 +196,7 @@ function Chat({ socket, username, room, setRoom }) {
         };
         socket.on("group_created", handleJoin);
         socket.on("group_joined", handleJoin);
+        
         socket.on("left_group_success", (data) => {
             setMyChats(prev => prev.filter(c => c !== data.room));
             switchChat("General");
@@ -169,6 +207,7 @@ function Chat({ socket, username, room, setRoom }) {
             if (room === data.room) switchChat("General");
             alert(`Группа "${data.room}" удалена владельцем.`);
         });
+
         socket.on("incoming_friend_request", (data) => setNotification(data));
         socket.on("friend_added", (data) => { setFriends(prev => [...prev, data.username]); alert(`${data.username} добавлен!`); });
         socket.on("friend_removed", (data) => {
@@ -179,6 +218,7 @@ function Chat({ socket, username, room, setRoom }) {
         socket.on("request_declined", (data) => alert(`${data.from} отклонил заявку.`));
         socket.on("error_message", (data) => alert(data.msg));
         socket.on("info_message", (data) => alert(data.msg));
+
         socket.on("group_info_data", (data) => { if(data.room === room) { setGroupMembers(data.members); setMyRole(data.myRole); }});
         socket.on("group_info_updated", (data) => setGroupMembers(data.members));
         socket.on("display_typing", (data) => {
@@ -186,15 +226,18 @@ function Chat({ socket, username, room, setRoom }) {
             if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
             typingTimeoutRef.current = setTimeout(() => setTypingText(""), 3000);
         });
+        
         socket.on("my_profile_data", (data) => { setMyProfile(data); setProfileForm({ bio: data.bio || "", phone: data.phone || ""}); });
         socket.on("user_profile_data", (data) => { setViewProfileData(data); setActiveModal("userProfile"); socket.emit("get_avatar_history", data.username) });
         socket.on("avatar_history_data", (history) => setAvatarHistory(history));
+
         return () => {
             socket.removeAllListeners();
             window.removeEventListener('resize', handleResize);
         };
     }, [socket, username, room, switchChat]);
 
+    // --- SCROLL MANAGEMENT ---
     useEffect(() => {
         if (!isLoadingHistory && messageList.length > 0) {
             const lastMsg = messageList[messageList.length - 1];
@@ -221,6 +264,7 @@ function Chat({ socket, username, room, setRoom }) {
         }
     };
 
+    // --- AUTO RESIZE TEXTAREA ---
     useEffect(() => {
         if (textareaRef.current) {
             textareaRef.current.style.height = "auto";
@@ -228,48 +272,35 @@ function Chat({ socket, username, room, setRoom }) {
         }
     }, [currentMessage]);
 
-    const getRoomId = (targetName) => myChats.includes(targetName) ? targetName : [username, targetName].sort().join("_");
+    // --- FUNCTIONS ---
     const displayRoomName = myChats.includes(room) ? room : room.replace(username, "").replace("_", "");
     const isPrivateChat = !myChats.includes(room);
 
-    const switchChat = useCallback((targetName) => {
-        const roomId = getRoomId(targetName);
-        setMyRole('member');
-        if (roomId !== room) {
-            setRoom(roomId);
-            localStorage.setItem("apollo_room", roomId);
-            setMessageList([]);
-            setHasMore(true);
-            setIsLoadingHistory(false);
-            previousScrollHeight.current = 0;
-            setTypingText("");
-            setAttachedFiles([]);
-            setCurrentMessage("");
-            socket.emit("join_room", { username, room: roomId });
-        }
-        if (isMobile) setShowMobileChat(true);
-    }, [room, setRoom, username, isMobile, getRoomId, socket]);
-
+    // --- AVATAR FUNCTIONS ---
     const onFileChange = (e) => {
         if (e.target.files && e.target.files.length > 0) {
             const file = e.target.files[0];
             const reader = new FileReader();
             reader.addEventListener('load', () => setAvatarEditor(prev => ({ ...prev, image: reader.result, isOpen: true })), false);
             reader.readAsDataURL(file);
-            setActiveModal(null);
+            setActiveModal(null); // Close settings modal
         }
     };
 
     const handleSaveAvatar = async () => {
         if (!avatarEditor.croppedAreaPixels) return;
         const croppedImageBlob = await getCroppedImg(avatarEditor.image, avatarEditor.croppedAreaPixels, avatarEditor.filters);
+        
         const formData = new FormData();
         formData.append('avatar', croppedImageBlob, 'avatar.webp');
         formData.append('username', username);
+
         try {
             const res = await fetch(`${BACKEND_URL}/upload-avatar`, { method: 'POST', body: formData });
             const data = await res.json();
-            if(data.profile) setMyProfile(data.profile);
+            if(data.profile) {
+                setMyProfile(data.profile);
+            }
         } catch (error) {
             console.error('Avatar upload failed', error);
             alert('Ошибка загрузки аватара');
@@ -278,6 +309,7 @@ function Chat({ socket, username, room, setRoom }) {
         }
     };
     
+    // --- RECORDING ---
     const startRecording = async () => {
         try {
             const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
@@ -305,6 +337,7 @@ function Chat({ socket, username, room, setRoom }) {
         const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/webm' });
         const formData = new FormData();
         formData.append('file', audioBlob, 'voice_message.webm');
+
         try {
             const response = await fetch(`${BACKEND_URL}/upload`, { method: 'POST', body: formData });
             const data = await response.json();
@@ -315,6 +348,7 @@ function Chat({ socket, username, room, setRoom }) {
         } catch (err) { console.error("Audio upload error", err); }
     };
 
+    // --- SENDING ---
     const handleFileSelect = (e) => {
         const files = Array.from(e.target.files);
         if (attachedFiles.length + files.length > 10) { alert("Максимум 10 файлов"); return; }
@@ -352,6 +386,7 @@ function Chat({ socket, username, room, setRoom }) {
         }
     };
 
+    // --- UI HELPERS ---
     const openGroupInfo = () => {
         if (!isPrivateChat) { socket.emit("get_group_info", room); setActiveModal("groupInfo"); setShowMenu(false); }
         else { socket.emit("get_user_profile", displayRoomName); setShowMenu(false); }
@@ -368,6 +403,7 @@ function Chat({ socket, username, room, setRoom }) {
         return `${m}:${s < 10 ? '0' : ''}${s}`;
     };
 
+    // --- RENDER ---
     return (
         <div className={`main-layout ${isMobile ? 'mobile-mode' : ''}`}>
             {notification && (
@@ -389,6 +425,7 @@ function Chat({ socket, username, room, setRoom }) {
             
             <input type="file" ref={avatarInputRef} style={{display: 'none'}} onChange={onFileChange} accept="image/*"/>
 
+            {/* SIDEBAR */}
             <div className={`left-panel ${isMobile && showMobileChat ? 'hidden' : ''}`}>
                 <div className="sidebar-top">
                     <div className="my-avatar" style={getAvatarStyle(myProfile.avatar_url)} onClick={() => { socket.emit("get_my_profile", username); socket.emit("get_avatar_history", username); setActiveModal('settings'); }}>
@@ -399,10 +436,11 @@ function Chat({ socket, username, room, setRoom }) {
                 <div className="friends-list">
                     {myChats.map((chat, idx) => ( <div key={idx} className="friend-avatar" title={chat} onClick={() => switchChat(chat)} style={{ background: chat === room ? '#f0f0f0' : '#333', border: chat === room ? '2px solid #2b95ff' : 'none', color: chat === room ? 'black' : 'white' }}> {chat.substring(0, 2)} </div> ))}
                     {friends.length > 0 && <div className="divider">Контакты</div>}
-                    {friends.map((friend, idx) => { const isActive = room === getRoomId(friend); return <div key={idx} className="friend-avatar" onClick={() => switchChat(friend)} title={friend} style={{ background: isActive ? '#2b95ff' : '#444' }}>{friend[0].toUpperCase()}</div> })}
+                    {friends.map((friend, idx) => { const isActive = [username, friend].sort().join("_") === room; return <div key={idx} className="friend-avatar" onClick={() => switchChat(friend)} title={friend} style={{ background: isActive ? '#2b95ff' : '#444' }}>{friend[0].toUpperCase()}</div> })}
                 </div>
             </div>
 
+            {/* CHAT */}
             <div className={`right-panel ${isMobile && !showMobileChat ? 'hidden' : ''}`}>
                 <div className="glass-chat">
                     <div className="chat-header">
@@ -440,6 +478,7 @@ function Chat({ socket, username, room, setRoom }) {
                 </div>
             </div>
 
+            {/* MODALS */}
             {activeModal === 'actionMenu' && ( <Modal title="Действия" onClose={() => setActiveModal(null)}> <div className="action-grid"> <div className="action-card" onClick={() => setActiveModal('createGroup')}> <span style={{ fontSize: 24 }}>📢</span> <div><div style={{ fontWeight: 'bold' }}>Создать Группу</div></div> </div> <div className="action-card" onClick={() => setActiveModal('searchGroup')}> <span style={{ fontSize: 24 }}>🔍</span> <div><div style={{ fontWeight: 'bold' }}>Найти Группу</div></div> </div> <div className="action-card" onClick={() => setActiveModal('addFriend')}> <span style={{ fontSize: 24 }}>👤</span> <div><div style={{ fontWeight: 'bold' }}>Найти Людей</div></div> </div> </div> </Modal> )}
             {activeModal === 'createGroup' && ( <Modal title="Создать группу" onClose={() => setActiveModal(null)}> <input className="modal-input" placeholder="Название..." value={newChatName} onChange={(e) => setNewChatName(e.target.value)} /> <button className="btn-primary" onClick={() => { if (newChatName) socket.emit("create_group", { room: newChatName, username }) }}>Создать</button> </Modal> )}
             {activeModal === 'searchGroup' && ( <Modal title="Поиск групп" onClose={() => { setActiveModal(null); setSearchGroupResults([]) }}> <input className="modal-input" placeholder="Название..." onChange={(e) => { if (e.target.value) socket.emit("search_groups", e.target.value) }} /> <div className="search-results"> {searchGroupResults.map((g, i) => ( <div key={i} className="search-item"> <span>{g.room}</span> {!myChats.includes(g.room) && <button className="add-btn-small" onClick={() => socket.emit("join_existing_group", { room: g.room, username })}>➜</button>} </div> ))} </div> </Modal> )}
@@ -476,7 +515,16 @@ function Chat({ socket, username, room, setRoom }) {
                 <Modal title="Редактор Аватара" onClose={() => setAvatarEditor({ ...avatarEditor, isOpen: false })}>
                     <div className="avatar-editor-content">
                         <div className="crop-container">
-                            <Cropper image={avatarEditor.image} crop={avatarEditor.crop} zoom={avatarEditor.zoom} aspect={1} onCropChange={(crop) => setAvatarEditor(p => ({...p, crop}))} onZoomChange={(zoom) => setAvatarEditor(p => ({...p, zoom}))} onCropComplete={(_, croppedAreaPixels) => setAvatarEditor(p => ({...p, croppedAreaPixels}))} imageStyle={{ filter: `brightness(${avatarEditor.filters.brightness}%) contrast(${avatarEditor.filters.contrast}%) saturate(${avatarEditor.filters.saturate}%) blur(${avatarEditor.filters.blur}px)` }} />
+                            <Cropper
+                                image={avatarEditor.image}
+                                crop={avatarEditor.crop}
+                                zoom={avatarEditor.zoom}
+                                aspect={1}
+                                onCropChange={(crop) => setAvatarEditor(p => ({...p, crop}))}
+                                onZoomChange={(zoom) => setAvatarEditor(p => ({...p, zoom}))}
+                                onCropComplete={(_, croppedAreaPixels) => setAvatarEditor(p => ({...p, croppedAreaPixels}))}
+                                imageStyle={{ filter: `brightness(${avatarEditor.filters.brightness}%) contrast(${avatarEditor.filters.contrast}%) saturate(${avatarEditor.filters.saturate}%) blur(${avatarEditor.filters.blur}px)` }}
+                            />
                         </div>
                         <div className="editor-controls">
                             <div className="slider-group"> <label>Zoom</label> <input type="range" min={1} max={3} step={0.1} value={avatarEditor.zoom} onChange={e => setAvatarEditor(p => ({...p, zoom: e.target.value}))}/> </div>
