@@ -5,7 +5,7 @@ import io from "socket.io-client";
 import Chat from "./Chat";
 
 // --- ИЗМЕНЕНИЕ: Подключаемся к URL из переменной окружения ---
-const socket = io.connect(process.env.REACT_APP_BACKEND_URL || "http://localhost:3001");
+const socket = io.connect(import.meta.env.VITE_BACKEND_URL || "http://localhost:3001");
 
 function App() {
   const [username, setUsername] = useState("");
