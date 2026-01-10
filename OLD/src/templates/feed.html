@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Connect - Лента</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='feed.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='phone.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='default.css') }}">
+    <link rel="icon" href="{{ url_for('static', filename='img/connect-ico.png') }}" type="image/png">
+</head>
+<body>
+    <header>
+        <h1><a href="/">Connect - Feed</a></h1>
+        <h2 class="antenna">
+            <a href="/feed"><img src="{{ url_for('static', filename='img/Antenna.png') }}" style="border-radius: 0%;width: 40px;">.feed
+            </a>
+        </h2>
+        <nav>
+            {% if current_user %}
+                <a href="{{ url_for('user_profile.profile', username=current_user.username) }}">
+                    <img src="{{ url_for('serve_avatars', filename=current_user.avatar) }}">
+                </a>
+                <!-- <a style="color: white;">•</a>
+                <a href="{{ url_for('auth.logout') }}"> <img src="{{ url_for('serve_icons', filename='log-out.png') }}" width="30" height="30" ></a> -->
+            {% else %}
+                <a href="{{ url_for('auth.auth') }}">
+                    <img src="{{ url_for('serve_icons', filename='newibe.gif') }}" width="30" height="30">
+                </a>
+            {% endif %}
+        </nav>
+    </header>
+
+
+    <div class="content-wrapper">
+        <div class="sidebar">
+            <a href="{{ url_for('user_profile.profile', username=current_user.username) }}"><img src="{{ url_for('static', filename='img/profile.png') }}">Мой профиль</a>
+            <a href="/"><img src="{{ url_for('static', filename='img/messenger.png') }}">Мессенджер</a>
+            <a href="#"><img src="{{ url_for('static', filename='img/feed.png') }}">Новости</a>
+            <a href="#"><img src="{{ url_for('static', filename='img/friends.png') }}">Друзья</a>
+        </div>
+
+        <div class="feed-container">
+
+            <div id="postsContainer">
+                {% for post in posts %}
+                    <div class="post">
+                        <div class="post-header">
+                            <a href="{{ url_for('user_profile.profile', username=post.user.username) }}">
+                                <img src="{{ url_for('serve_avatars', filename=post.user.avatar) }}" alt="Аватар" class="post-author-avatar">
+                            </a>
+                            <div class="post-author-details">
+                                <span class="post-author-fullname">{{ post.user.fullname }}</span>
+                                <span class="publish-data">{{ post.timestamp.strftime('%H:%M %d.%m.%Y') }}</span>
+                            </div>
+                        </div>
+                        {% if post.image %}
+                            <img src="{{ url_for('static', filename='users/images/' + post.image) }}" alt="Изображение поста" class="post-image">
+                        {% endif %}
+                        <div class="post-text">
+                            {{ post.text }}
+                        </div>
+                    </div>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+
+    <div class="phoneMenu">
+        <a href="/feed"><img src="{{ url_for('static', filename='img/feed.png') }}"></a>
+        <a href="/"><img src="{{ url_for('static', filename='img/messenger.png') }}"></a>
+        <a href="#"><img src="{{ url_for('static', filename='img/friends.png') }}"></a>
+        <a href="#"><img src="{{ url_for('static', filename='img/menu.png') }}"></a>
+    </div>
+
+    <script>
+        // Логика для увеличения изображения при клике (аналогично profile.html)
+        document.getElementById("postsContainer").addEventListener("click", function(event) {
+            const image = event.target;
+            if (image.tagName === "IMG" && image.classList.contains("post-image")) {
+                if (image.classList.contains("zoomed")) {
+                    image.classList.remove("zoomed");
+                } else {
+                    image.classList.add("zoomed");
+                }
+            }
+        });
+    </script>
+</body>
+</html>

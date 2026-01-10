@@ -1,0 +1,148 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Connect</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='default.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='phone.css') }}">
+    <link rel="icon" href="{{ url_for('static', filename='img/connect-ico.png') }}" type="image/png">
+    <script src="{{ url_for('static', filename='index.js') }}">
+    
+    const originalFetch = window.fetch;
+        window.fetch = function(input, init) {
+          init = init || {};
+          init.headers = init.headers || {};
+          init.headers['ngrok-skip-browser-warning'] = 'true';
+          return originalFetch(input, init);
+        };
+    
+    </script>
+
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;700&display=swap" rel="stylesheet">
+</head>
+<body style="color: white">
+    <header>
+        <h1><a href="/">Connect</a></h1>
+        <h2 class="antenna">
+            <a href="/"><img src="{{ url_for('static', filename='img/Antenna.png') }}" style="border-radius: 0%;width: 40px;">
+            </a>
+        </h2>
+        <nav>
+            {% if current_user %}
+            <a class="pcmenu" href="/feed" style="padding: 9px;"><img src="{{ url_for('static', filename='img/feed.png') }}" style="border-radius: 0%;margin-right: 5px;">Новости</a>
+            <a class="pcmenu" href="/friends" style="padding: 9px;"><img src="{{ url_for('static', filename='img/friends.png') }}" style="border-radius: 0%;margin-right: 5px;">Друзья</a>
+            <a href="{{ url_for('user_profile.profile', username=current_user.username) }}" style="padding: 9px;margin-right: 5px;">
+                <img style="object-fit: cover;" src="{{ url_for('serve_avatars', filename=current_user.avatar) if current_user.avatar else url_for('serve_icons', filename='rotatingdandelion.gif') }}">
+            </a>
+            {% else %}
+                <a href="{{ url_for('auth.auth') }}"><img src="{{ url_for('serve_icons', filename='newibe.gif') }}"></a>
+            {% endif %}
+        </nav>
+    </header>
+
+    <div class="content">
+        {% if not current_user %}
+            <div class="not-auth">
+                <h3><b>Станьте частью цифровой симфонии!</b></h3>
+                <p>Для получения полного доступа к функционалу платформы, включая персонализированные рекомендации и расширенные возможности взаимодействия,  
+                необходимо авторизоваться в своей учетной записи или пройти процедуру регистрации нового пользователя.
+                <br><br>Если у Вас еще нет учетной записи, Вы можете зарегистрироваться и получить доступ ко всем преимуществам платформы.</p>
+                <a href="{{ url_for('auth.auth') }}"><img src="{{ url_for('serve_icons', filename='connect-btn.png') }}"><p>Присоединиться<p></a>
+
+            </div>
+
+            <div class="welcomebar">
+                <p>Авторизация предоставит вам возможность взаимодействовать с другими пользователями и использовать все возможности платформы.</p>
+            </div>
+        {% endif %}
+
+        {% if current_user %}
+            {% if current_user.received_friend_requests|length > 0 %} 
+                <h3>Запросы в друзья</h3>
+                <ul class="friend-requests">
+                    {% for friend_request in current_user.received_friend_requests %}
+                        <li>
+                            {{ friend_request.sender.username }} хочет добавить вас в друзья:
+                            <a href="{{ url_for('user_profile.accept_friend_request', username=friend_request.sender.username) }}">Добавить в друзья</a> /
+                            <a href="{{ url_for('user_profile.reject_friend_request', username=friend_request.sender.username) }}">Отклонить</a>
+                        </li>
+                    {% endfor %}
+                </ul>
+            {% endif %}
+        <!-- <h3>Список друзей</h3> -->
+        <div class="friends-slider">
+
+            <div class="friends-search">
+                <input type="text" id="friend-search-input" placeholder="Поиск друзей...">
+                <img src="{{ url_for('serve_icons', filename='loupe.png') }}" id="friend-search-icon">
+                <button id="friend-search-button"></button>
+            </div>
+          
+            <div class="initial-friends"> 
+              {% for friend in current_user.friends %}
+                <div class="friend-card">
+                  <a href="{{ url_for('user_profile.profile', username=friend.username) }}">
+                    <img src="{{ url_for('serve_avatars', filename=friend.avatar) if friend.avatar and friend.avatar else url_for('serve_icons', filename='rotatingdandelion.gif') }}" class="friend-avatar">
+                  </a>
+                  <span class="friend-username">{{ friend.username }}</span>
+                </div>
+              {% endfor %}
+            </div>
+          </div>
+        <!-- <h3>Чаты</h3> -->
+        <div class="chat-list">
+
+            {% if current_user.friends|length < 1 %}
+                <div class="no-friends-message {% if current_user.avatar != 'newibe.png' %}rounded{% endif %}"> 
+                    <p>Кажется, у вас пока нет друзей, </p>
+                    <p>Попробуйте поискать новых друзей, используя поиск.</p> 
+                </div>
+            {% endif %}
+
+            {% for chat in chats %}
+                {% set user = chat.user %}
+                {% set last_message = chat.last_message %}
+                {% set unread_count = chat.unread_count %}
+                <a href="{{ url_for('messenger.im', username=user.username) }}" class="chat-card">
+                    <div class="chat-content">
+                        <img style="vertical-align: middle;" width="40" height="40" src="{{ url_for('serve_avatars', filename=user.avatar) if user.avatar and user.avatar else url_for('serve_icons', filename='rotatingdandelion.gif') }}" class="chat-avatar">
+                        <div class="chat-info">
+                            <span class="chat-username">{{ user.username }}</span>
+                            {% if unread_count > 0 %}
+                                <span class="unread-count">{{ unread_count }}</span>
+                            {% endif %}
+                            <span class="chat-last-message">
+                                {% if last_message %}
+                                    {% if last_message.sender_id == current_user.id %}
+                                        Вы: {{ last_message.text[:30] }}...
+                                    {% else %}
+                                        {{ last_message.text[:30] }}...
+                                    {% endif %}
+                                {% else %}
+                                    Пользователь ожидает сообщения :)
+                                {% endif %}
+                            </span>
+                        </div>
+                    </div>
+                </a>
+            {% endfor %}
+
+            {% if current_user.avatar == 'newibe.png' %}
+                <div class="avatar-suggestion">
+                    <p>Хотите сделать свой профиль более индивидуальным? 
+                    <a href="{{ url_for('user_profile.profile', username=current_user.username) }}">Измените свою аватарку</a>!</p> 
+                </div>
+            {% endif %}
+
+        </div>
+        {% endif %}
+    </div>
+    <div class="phoneMenu">
+        <a href="/feed"><img src="{{ url_for('static', filename='img/feed.png') }}"></a>
+        <a href="/"><img src="{{ url_for('static', filename='img/messenger.png') }}"></a>
+        <a href="#"><img src="{{ url_for('static', filename='img/friends.png') }}"></a>
+        <a href="#"><img src="{{ url_for('static', filename='img/menu.png') }}"></a>
+    </div>
+</body>
+</html></div>

@@ -1,0 +1,260 @@
+/* im.css */
+.message-container {
+    padding: 20px;
+    height: 300px;
+    /* overflow-y: scroll; */
+    /* transform: scale(0.8); Уменьшение на 20% */
+}
+
+.message {
+    padding-left: 10px;
+    padding-right: 10px;
+    margin-bottom: 2px;
+    border-radius: 20px;
+    
+    max-width: 70%;
+    min-width: 120px;
+    
+    /* Ключевое изменение */
+    clear: both;
+    word-break: break-word; /* Разрешает перенос слов */
+}
+
+.parent-container::after {
+    content: "";
+    display: table;
+    clear: both;
+  }
+
+.sent {
+    background-color: #2e2e2e; 
+    color: white;
+    align-self: flex-end; 
+    float: right; 
+    margin-left: auto;
+}
+
+.received {
+    background-color: #2d3c42; 
+    color: white;
+    float: left; 
+    align-self: flex-start; 
+}
+
+.message-content {
+    display: flex; 
+    justify-content: space-between; /* Располагаем текст и время по краям */
+    align-items: flex-end; /* Выравниваем по низу */
+}
+
+.time-and-read {
+    display: flex;
+    align-items: center; /* Выравниваем время и иконку по центру */
+    white-space: nowrap; /* Запрещаем перенос слов */
+}
+
+.timestamp {
+    font-size: 12px;
+    color: #999;
+    margin-right: 5px; /* Отступ справа от времени */
+}
+
+.read-mark {
+    font-size: 14px;
+}
+
+.chat-list {
+    list-style: none;
+    padding: 0;
+}
+
+.chat-list li {
+    display: flex;
+    align-items: center;
+    padding: 10px;
+    border-bottom: 1px solid #333;
+}
+
+.chat-avatar {
+    margin-top: 10px;
+    width: 50px;
+    height: 50px;
+    border-radius: 50%;
+    object-fit: cover;
+    /* margin-right: 10px; */
+}
+
+.chat-info {
+    flex-grow: 1;
+}
+
+.chat-username {
+    font-weight: bold;
+}
+
+.chat-last-message {
+    font-size: 14px;
+    color: #999;
+}
+
+/* im.css */
+html, body {
+    height: 100%;
+    margin: 0;
+    overflow: hidden; /* Убираем прокрутку */
+}
+
+body {
+    display: flex;
+    flex-direction: column;
+}
+
+.message-container {
+    flex: 1;
+    overflow-y: auto; /* Прокрутка сообщений */
+    padding: 20px;
+    box-sizing: border-box;
+    justify-content: flex-end; /* Складываем сообщения к низу */
+    padding-bottom: 10px; /*  Добавляем отступ снизу для формы */
+}
+
+form {
+    display: flex;
+    align-items: center;
+    /* padding: 5px; */
+    box-sizing: border-box;
+    /* position: fixed; Фиксируем форму внизу */
+    bottom: 0;
+    /* width: 100%; */
+    background-color: #2e2e2e; /*  Фон формы (можно изменить) */
+    /* border-top-left-radius: 10px;
+    border-top-right-radius: 10px; */
+}
+input[type="text"] {
+    flex: 1;
+    margin-right: 10px;
+    margin-left: 10px;
+    border: none;
+    padding: 10px;
+    border-radius: 4px;
+    color: white;
+}
+
+button {
+    /* padding: 10px 20px; */
+    /* margin-right: 10px; */
+    width: 40px;
+    height: 40px;
+    border: none;
+    border-radius: 10px;
+    background-color: transparent;
+    color: white;
+    cursor: pointer;
+    margin-right: 10px;
+    /* display: none; */
+}
+
+button img {
+    width: 30px;
+    height: 30px;
+    align-items: center;
+    display: flex;
+}
+
+
+.chat-list {
+    display: flex;
+    flex-direction: column; /* Располагаем элементы друг под другом */
+    width: auto; /* Занимаем всю доступную ширину */
+    min-width: 70px;
+}
+
+.chat-card {
+    display: flex;
+    align-items: center; /* Выравниваем элементы по вертикали */
+    padding: 10px;
+    border: 1px solid #ccc; /* Добавляем рамку */
+    border-radius: 10px; /* Закругляем углы */
+    margin-bottom: 10px; /* Добавляем отступ снизу */
+    text-decoration: none; /* Убираем подчеркивание ссылки */
+    color: inherit; /* Наследуем цвет текста */
+}
+
+.chat-card:hover {
+    background-color: #f0f0f0; /* Добавляем эффект при наведении */
+}
+
+.chat-avatar {
+    margin-right: 10px; /* Добавляем отступ справа от аватара */
+}
+
+.chat-info {
+    flex-grow: 1; /* Занимаем оставшееся пространство */
+}
+
+.chat-username {
+    font-weight: bold; 
+}
+
+.unread-count {
+    background-color: #f00;
+    color: #fff;
+    padding: 2px 5px;
+    border-radius: 5px;
+    margin-left: 5px;
+    font-size: 12px;
+}
+
+.avatar-and-username {
+    display: flex;
+    align-items: center; /* Выравниваем аватар и имя по вертикали */
+    text-decoration: none; /* Убираем подчеркивание ссылки */
+    color: inherit; /* Наследуем цвет текста */
+    background-color: #27343a;
+    border-radius: 20px;
+    height: 30px;
+    
+}
+
+.avatar-and-username .message-avatar {
+    margin-right: 5px; /* Добавляем отступ между аватаром и именем */
+}
+
+/* .avatar-and-username .username {
+    Дополнительные стили для имени пользователя, если нужно
+} */
+
+img {
+    object-fit: cover;
+}
+
+#messageForm {
+    /* margin-left: 5px; 
+    margin-right: 5px; */
+    border: none;
+}
+
+#messageForm {
+    display: flex; /* Используем flexbox для расположения элементов */
+    align-items: center; /* Выравниваем элементы по вертикали */
+    /* padding: 10px; */
+    box-sizing: border-box; /* Ширина включает отступы */
+    border-radius: 50px;
+    margin: 10px;
+    box-shadow: 0px 0px 10px rgba(0, 0, 0, 0.5); /* Добавляем тень */
+}
+
+#messageInput {
+    flex-grow: 1; /* Поле ввода занимает всё доступное пространство */
+    background-color: transparent;
+    border: none;
+    resize: none; 
+    min-height: 30px; 
+    max-height: 200px;
+    margin-right: 10px; /* Отступ справа от поля ввода */
+    color: white;
+    outline: none;
+    border-radius: 50px;
+    /* border-bottom: 1px solid #ccc; */
+    /* Другие стили для поля ввода сообщения */
+}
