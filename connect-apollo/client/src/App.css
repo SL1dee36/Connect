@@ -119,6 +119,7 @@ body {
     gap: 10px; 
     padding: 10px 0;
     min-height: 0;
+    padding-inline: 10px;
 }
 .chat-body::-webkit-scrollbar { width: 5px; }
 .chat-body::-webkit-scrollbar-thumb { background: #444; border-radius: 10px; }
