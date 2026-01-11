@@ -6,6 +6,26 @@ import Cropper from 'react-easy-crop';
 
 const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || "http://localhost:3001";
 
+// --- SVG Icons ---
+const IconClock = () => (
+    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="currentColor" style={{marginLeft: 4, display: 'inline-block', verticalAlign: 'middle'}}>
+        <path fill="currentColor" d="M12 21a9 9 0 1 0 0-18a9 9 0 0 0 0 18Zm11-9c0 6.075-4.925 11-11 11S1 18.075 1 12S5.925 1 12 1s11 4.925 11 11Zm-8 4.414l-4-4V5.5h2v6.086L16.414 15L15 16.414Z"/>
+    </svg>
+);
+
+const IconCheck = () => (
+    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="currentColor" style={{marginLeft: 4, display: 'inline-block', verticalAlign: 'middle'}}>
+        <path fill="currentColor" d="M9 16.2L4.8 12l-1.4 1.4L9 19L21 7l-1.4-1.4L9 16.2z"/>
+    </svg>
+);
+
+const IconDoubleCheck = () => (
+    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="currentColor" style={{marginLeft: 4, display: 'inline-block', verticalAlign: 'middle'}}>
+        <path fill="currentColor" d="m18 7l-1.41-1.41l-6.34 6.34l1.41 1.41L18 7zm4.24-1.41L11.66 16.17L7.48 12l-1.41 1.41L11.66 19l12-12l-1.42-1.41zM.41 13.41L6 19l1.41-1.41L1.83 12L.41 13.41z"/>
+    </svg>
+);
+
+
 // --- HELPER FUNCTION FOR TIMER ---
 const formatTime = (seconds) => {
     const mins = Math.floor(seconds / 60);
@@ -39,13 +59,21 @@ const MessageItem = React.memo(({ msg, username, setImageModalSrc, onDelete }) =
     }
 
     return (
-        <div className={`message ${isMine ? "mine" : "theirs"}`}>
+        <div className={`message ${isMine ? "mine" : "theirs"}`} style={{ opacity: msg.status === 'pending' ? 0.7 : 1 }}>
             <div className="bubble">
                 {content}
             </div>
             <div className="message-footer">
-                <span className="meta">{msg.time} • {msg.author}</span>
-                {isMine && (
+                <span className="meta" style={{display: 'flex', alignItems: 'center'}}>
+                    {msg.time} • {msg.author}
+                    {isMine && (
+                        <>
+                           {msg.status === 'pending' && <IconClock />}
+                           {msg.status === 'sent' && <IconCheck />}
+                        </>
+                    )}
+                </span>
+                {isMine && msg.status !== 'pending' && (
                     <button className="delete-msg-btn" onClick={() => onDelete(msg.id)} title="Удалить">
                         🗑
                     </button>
@@ -371,19 +399,32 @@ function Chat({ socket, username, room, setRoom, handleLogout }) {
 
         const handleReceiveMessage = (data) => {
              if (data.room === room) {
-                setMessageList((list) => [...list, data]);
+                setMessageList((list) => {
+                    // Check if we already have this message (optimistic update deduction)
+                    if (data.author === username && data.tempId) {
+                         const exists = list.find(m => m.tempId === data.tempId);
+                         if (exists) {
+                             // Update existing optimistic message just in case (though callback does it too)
+                             return list.map(m => m.tempId === data.tempId ? { ...data, status: 'sent' } : m);
+                         }
+                    }
+                    return [...list, data];
+                });
              }
         };
 
         const handleChatHistory = (history) => {
-            setMessageList(history);
+            // History messages are always 'sent'
+            const processedHistory = history.map(msg => ({ ...msg, status: 'sent' }));
+            setMessageList(processedHistory);
             setHasMore(history.length >= 30);
             setIsLoadingHistory(false);
             setTimeout(() => messagesEndRef.current?.scrollIntoView({ behavior: "auto" }), 50);
         };
 
         const handleMoreMessages = (history) => {
-            setMessageList((prev) => [...history, ...prev]);
+            const processedHistory = history.map(msg => ({ ...msg, status: 'sent' }));
+            setMessageList((prev) => [...processedHistory, ...prev]);
             setHasMore(history.length >= 30);
             setIsLoadingHistory(false);
         };
@@ -532,8 +573,30 @@ function Chat({ socket, username, room, setRoom, handleLogout }) {
             const response = await fetch(`${BACKEND_URL}/upload`, { method: 'POST', body: formData });
             const data = await response.json();
             if (data.url) {
-                const messageData = { room, author: username, message: data.url, type: 'audio', time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) };
-                socket.emit("send_message", messageData);
+                // For voice/files, we can use the same logic if we want, but keeping it simple for now
+                // Voice messages are sent directly to socket here
+                const time = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+                const tempId = Date.now();
+                const optimisticMsg = { 
+                    room, 
+                    author: username, 
+                    message: data.url, 
+                    type: 'audio', 
+                    time, 
+                    status: 'pending', 
+                    tempId,
+                    id: tempId
+                };
+                
+                setMessageList(prev => [...prev, optimisticMsg]);
+                
+                socket.emit("send_message", optimisticMsg, (res) => {
+                     if (res && res.status === 'ok') {
+                        setMessageList(prev => prev.map(m => 
+                            m.tempId === tempId ? { ...m, id: res.id, status: 'sent' } : m
+                        ));
+                     }
+                });
             }
         } catch (err) { console.error("Audio upload error", err); }
     };
@@ -564,15 +627,58 @@ function Chat({ socket, username, room, setRoom, handleLogout }) {
                 if (data.urls && data.urls.length > 0) {
                     let msgType = data.urls.length === 1 ? 'image' : 'gallery';
                     let msgContent = data.urls.length === 1 ? data.urls[0] : JSON.stringify(data.urls);
-                    socket.emit("send_message", { room, author: username, message: msgContent, type: msgType, time });
+                    
+                    const tempId = Date.now() + Math.random();
+                    const optimisticMsg = { 
+                        room, 
+                        author: username, 
+                        message: msgContent, 
+                        type: msgType, 
+                        time, 
+                        status: 'pending', 
+                        tempId,
+                        id: tempId 
+                    };
+                    
+                    setMessageList(prev => [...prev, optimisticMsg]);
+
+                    socket.emit("send_message", optimisticMsg, (res) => {
+                         if (res && res.status === 'ok') {
+                            setMessageList(prev => prev.map(m => 
+                                m.tempId === tempId ? { ...m, id: res.id, status: 'sent' } : m
+                            ));
+                         }
+                    });
                 }
             } catch (err) { alert("Ошибка отправки файлов"); }
             setAttachedFiles([]);
         }
 
         if (currentMessage.trim()) {
-            socket.emit("send_message", { room, author: username, message: currentMessage, type: 'text', time });
+            const tempId = Date.now();
+            const optimisticMsg = { 
+                room, 
+                author: username, 
+                message: currentMessage, 
+                type: 'text', 
+                time, 
+                status: 'pending', 
+                tempId, 
+                id: tempId 
+            };
+
+            // 1. Optimistic Update
+            setMessageList(prev => [...prev, optimisticMsg]);
             setCurrentMessage("");
+
+            // 2. Send with callback
+            socket.emit("send_message", optimisticMsg, (res) => {
+                 if (res && res.status === 'ok') {
+                    setMessageList(prev => prev.map(m => 
+                        m.tempId === tempId ? { ...m, id: res.id, status: 'sent' } : m
+                    ));
+                 }
+            });
         }
     };
 
@@ -894,12 +1000,12 @@ function Chat({ socket, username, room, setRoom, handleLogout }) {
                     <div style={{marginTop: '10px', background: '#212121', padding: '0 15px'}}>
                         {viewProfileData.isFriend && (
                             <div className="settings-item" onClick={() => removeFriend(viewProfileData.username)} style={{color: '#ff5959'}}>
-                               <span className="settings-icon" style={{color: '#ff5959'}}>💔</span>
+                               <span className="settings-icon" style={{color: '#ff5959'}}><svg xmlns="http://www.w3.org/2000/svg" width="200" height="200" viewBox="0 0 24 24"><path fill="#ffffff" d="m8.4 17l3.6-3.6l3.6 3.6l1.4-1.4l-3.6-3.6L17 8.4L15.6 7L12 10.6L8.4 7L7 8.4l3.6 3.6L7 15.6L8.4 17ZM5 21q-.825 0-1.413-.588T3 19V5q0-.825.588-1.413T5 3h14q.825 0 1.413.588T21 5v14q0 .825-.588 1.413T19 21H5Zm0-2h14V5H5v14ZM5 5v14V5Z"/></svg></span>
                                Delete Contact
                             </div>
                         )}
                         <div className="settings-item" onClick={() => blockUser(viewProfileData.username)} style={{color: '#ff5959', border: 'none'}}>
-                            <span className="settings-icon" style={{color: '#ff5959'}}>🚫</span>
+                            <span className="settings-icon" style={{color: '#ff5959'}}><svg xmlns="http://www.w3.org/2000/svg" width="200" height="200" viewBox="0 0 24 24" fill="#ffffff"><path fill="#ffffff" d="M12 22q-2.075 0-3.9-.788t-3.175-2.137q-1.35-1.35-2.137-3.175T2 12q0-2.075.788-3.9t2.137-3.175q1.35-1.35 3.175-2.137T12 2q2.075 0 3.9.788t3.175 2.137q1.35 1.35 2.138 3.175T22 12q0 2.075-.788 3.9t-2.137 3.175q-1.35 1.35-3.175 2.138T12 22Zm0-2q3.35 0 5.675-2.325T20 12q0-1.35-.438-2.6T18.3 7.1L7.1 18.3q1.05.825 2.3 1.263T12 20Zm-6.3-3.1L16.9 5.7q-1.05-.825-2.3-1.262T12 4Q8.65 4 6.325 6.325T4 12q0 1.35.437 2.6T5.7 16.9Z"/></svg></span>
                             Block User
                         </div>
                     </div>

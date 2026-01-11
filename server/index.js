@@ -231,7 +231,8 @@ io.on("connection", (socket) => {
     );
   });
 
-  socket.on("send_message", async (data) => {
+  // UPDATED: Now supports callback for acknowledgement
+  socket.on("send_message", async (data, callback) => {
     const author = socket.data.username;
     if (data.room.includes("_")) {
       const target = data.room.split("_").find((u) => u !== author);
@@ -242,12 +243,19 @@ io.on("connection", (socket) => {
       "INSERT INTO messages (room, author, message, type, time) VALUES (?,?,?,?,?)",
       [data.room, author, data.message, data.type || "text", data.time]
     );
+    
+    // Broadcast to room (including sender)
     io.to(data.room).emit("receive_message", {
       ...data,
       id: res.lastID,
       author,
       type: data.type || "text",
     });
+
+    // Acknowledge to sender with real ID
+    if (callback) {
+        callback({ status: "ok", id: res.lastID });
+    }
   });
 
   socket.on("create_group", async ({ room }) => {
@@ -341,14 +349,10 @@ io.on("connection", (socket) => {
   socket.on("search_groups", async (q) => {
     try {
       console.log(`[SERVER] Searching groups for: "${q}"`);
-      
-      // Ищем уникальные названия комнат в таблице участников групп
-      // Используем LOWER() для надежного поиска без учета регистра
       const groups = await db.all(
         `SELECT DISTINCT room FROM group_members WHERE lower(room) LIKE lower(?) LIMIT 20`,
         [`%${q}%`]
       );
-      
       socket.emit("search_groups_results", groups);
     } catch (e) {
       console.error("Group search error:", e);
@@ -357,23 +361,18 @@ io.on("connection", (socket) => {
   });
   socket.on("search_users", async (q) => {
     try {
-      // 1. Ищем пользователей в базе данных (LIMIT 20, чтобы не грузить лишнее)
       const dbUsers = await db.all(
         `SELECT username FROM users WHERE username LIKE ? LIMIT 20`,
         [`%${q}%`]
       );
-
-      // 2. Проверяем, кто из найденных сейчас онлайн, чтобы прикрепить socketId
       const results = dbUsers.map((user) => {
         const onlineUser = onlineUsers.find((u) => u.username === user.username);
         return {
           username: user.username,
-          // Если юзер онлайн - даем ID для отправки заявки, если нет - null
           socketId: onlineUser ? onlineUser.socketId : null, 
           isOnline: !!onlineUser
         };
       });
-
       socket.emit("search_results", results);
     } catch (e) {
       console.error("Search error:", e);
