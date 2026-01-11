@@ -6,6 +6,13 @@ import Cropper from 'react-easy-crop';
 
 const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || "http://localhost:3001";
 
+// --- HELPER FUNCTION FOR TIMER ---
+const formatTime = (seconds) => {
+    const mins = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    return `${mins}:${secs < 10 ? '0' : ''}${secs}`;
+};
+
 const MessageItem = React.memo(({ msg, username, setImageModalSrc, onDelete }) => {
     const isMine = msg.author === username;
     let content;
@@ -68,7 +75,7 @@ function Chat({ socket, username, room, setRoom, handleLogout }) {
         } catch (e) { return []; }
     });
 
-    // 3. ПРОФИЛЬ (ИСПРАВЛЕНИЕ МИГАНИЯ)
+    // 3. ПРОФИЛЬ
     const [myProfile, setMyProfile] = useState(() => {
         try {
             const saved = localStorage.getItem("apollo_my_profile");
@@ -205,7 +212,6 @@ function Chat({ socket, username, room, setRoom, handleLogout }) {
 
         const handleUserGroups = (groups) => {
             if (!Array.isArray(groups)) return;
-            // Фильтрация
             const validGroups = groups.filter(g => g && typeof g === 'string');
             const safeGroups = validGroups.includes("General") ? validGroups : ["General", ...validGroups];
             setMyChats(safeGroups); 
@@ -285,7 +291,6 @@ function Chat({ socket, username, room, setRoom, handleLogout }) {
         socket.on("message_deleted", handleMessageDeleted);
 
         // --- ЗАПРОС ДАННЫХ ---
-        // Задержка небольшая, чтобы убедиться что авторизация прошла
         const timer = setTimeout(() => {
             console.log("[CHAT DEBUG] Emitting get_initial_data...");
             socket.emit("get_initial_data");
@@ -579,8 +584,8 @@ function Chat({ socket, username, room, setRoom, handleLogout }) {
                 <div className="sidebar-top">
                     <div className="sidebar-header-content">
                         <div className="my-avatar" 
-                            style={getAvatarStyle(myProfile.avatar_url)} 
-                            onClick={() => { socket.emit("get_my_profile", username); socket.emit("get_avatar_history", username); setActiveModal('settings'); }}>
+                             style={getAvatarStyle(myProfile.avatar_url)} 
+                             onClick={() => { socket.emit("get_my_profile", username); socket.emit("get_avatar_history", username); setActiveModal('settings'); }}>
                             {!myProfile.avatar_url && username[0].toUpperCase()}
                         </div>
                         {isMobile && <div className="mobile-app-title">Chats</div>}
@@ -684,17 +689,42 @@ function Chat({ socket, username, room, setRoom, handleLogout }) {
             {activeModal === 'addFriend' && ( <Modal title="Поиск людей" onClose={() => { setActiveModal(null); setSearchResults([]) }}> <input className="modal-input" placeholder="@username" onChange={(e) => { setSearchQuery(e.target.value); if (e.target.value) socket.emit("search_users", e.target.value) }} /> <div className="search-results"> {searchResults.map((u, i) => ( <div key={i} className="search-item"> <div className="member-info"> <div className="friend-avatar" style={{ fontSize: 12 }}>{u.username[0]}</div> <span>{u.username}</span> </div> {!friends.includes(u.username) && <button className="add-btn-small" onClick={() => { socket.emit("send_friend_request", { fromUser: username, toUserSocketId: u.socketId }); alert('Sent!') }}>+</button>} </div> ))} </div> </Modal> )}
             
             {activeModal === 'settings' && (
-                <Modal title="Профиль" onClose={() => setActiveModal(null)}>
+                <Modal title="My Profile" onClose={() => setActiveModal(null)}>
                     <div className="profile-hero">
                         <div className="profile-avatar-large" style={getAvatarStyle(myProfile.avatar_url)}>{!myProfile.avatar_url && username[0].toUpperCase()}</div>
                         <div className="profile-name">{username}</div>
-                        <button className="change-avatar-btn" onClick={() => avatarInputRef.current.click()}>Сменить фото</button>
+                        <div className="profile-status">online</div>
+                        <button className="change-avatar-btn" onClick={() => avatarInputRef.current.click()}>Set Profile Photo</button>
                     </div>
-                    <div className="form-container">
-                        <div className="input-group"> <label>О себе</label> <input className="modal-input" value={profileForm.bio} onChange={(e) => setProfileForm({ ...profileForm, bio: e.target.value })} placeholder="..." /> </div>
-                        <div className="input-group"> <label>Телефон</label> <input className="modal-input" value={profileForm.phone} onChange={(e) => setProfileForm({ ...profileForm, phone: e.target.value })} placeholder="..." /> </div>
+                    <div className="settings-list">
+                         <div className="settings-item" onClick={() => {}}>
+                            <div className="settings-icon">📞</div>
+                            <div className="form-container" style={{flex: 1, padding: 0, margin: 0}}>
+                                 <div className="input-group">
+                                    <label>Mobile</label>
+                                    <input className="modal-input" style={{padding: '5px 0', borderBottom: 'none'}} value={profileForm.phone} onChange={(e) => setProfileForm({ ...profileForm, phone: e.target.value })} placeholder="Add phone number" />
+                                 </div>
+                            </div>
+                        </div>
+                        <div className="settings-item" onClick={() => {}}>
+                            <div className="settings-icon">📝</div>
+                            <div className="form-container" style={{flex: 1, padding: 0, margin: 0}}>
+                                 <div className="input-group">
+                                    <label>Bio</label>
+                                    <input className="modal-input" style={{padding: '5px 0', borderBottom: 'none'}} value={profileForm.bio} onChange={(e) => setProfileForm({ ...profileForm, bio: e.target.value })} placeholder="Add a few words about yourself" />
+                                 </div>
+                            </div>
+                        </div>
+                         <div className="settings-item" onClick={() => {}}>
+                             <div className="settings-icon">@</div>
+                             <div className="settings-label">
+                                <div style={{fontSize: '16px'}}>{username}</div>
+                                <div style={{fontSize: '12px', color: '#888'}}>Username</div>
+                             </div>
+                        </div>
                     </div>
-                    <div className="avatar-history">
+
+                    <div className="avatar-history" style={{padding: '0 20px'}}>
                         <h4>История аватаров</h4>
                         <div className="avatar-history-container">
                             {avatarHistory.map(avatar => (
@@ -705,8 +735,10 @@ function Chat({ socket, username, room, setRoom, handleLogout }) {
                             ))}
                         </div>
                     </div>
-                    <button className="btn-primary" onClick={saveProfile}>Сохранить</button>
-                    <button className="btn-danger" style={{ marginTop: 10 }} onClick={handleLogout}>Выйти</button>
+                    <div style={{padding: '0 20px 20px 20px'}}>
+                        <button className="btn-primary" style={{width: '100%'}} onClick={saveProfile}>Save Changes</button>
+                        <button className="btn-danger" style={{marginTop: 10, textAlign: 'center'}} onClick={handleLogout}>Log Out</button>
+                    </div>
                 </Modal>
             )}
 
@@ -728,21 +760,79 @@ function Chat({ socket, username, room, setRoom, handleLogout }) {
                 </Modal>
             )}
 
-            {activeModal === 'groupInfo' && ( <Modal title="Участники" onClose={() => setActiveModal(null)}> <div className="profile-hero"> <div className="profile-avatar-large">{room.substring(0, 2)}</div> <div className="profile-name">{room}</div> <div className="profile-status">{groupMembers.length} members</div> </div> <div style={{ maxHeight: 200, overflowY: 'auto', marginBottom: 15 }}> {groupMembers.map((m, i) => ( <div key={i} className="member-item"> <div className="member-info"> <div className="friend-avatar" style={{ fontSize: 12 }}>{m.username[0]}</div> <div>{m.username} {m.role === 'owner' && <span style={{ fontSize: 10, color: '#FFD700', marginLeft: 5 }}>Owner</span>}</div> </div> {myRole === 'owner' && m.role !== 'owner' && m.username !== username && ( <button style={{ color: 'red', background: 'none', border: 'none', cursor: 'pointer' }} onClick={() => socket.emit("remove_group_member", { room, username: m.username })}>&times;</button> )} </div> ))} </div> <div className="action-card" onClick={() => { const n = prompt("Ник:"); if (n) socket.emit("add_group_member", { room, username: n }) }} style={{ marginBottom: 10, justifyContent: 'center' }}><span>➕ Добавить</span></div> <button className="btn-danger" onClick={leaveGroup}>{myRole === 'owner' ? 'Удалить группу' : 'Покинуть группу'}</button> </Modal> )}
+            {activeModal === 'groupInfo' && ( 
+                <Modal title="Group Info" onClose={() => setActiveModal(null)}> 
+                    <div className="profile-hero"> 
+                        <div className="profile-avatar-large">{room.substring(0, 2)}</div> 
+                        <div className="profile-name">{room}</div> 
+                        <div className="profile-status">{groupMembers.length} members</div> 
+                    </div> 
+                    <div className="settings-list" style={{padding: '0 15px'}}>
+                         <div style={{color: '#8774e1', padding: '10px 0', fontSize: '14px', fontWeight: 'bold'}}>Members</div>
+                         {groupMembers.map((m, i) => ( 
+                            <div key={i} className="settings-item"> 
+                                <div className="friend-avatar" style={{ fontSize: 12, marginRight: 15 }}>{m.username[0]}</div> 
+                                <div className="settings-label">
+                                    <div style={{fontSize: '16px'}}>{m.username}</div>
+                                    <div style={{fontSize: '12px', color: '#888'}}>
+                                        {m.role === 'owner' ? 'owner' : 'member'}
+                                    </div>
+                                </div> 
+                                {myRole === 'owner' && m.role !== 'owner' && m.username !== username && ( 
+                                    <button style={{ color: '#ff5959', background: 'none', border: 'none', cursor: 'pointer', fontSize: '18px' }} onClick={() => socket.emit("remove_group_member", { room, username: m.username })}>&times;</button> 
+                                )} 
+                            </div> 
+                        ))} 
+                    </div> 
+                    <div style={{padding: '20px'}}>
+                        <div className="action-card" onClick={() => { const n = prompt("Ник:"); if (n) socket.emit("add_group_member", { room, username: n }) }} style={{ marginBottom: 10 }}>
+                            <span style={{fontSize: 20}}>➕</span>
+                            <div>Add Member</div>
+                        </div> 
+                        <button className="btn-danger" style={{textAlign: 'center'}} onClick={leaveGroup}>{myRole === 'owner' ? 'Delete Group' : 'Leave Group'}</button> 
+                    </div>
+                </Modal> 
+            )}
             
             {activeModal === 'userProfile' && viewProfileData && (
-                <Modal title="Профиль" onClose={() => setActiveModal(null)}>
+                <Modal title="Info" onClose={() => setActiveModal(null)}>
                     <div className="profile-hero">
-                        <div className="profile-avatar-large" style={getAvatarStyle(viewProfileData.avatar_url)}>{!viewProfileData.avatar_url && viewProfileData.username[0]?.toUpperCase()}</div>
+                        <div className="profile-avatar-large" style={getAvatarStyle(viewProfileData.avatar_url)}>
+                            {!viewProfileData.avatar_url && viewProfileData.username[0]?.toUpperCase()}
+                        </div>
                         <div className="profile-name">{viewProfileData.username}</div>
-                        {viewProfileData.isFriend && <div className="profile-status">В контактах</div>}
+                        <div className="profile-status">{viewProfileData.isFriend ? 'В контактах' : 'online'}</div>
                     </div>
+
                     <div className="settings-list">
-                        {viewProfileData.bio && <div className="settings-item"><span className="settings-icon">📝</span><div className="settings-label">{viewProfileData.bio}</div></div>}
-                        {viewProfileData.phone && <div className="settings-item"><span className="settings-icon">📞</span><div className="settings-label">{viewProfileData.phone}</div></div>}
+                        {viewProfileData.bio && (
+                            <div className="settings-item">
+                                <div className="settings-label">
+                                    <div style={{fontSize: '16px'}}>{viewProfileData.bio}</div>
+                                    <div style={{fontSize: '12px', color: '#888', marginTop: '4px'}}>Bio</div>
+                                </div>
+                            </div>
+                        )}
+                        
+                        {viewProfileData.phone && (
+                            <div className="settings-item">
+                                <div className="settings-label">
+                                    <div style={{fontSize: '16px'}}>{viewProfileData.phone}</div>
+                                    <div style={{fontSize: '12px', color: '#888', marginTop: '4px'}}>Mobile</div>
+                                </div>
+                            </div>
+                        )}
+
+                        <div className="settings-item">
+                             <div className="settings-label">
+                                <div style={{fontSize: '16px'}}>@{viewProfileData.username}</div>
+                                <div style={{fontSize: '12px', color: '#888', marginTop: '4px'}}>Username</div>
+                            </div>
+                        </div>
                     </div>
-                    <div className="avatar-history">
-                        <h4>История аватаров</h4>
+                    
+                    <div className="avatar-history" style={{padding: '0 15px'}}>
+                        {avatarHistory.length > 0 && <h4>Old Avatars</h4>}
                         <div className="avatar-history-container">
                             {avatarHistory.map(avatar => (
                                 <div key={avatar.id} className="avatar-history-item">
@@ -751,9 +841,18 @@ function Chat({ socket, username, room, setRoom, handleLogout }) {
                             ))}
                         </div>
                     </div>
-                    <div style={{marginTop: '20px', display: 'flex', flexDirection: 'column', gap: '5px'}}>
-                      {viewProfileData.isFriend && <div className="settings-item" onClick={() => removeFriend(viewProfileData.username)} style={{ color: 'orange' }}><span className="settings-icon">💔</span><div className="settings-label">Удалить из друзей</div></div>}
-                      <div className="settings-item" onClick={() => blockUser(viewProfileData.username)} style={{ color: 'red' }}><span className="settings-icon">🚫</span><div className="settings-label">Заблокировать</div></div>
+
+                    <div style={{marginTop: '10px', background: '#212121', padding: '0 15px'}}>
+                        {viewProfileData.isFriend && (
+                            <div className="settings-item" onClick={() => removeFriend(viewProfileData.username)} style={{color: '#ff5959'}}>
+                               <span className="settings-icon" style={{color: '#ff5959'}}>💔</span>
+                               Delete Contact
+                            </div>
+                        )}
+                        <div className="settings-item" onClick={() => blockUser(viewProfileData.username)} style={{color: '#ff5959', border: 'none'}}>
+                            <span className="settings-icon" style={{color: '#ff5959'}}>🚫</span>
+                            Block User
+                        </div>
                     </div>
                 </Modal>
             )}
