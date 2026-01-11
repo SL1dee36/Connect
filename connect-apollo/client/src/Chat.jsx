@@ -49,12 +49,13 @@ const MessageItem = React.memo(({ msg, username, setImageModalSrc, onDelete }) =
 });
 
 
-function Chat({ socket, username, room, setRoom }) {
+function Chat({ socket, username, room, setRoom, handleLogout }) {
     // State
     const [currentMessage, setCurrentMessage] = useState("");
     const [messageList, setMessageList] = useState([]);
     const [friends, setFriends] = useState([]);
-    const [myChats, setMyChats] = useState(["General"]);
+    // Инициализируем всегда с General, чтобы он не пропадал до загрузки
+    const [myChats, setMyChats] = useState(["General"]); 
     const [hasMore, setHasMore] = useState(true);
     const [isLoadingHistory, setIsLoadingHistory] = useState(false);
     
@@ -145,49 +146,45 @@ function Chat({ socket, username, room, setRoom }) {
 
     // --- INIT ---
     const switchChat = useCallback((targetName) => {
-        const getRoomId = (target) => myChats.includes(target) ? target : [username, target].sort().join("_");
-        const roomId = getRoomId(targetName);
-        setMyRole('member');
+        // Если чат в списке групп (или General) - используем имя как есть.
+        // Иначе (личка) - формируем имя комнаты.
+        const isGroupChat = targetName === "General" || myChats.includes(targetName);
+        const roomId = isGroupChat ? targetName : [username, targetName].sort().join("_");
+        
         if (roomId !== room) {
             setRoom(roomId);
             localStorage.setItem("apollo_room", roomId);
-            setMessageList([]);
-            setHasMore(true);
-            setIsLoadingHistory(false);
-            previousScrollHeight.current = 0;
-            setTypingText("");
-            setAttachedFiles([]);
-            setCurrentMessage("");
-            socket.emit("join_room", { username, room: roomId });
         }
         if (isMobile) setShowMobileChat(true);
-    }, [room, setRoom, username, isMobile, myChats, socket]);
-    
+    }, [room, setRoom, username, isMobile, myChats]);
+
+    // ЭФФЕКТ №1: Глобальные слушатели
     useEffect(() => {
         const handleResize = () => setIsMobile(window.innerWidth <= 768);
         window.addEventListener('resize', handleResize);
-        
-        socket.emit("login_user", username);
+
+        // 1. Сразу просим сервер прислать актуальные данные (PULL)
+        socket.emit("get_initial_data");
         socket.emit("get_my_profile", username);
 
-        socket.on("user_groups", (groups) => setMyChats(prev => Array.from(new Set([...prev, ...groups]))));
-        socket.on("receive_message", (data) => setMessageList((list) => [...list, data]));
-        socket.on("message_deleted", (deletedId) => setMessageList((prev) => prev.filter((msg) => msg.id !== deletedId)));
-        socket.on("chat_history", (history) => {
-            setMessageList(history);
-            setHasMore(history.length >= 30);
-            setIsLoadingHistory(false);
-            setTimeout(() => messagesEndRef.current?.scrollIntoView({ behavior: "auto" }), 50);
+        // 2. Слушаем списки групп
+        socket.on("user_groups", (groups) => {
+            // Гарантируем, что General всегда есть
+            const safeGroups = groups.includes("General") ? groups : ["General", ...groups];
+            setMyChats(safeGroups);
+
+            const currentRoom = localStorage.getItem("apollo_room") || "General";
+            const isCurrentRoomPrivate = currentRoom.includes('_');
+
+            // Если текущая комната - группа, и её больше нет в списке, кидаем в General
+            if (!isCurrentRoomPrivate && !safeGroups.includes(currentRoom)) {
+                switchChat("General");
+            }
         });
-        socket.on("more_messages_loaded", (history) => {
-            setMessageList((prev) => [...history, ...prev]);
-            setHasMore(history.length >= 30);
-            setIsLoadingHistory(false);
-        });
-        socket.on("no_more_messages", () => { setHasMore(false); setIsLoadingHistory(false); });
-        socket.on("friends_list", (list) => setFriends(list));
+
+        socket.on("friends_list", setFriends);
         socket.on("search_results", (results) => setSearchResults(results.filter(u => u.username !== username)));
-        socket.on("search_groups_results", (results) => setSearchGroupResults(results));
+        socket.on("search_groups_results", setSearchGroupResults);
 
         const handleJoin = (data) => {
             setMyChats(prev => (!prev.includes(data.room) ? [...prev, data.room] : prev));
@@ -202,40 +199,115 @@ function Chat({ socket, username, room, setRoom }) {
             switchChat("General");
             setActiveModal(null);
         });
+
         socket.on("group_deleted", (data) => {
             setMyChats(prev => prev.filter(c => c !== data.room));
-            if (room === data.room) switchChat("General");
+            const currentRoom = localStorage.getItem("apollo_room") || "General";
+            if (currentRoom === data.room) {
+                switchChat("General");
+            }
             alert(`Группа "${data.room}" удалена владельцем.`);
         });
 
-        socket.on("incoming_friend_request", (data) => setNotification(data));
+        socket.on("incoming_friend_request", setNotification);
         socket.on("friend_added", (data) => { setFriends(prev => [...prev, data.username]); alert(`${data.username} добавлен!`); });
         socket.on("friend_removed", (data) => {
             setFriends(prev => prev.filter(f => f !== data.username));
             const chatRoom = [username, data.username].sort().join("_");
-            if (room === chatRoom) switchChat("General");
+            const currentRoom = localStorage.getItem("apollo_room") || "General";
+            if (currentRoom === chatRoom) {
+                switchChat("General");
+            }
         });
+
         socket.on("request_declined", (data) => alert(`${data.from} отклонил заявку.`));
         socket.on("error_message", (data) => alert(data.msg));
         socket.on("info_message", (data) => alert(data.msg));
-
-        socket.on("group_info_data", (data) => { if(data.room === room) { setGroupMembers(data.members); setMyRole(data.myRole); }});
-        socket.on("group_info_updated", (data) => setGroupMembers(data.members));
-        socket.on("display_typing", (data) => {
-            setTypingText(`${data.username} печатает...`);
-            if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
-            typingTimeoutRef.current = setTimeout(() => setTypingText(""), 3000);
-        });
-        
         socket.on("my_profile_data", (data) => { setMyProfile(data); setProfileForm({ bio: data.bio || "", phone: data.phone || ""}); });
         socket.on("user_profile_data", (data) => { setViewProfileData(data); setActiveModal("userProfile"); socket.emit("get_avatar_history", data.username) });
-        socket.on("avatar_history_data", (history) => setAvatarHistory(history));
+        socket.on("avatar_history_data", setAvatarHistory);
+        socket.on("group_info_updated", (data) => setGroupMembers(data.members));
+        socket.on("message_deleted", (deletedId) => setMessageList((prev) => prev.filter((msg) => msg.id !== deletedId)));
 
         return () => {
             socket.removeAllListeners();
             window.removeEventListener('resize', handleResize);
         };
-    }, [socket, username, room, switchChat]);
+    }, [socket, username, switchChat]); // Зависимости минимальны
+
+    // ЭФФЕКТ №2: Логика конкретной комнаты
+    useEffect(() => {
+        if (!room) return;
+
+        setMessageList([]);
+        setHasMore(true);
+        setTypingText("");
+        setAttachedFiles([]);
+        setCurrentMessage("");
+        setIsLoadingHistory(true);
+        
+        // Присоединяемся к комнате
+        socket.emit("join_room", { username, room });
+
+        const handleReceiveMessage = (data) => {
+             if (data.room === room) {
+                setMessageList((list) => [...list, data]);
+             }
+        };
+
+        const handleChatHistory = (history) => {
+            setMessageList(history);
+            setHasMore(history.length >= 30);
+            setIsLoadingHistory(false);
+            setTimeout(() => messagesEndRef.current?.scrollIntoView({ behavior: "auto" }), 50);
+        };
+
+        const handleMoreMessages = (history) => {
+            setMessageList((prev) => [...history, ...prev]);
+            setHasMore(history.length >= 30);
+            setIsLoadingHistory(false);
+        };
+
+        const handleNoMoreMessages = () => {
+            setHasMore(false);
+            setIsLoadingHistory(false);
+        };
+
+        const handleDisplayTyping = (data) => {
+            if (data.room === room) {
+                setTypingText(`${data.username} печатает...`);
+                if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
+                typingTimeoutRef.current = setTimeout(() => setTypingText(""), 3000);
+            }
+        };
+        
+        const handleGroupInfo = (data) => {
+            if (data.room === room) {
+                setGroupMembers(data.members);
+                setMyRole(data.myRole);
+            }
+        };
+
+        socket.on("receive_message", handleReceiveMessage);
+        socket.on("chat_history", handleChatHistory);
+        socket.on("more_messages_loaded", handleMoreMessages);
+        socket.on("no_more_messages", handleNoMoreMessages);
+        socket.on("display_typing", handleDisplayTyping);
+        socket.on("group_info_data", handleGroupInfo);
+
+        return () => {
+            // Удаляем ТОЛЬКО слушатели этого эффекта
+            socket.off("receive_message", handleReceiveMessage);
+            socket.off("chat_history", handleChatHistory);
+            socket.off("more_messages_loaded", handleMoreMessages);
+            socket.off("no_more_messages", handleNoMoreMessages);
+            socket.off("display_typing", handleDisplayTyping);
+            socket.off("group_info_data", handleGroupInfo);
+        };
+    }, [room, socket, username]);
+
+    // ... (Остальной код: SCROLL, TEXTAREA, FUNCTIONS и RENDER остаются без изменений) ...
+    // ... Ниже я приведу оставшуюся часть файла для удобства копирования ...
 
     // --- SCROLL MANAGEMENT ---
     useEffect(() => {
@@ -273,6 +345,7 @@ function Chat({ socket, username, room, setRoom }) {
     }, [currentMessage]);
 
     // --- FUNCTIONS ---
+    // Упрощенная логика отображения имени
     const displayRoomName = myChats.includes(room) ? room : room.replace(username, "").replace("_", "");
     const isPrivateChat = !myChats.includes(room);
 
@@ -283,7 +356,7 @@ function Chat({ socket, username, room, setRoom }) {
             const reader = new FileReader();
             reader.addEventListener('load', () => setAvatarEditor(prev => ({ ...prev, image: reader.result, isOpen: true })), false);
             reader.readAsDataURL(file);
-            setActiveModal(null); // Close settings modal
+            setActiveModal(null);
         }
     };
 
@@ -469,33 +542,28 @@ function Chat({ socket, username, room, setRoom }) {
                         )}
                         <textarea ref={textareaRef} value={currentMessage} placeholder="Написать сообщение..." className="chat-textarea" onChange={(e) => { setCurrentMessage(e.target.value); socket.emit("typing", { room, username }) }} onKeyDown={handleKeyDown} rows={1}/>
                         <div className="input-toolbar">
-                        <div className="toolbar-left">
-                            <input type="file" style={{ display: 'none' }} multiple ref={fileInputRef} onChange={handleFileSelect} accept="image/*" />
-                            <button className="tool-btn" onClick={() => fileInputRef.current.click()} title="Прикрепить фото">
-                                {/* Старая иконка: 📎 */}
-                                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
-                                    <path fill="currentColor" d="M16.5 6v11.5c0 2.21-1.79 4-4 4s-4-1.79-4-4V5a2.5 2.5 0 0 1 5 0v10.5c0 .55-.45 1-1 1s-1-.45-1-1V6H10v9.5a2.5 2.5 0 0 0 5 0V5c0-2.21-1.79-4-4-4S7 2.79 7 5v12.5c0 3.04 2.46 5.5 5.5 5.5s5.5-2.46 5.5-5.5V6h-1.5z"/>
-                                </svg>
-                            </button>
-                        </div>
-
-                        <div className="toolbar-right">
-                            {currentMessage.trim() || attachedFiles.length > 0 ? (
-                                <button className="send-pill-btn" onClick={sendMessage}>
-                                    Отправить ↵
+                            <div className="toolbar-left">
+                                <input type="file" style={{ display: 'none' }} multiple ref={fileInputRef} onChange={handleFileSelect} accept="image/*" />
+                                <button className="tool-btn" onClick={() => fileInputRef.current.click()} title="Прикрепить фото">
+                                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+                                        <path fill="currentColor" d="M16.5 6v11.5c0 2.21-1.79 4-4 4s-4-1.79-4-4V5a2.5 2.5 0 0 1 5 0v10.5c0 .55-.45 1-1 1s-1-.45-1-1V6H10v9.5a2.5 2.5 0 0 0 5 0V5c0-2.21-1.79-4-4-4S7 2.79 7 5v12.5c0 3.04 2.46 5.5 5.5 5.5s5.5-2.46 5.5-5.5V6h-1.5z"/>
+                                    </svg>
                                 </button>
-                            ) : (
-                                <button className={`mic-btn ${isRecording ? 'recording' : ''}`} onClick={isRecording ? stopRecording : startRecording}>
-                                    {isRecording ? formatTime(recordingTime) : (
-                                        // Старая иконка: 🎤
-                                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
-                                            <path fill="currentColor" d="M12 14c1.66 0 2.99-1.34 2.99-3L15 5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3zm5.3-3c0 3-2.54 5.1-5.3 5.1S6.7 14 6.7 11H5c0 3.41 2.72 6.23 6 6.72V21h2v-3.28c3.28-.48 6-3.3 6-6.72h-1.7z"/>
-                                        </svg>
-                                    )}
-                                </button>
-                            )}
+                            </div>
+                            <div className="toolbar-right">
+                                {currentMessage.trim() || attachedFiles.length > 0 ? (
+                                    <button className="send-pill-btn" onClick={sendMessage}> Отправить ↵ </button>
+                                ) : (
+                                    <button className={`mic-btn ${isRecording ? 'recording' : ''}`} onClick={isRecording ? stopRecording : startRecording}>
+                                        {isRecording ? formatTime(recordingTime) : (
+                                            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+                                                <path fill="currentColor" d="M12 14c1.66 0 2.99-1.34 2.99-3L15 5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3zm5.3-3c0 3-2.54 5.1-5.3 5.1S6.7 14 6.7 11H5c0 3.41 2.72 6.23 6 6.72V21h2v-3.28c3.28-.48 6-3.3 6-6.72h-1.7z"/>
+                                            </svg>
+                                        )}
+                                    </button>
+                                )}
+                            </div>
                         </div>
-                    </div>
                     </div>
                 </div>
             </div>
@@ -529,7 +597,7 @@ function Chat({ socket, username, room, setRoom }) {
                         </div>
                     </div>
                     <button className="btn-primary" onClick={saveProfile}>Сохранить</button>
-                    <button className="btn-danger" style={{ marginTop: 10 }} onClick={() => { localStorage.clear(); window.location.reload() }}>Выйти</button>
+                    <button className="btn-danger" style={{ marginTop: 10 }} onClick={handleLogout}>Выйти</button>
                 </Modal>
             )}
 
@@ -537,16 +605,7 @@ function Chat({ socket, username, room, setRoom }) {
                 <Modal title="Редактор Аватара" onClose={() => setAvatarEditor({ ...avatarEditor, isOpen: false })}>
                     <div className="avatar-editor-content">
                         <div className="crop-container">
-                            <Cropper
-                                image={avatarEditor.image}
-                                crop={avatarEditor.crop}
-                                zoom={avatarEditor.zoom}
-                                aspect={1}
-                                onCropChange={(crop) => setAvatarEditor(p => ({...p, crop}))}
-                                onZoomChange={(zoom) => setAvatarEditor(p => ({...p, zoom}))}
-                                onCropComplete={(_, croppedAreaPixels) => setAvatarEditor(p => ({...p, croppedAreaPixels}))}
-                                imageStyle={{ filter: `brightness(${avatarEditor.filters.brightness}%) contrast(${avatarEditor.filters.contrast}%) saturate(${avatarEditor.filters.saturate}%) blur(${avatarEditor.filters.blur}px)` }}
-                            />
+                            <Cropper image={avatarEditor.image} crop={avatarEditor.crop} zoom={avatarEditor.zoom} aspect={1} onCropChange={(crop) => setAvatarEditor(p => ({...p, crop}))} onZoomChange={(zoom) => setAvatarEditor(p => ({...p, zoom}))} onCropComplete={(_, croppedAreaPixels) => setAvatarEditor(p => ({...p, croppedAreaPixels}))} imageStyle={{ filter: `brightness(${avatarEditor.filters.brightness}%) contrast(${avatarEditor.filters.contrast}%) saturate(${avatarEditor.filters.saturate}%) blur(${avatarEditor.filters.blur}px)` }} />
                         </div>
                         <div className="editor-controls">
                             <div className="slider-group"> <label>Zoom</label> <input type="range" min={1} max={3} step={0.1} value={avatarEditor.zoom} onChange={e => setAvatarEditor(p => ({...p, zoom: e.target.value}))}/> </div>
