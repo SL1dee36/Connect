@@ -151,8 +151,6 @@ function Chat({ socket, username, room, setRoom, handleLogout }) {
         const isGroupChat = targetName === "General" || myChats.includes(targetName);
         const roomId = isGroupChat ? targetName : [username, targetName].sort().join("_");
         
-        console.log("[CHAT DEBUG] Calculated roomId:", roomId);
-
         if (roomId !== room) {
             setRoom(roomId);
             localStorage.setItem("apollo_room", roomId);
@@ -171,24 +169,19 @@ function Chat({ socket, username, room, setRoom, handleLogout }) {
         const handleUserGroups = (groups) => {
             console.log("[CHAT DEBUG] SOCKET EVENT: user_groups received:", groups);
             
-            if (!Array.isArray(groups)) {
-                console.error("[CHAT DEBUG] user_groups is NOT an array!", groups);
-                return;
-            }
+            if (!Array.isArray(groups)) return;
 
             // Фильтрация
             const validGroups = groups.filter(g => g && typeof g === 'string');
             const safeGroups = validGroups.includes("General") ? validGroups : ["General", ...validGroups];
             
-            console.log("[CHAT DEBUG] Setting myChats to:", safeGroups);
             setMyChats(safeGroups);
 
             const currentRoom = localStorage.getItem("apollo_room") || "General";
             const isCurrentRoomPrivate = currentRoom.includes('_');
 
-            // Проверка, валидна ли текущая комната
             if (!isCurrentRoomPrivate && !safeGroups.includes(currentRoom)) {
-                console.log("[CHAT DEBUG] Current room is invalid, switching to General");
+                console.log("[CHAT DEBUG] Current room invalid, switching to General");
                 switchChat("General");
             }
         };
@@ -211,7 +204,6 @@ function Chat({ socket, username, room, setRoom, handleLogout }) {
         };
 
         const handleLeftGroup = (data) => {
-            console.log("[CHAT DEBUG] SOCKET EVENT: left_group_success", data);
             setMyChats(prev => prev.filter(c => c !== data.room));
             switchChat("General");
             setActiveModal(null);
@@ -225,7 +217,6 @@ function Chat({ socket, username, room, setRoom, handleLogout }) {
         };
 
         const handleFriendAdded = (data) => { 
-            console.log("[CHAT DEBUG] SOCKET EVENT: friend_added", data);
             setFriends(prev => [...prev, data.username]); 
             alert(`${data.username} добавлен!`); 
         };
@@ -266,14 +257,18 @@ function Chat({ socket, username, room, setRoom, handleLogout }) {
         socket.on("group_info_updated", handleGroupInfoUpdated);
         socket.on("message_deleted", handleMessageDeleted);
 
-        // --- ЗАПРОС ДАННЫХ ---
-        console.log("[CHAT DEBUG] Emitting get_initial_data...");
-        socket.emit("get_initial_data");
-        socket.emit("get_my_profile", username);
+        // --- ЗАПРОС ДАННЫХ (С ЗАДЕРЖКОЙ) ---
+        // Ждем 500мс, чтобы App.jsx успел отправить 'authenticate' и сервер сохранил username
+        const timer = setTimeout(() => {
+            console.log("[CHAT DEBUG] Emitting get_initial_data...");
+            socket.emit("get_initial_data");
+            socket.emit("get_my_profile", username);
+        }, 500);
 
         // --- ОЧИСТКА ---
         return () => {
-            console.log("[CHAT DEBUG] GLOBAL EFFECT UNMOUNTED - Cleaning listeners");
+            clearTimeout(timer);
+            console.log("[CHAT DEBUG] GLOBAL EFFECT UNMOUNTED");
             window.removeEventListener('resize', handleResize);
             
             socket.off("user_groups", handleUserGroups);
@@ -314,13 +309,11 @@ function Chat({ socket, username, room, setRoom, handleLogout }) {
 
         const handleReceiveMessage = (data) => {
              if (data.room === room) {
-                console.log("[CHAT DEBUG] Msg received:", data);
                 setMessageList((list) => [...list, data]);
              }
         };
 
         const handleChatHistory = (history) => {
-            console.log("[CHAT DEBUG] History loaded, count:", history.length);
             setMessageList(history);
             setHasMore(history.length >= 30);
             setIsLoadingHistory(false);
@@ -567,12 +560,8 @@ function Chat({ socket, username, room, setRoom, handleLogout }) {
                     <button className="fab-btn" onClick={() => setActiveModal('actionMenu')}>+</button>
                 </div>
                 <div className="friends-list">
-                    {/* РЕНДЕР ГРУПП С ФИЛЬТРОМ И ЛОГАМИ В КОНСОЛИ */}
-                    {myChats.filter(chat => {
-                        const isValid = chat && typeof chat === 'string';
-                        if (!isValid) console.warn("[CHAT DEBUG] Invalid chat detected in map:", chat);
-                        return isValid;
-                    }).map((chat, idx) => ( 
+                    {/* Исправлен баг с "0" и добавлена фильтрация */}
+                    {myChats.filter(chat => typeof chat === 'string').map((chat, idx) => ( 
                         <div key={idx} className="friend-avatar" title={chat} onClick={() => switchChat(chat)} style={{ background: chat === room ? '#f0f0f0' : '#333', border: chat === room ? '2px solid #2b95ff' : 'none', color: chat === room ? 'black' : 'white' }}> 
                             {chat.substring(0, 2)} 
                         </div> 
@@ -580,7 +569,7 @@ function Chat({ socket, username, room, setRoom, handleLogout }) {
                     
                     {friends.length > 0 && <div className="divider">Контакты</div>}
                     
-                    {friends.filter(f => f && typeof f === 'string').map((friend, idx) => { 
+                    {friends.filter(f => typeof f === 'string').map((friend, idx) => { 
                         const isActive = [username, friend].sort().join("_") === room; 
                         return (
                             <div key={idx} className="friend-avatar" onClick={() => switchChat(friend)} title={friend} style={{ background: isActive ? '#2b95ff' : '#444' }}>
@@ -662,53 +651,6 @@ function Chat({ socket, username, room, setRoom, handleLogout }) {
                     <div className="form-container">
                         <div className="input-group"> <label>О себе</label> <input className="modal-input" value={profileForm.bio} onChange={(e) => setProfileForm({ ...profileForm, bio: e.target.value })} placeholder="..." /> </div>
                         <div className="input-group"> <label>Телефон</label> <input className="modal-input" value={profileForm.phone} onChange={(e) => setProfileForm({ ...profileForm, phone: e.target.value })} placeholder="..." /> </div>
-                    </div>
-                    <div className="avatar-history">
-                        <h4>История аватаров</h4>
-                        <div className="avatar-history-container">
-                            {avatarHistory.map(avatar => (
-                                <div key={avatar.id} className="avatar-history-item">
-                                    <img src={avatar.avatar_url} alt="old avatar" onClick={() => setImageModalSrc(avatar.avatar_url)} />
-                                    <button className="delete-avatar-btn" onClick={() => socket.emit('delete_avatar', { avatarId: avatar.id })}>🗑</button>
-                                </div>
-                            ))}
-                        </div>
-                    </div>
-                    <button className="btn-primary" onClick={saveProfile}>Сохранить</button>
-                    <button className="btn-danger" style={{ marginTop: 10 }} onClick={handleLogout}>Выйти</button>
-                </Modal>
-            )}
-
-            {avatarEditor.isOpen && (
-                <Modal title="Редактор Аватара" onClose={() => setAvatarEditor({ ...avatarEditor, isOpen: false })}>
-                    <div className="avatar-editor-content">
-                        <div className="crop-container">
-                            <Cropper image={avatarEditor.image} crop={avatarEditor.crop} zoom={avatarEditor.zoom} aspect={1} onCropChange={(crop) => setAvatarEditor(p => ({...p, crop}))} onZoomChange={(zoom) => setAvatarEditor(p => ({...p, zoom}))} onCropComplete={(_, croppedAreaPixels) => setAvatarEditor(p => ({...p, croppedAreaPixels}))} imageStyle={{ filter: `brightness(${avatarEditor.filters.brightness}%) contrast(${avatarEditor.filters.contrast}%) saturate(${avatarEditor.filters.saturate}%) blur(${avatarEditor.filters.blur}px)` }} />
-                        </div>
-                        <div className="editor-controls">
-                            <div className="slider-group"> <label>Zoom</label> <input type="range" min={1} max={3} step={0.1} value={avatarEditor.zoom} onChange={e => setAvatarEditor(p => ({...p, zoom: e.target.value}))}/> </div>
-                            <div className="slider-group"> <label>Яркость</label> <input type="range" min={0} max={200} value={avatarEditor.filters.brightness} onChange={e => setAvatarEditor(p => ({...p, filters: {...p.filters, brightness: e.target.value}}))}/> </div>
-                            <div className="slider-group"> <label>Контраст</label> <input type="range" min={0} max={200} value={avatarEditor.filters.contrast} onChange={e => setAvatarEditor(p => ({...p, filters: {...p.filters, contrast: e.target.value}}))}/> </div>
-                            <div className="slider-group"> <label>Насыщ.</label> <input type="range" min={0} max={200} value={avatarEditor.filters.saturate} onChange={e => setAvatarEditor(p => ({...p, filters: {...p.filters, saturate: e.target.value}}))}/> </div>
-                            <div className="slider-group"> <label>Размытие</label> <input type="range" min={0} max={10} step={0.1} value={avatarEditor.filters.blur} onChange={e => setAvatarEditor(p => ({...p, filters: {...p.filters, blur: e.target.value}}))}/> </div>
-                        </div>
-                        <button className="btn-primary" onClick={handleSaveAvatar}>Применить</button>
-                    </div>
-                </Modal>
-            )}
-
-            {activeModal === 'groupInfo' && ( <Modal title="Участники" onClose={() => setActiveModal(null)}> <div className="profile-hero"> <div className="profile-avatar-large">{room.substring(0, 2)}</div> <div className="profile-name">{room}</div> <div className="profile-status">{groupMembers.length} members</div> </div> <div style={{ maxHeight: 200, overflowY: 'auto', marginBottom: 15 }}> {groupMembers.map((m, i) => ( <div key={i} className="member-item"> <div className="member-info"> <div className="friend-avatar" style={{ fontSize: 12 }}>{m.username[0]}</div> <div>{m.username} {m.role === 'owner' && <span style={{ fontSize: 10, color: '#FFD700', marginLeft: 5 }}>Owner</span>}</div> </div> {myRole === 'owner' && m.role !== 'owner' && m.username !== username && ( <button style={{ color: 'red', background: 'none', border: 'none', cursor: 'pointer' }} onClick={() => socket.emit("remove_group_member", { room, username: m.username })}>&times;</button> )} </div> ))} </div> <div className="action-card" onClick={() => { const n = prompt("Ник:"); if (n) socket.emit("add_group_member", { room, username: n }) }} style={{ marginBottom: 10, justifyContent: 'center' }}><span>➕ Добавить</span></div> <button className="btn-danger" onClick={leaveGroup}>{myRole === 'owner' ? 'Удалить группу' : 'Покинуть группу'}</button> </Modal> )}
-            
-            {activeModal === 'userProfile' && viewProfileData && (
-                <Modal title="Профиль" onClose={() => setActiveModal(null)}>
-                    <div className="profile-hero">
-                        <div className="profile-avatar-large" style={getAvatarStyle(viewProfileData.avatar_url)}>{!viewProfileData.avatar_url && viewProfileData.username[0]?.toUpperCase()}</div>
-                        <div className="profile-name">{viewProfileData.username}</div>
-                        {viewProfileData.isFriend && <div className="profile-status">В контактах</div>}
-                    </div>
-                    <div className="settings-list">
-                        {viewProfileData.bio && <div className="settings-item"><span className="settings-icon">📝</span><div className="settings-label">{viewProfileData.bio}</div></div>}
-                        {viewProfileData.phone && <div className="settings-item"><span className="settings-icon">📞</span><div className="settings-label">{viewProfileData.phone}</div></div>}
                     </div>
                     <div className="avatar-history">
                         <h4>История аватаров</h4>
