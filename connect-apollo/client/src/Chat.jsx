@@ -145,7 +145,6 @@ function Chat({ socket, username, room, setRoom, handleLogout }) {
 
     // --- INIT ---
     const switchChat = useCallback((targetName) => {
-        // Определяем, это групповой чат (из списка myChats) или приватный
         const isGroupChat = myChats.includes(targetName);
         const roomId = isGroupChat ? targetName : [username, targetName].sort().join("_");
         
@@ -156,28 +155,25 @@ function Chat({ socket, username, room, setRoom, handleLogout }) {
         if (isMobile) setShowMobileChat(true);
     }, [room, setRoom, username, isMobile, myChats]);
 
-    // ЭФФЕКТ №1: Глобальные слушатели (запускается один раз)
+    // ЭФФЕКТ №1: Глобальные слушатели, устанавливаются один раз
     useEffect(() => {
         const handleResize = () => setIsMobile(window.innerWidth <= 768);
         window.addEventListener('resize', handleResize);
 
         socket.emit("get_my_profile", username);
 
-        // --- Глобальные события Socket.IO ---
         socket.on("user_groups", (groups) => {
             setMyChats(groups);
-            // Проверяем, существует ли текущая комната в списке полученных.
-            // Если нет, и это не приватный чат (т.е. не содержит '_'), переключаемся на "General".
-            const isCurrentRoomPrivate = room.includes('_');
-            if (!isCurrentRoomPrivate && !groups.includes(room)) {
+            const currentRoom = localStorage.getItem("apollo_room") || "General";
+            const isCurrentRoomPrivate = currentRoom.includes('_');
+            if (!isCurrentRoomPrivate && !groups.includes(currentRoom)) {
                 switchChat("General");
             }
         });
-        socket.on("receive_message", (data) => setMessageList((list) => [...list, data]));
-        socket.on("message_deleted", (deletedId) => setMessageList((prev) => prev.filter((msg) => msg.id !== deletedId)));
-        socket.on("friends_list", (list) => setFriends(list));
+
+        socket.on("friends_list", setFriends);
         socket.on("search_results", (results) => setSearchResults(results.filter(u => u.username !== username)));
-        socket.on("search_groups_results", (results) => setSearchGroupResults(results));
+        socket.on("search_groups_results", setSearchGroupResults);
 
         const handleJoin = (data) => {
             setMyChats(prev => (!prev.includes(data.room) ? [...prev, data.room] : prev));
@@ -192,86 +188,108 @@ function Chat({ socket, username, room, setRoom, handleLogout }) {
             switchChat("General");
             setActiveModal(null);
         });
+
         socket.on("group_deleted", (data) => {
             setMyChats(prev => prev.filter(c => c !== data.room));
-            if (room === data.room) switchChat("General");
+            const currentRoom = localStorage.getItem("apollo_room") || "General";
+            if (currentRoom === data.room) {
+                switchChat("General");
+            }
             alert(`Группа "${data.room}" удалена владельцем.`);
         });
 
-        socket.on("incoming_friend_request", (data) => setNotification(data));
+        socket.on("incoming_friend_request", setNotification);
         socket.on("friend_added", (data) => { setFriends(prev => [...prev, data.username]); alert(`${data.username} добавлен!`); });
         socket.on("friend_removed", (data) => {
             setFriends(prev => prev.filter(f => f !== data.username));
             const chatRoom = [username, data.username].sort().join("_");
-            if (room === chatRoom) switchChat("General");
+            const currentRoom = localStorage.getItem("apollo_room") || "General";
+            if (currentRoom === chatRoom) {
+                switchChat("General");
+            }
         });
+
         socket.on("request_declined", (data) => alert(`${data.from} отклонил заявку.`));
         socket.on("error_message", (data) => alert(data.msg));
         socket.on("info_message", (data) => alert(data.msg));
-
-        socket.on("group_info_data", (data) => { if(data.room === room) { setGroupMembers(data.members); setMyRole(data.myRole); }});
-        socket.on("group_info_updated", (data) => setGroupMembers(data.members));
-        
-        socket.on("display_typing", (data) => {
-            if (data.room === room) { // Проверяем, что событие для текущей комнаты
-                setTypingText(`${data.username} печатает...`);
-                if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
-                typingTimeoutRef.current = setTimeout(() => setTypingText(""), 3000);
-            }
-        });
-        
         socket.on("my_profile_data", (data) => { setMyProfile(data); setProfileForm({ bio: data.bio || "", phone: data.phone || ""}); });
         socket.on("user_profile_data", (data) => { setViewProfileData(data); setActiveModal("userProfile"); socket.emit("get_avatar_history", data.username) });
-        socket.on("avatar_history_data", (history) => setAvatarHistory(history));
+        socket.on("avatar_history_data", setAvatarHistory);
+        socket.on("group_info_updated", (data) => setGroupMembers(data.members));
+        socket.on("message_deleted", (deletedId) => setMessageList((prev) => prev.filter((msg) => msg.id !== deletedId)));
 
-        // Функция очистки при размонтировании компонента
         return () => {
-            socket.removeAllListeners(); // Теперь это безопасно, т.к. сработает только при выходе из чата
+            socket.removeAllListeners();
             window.removeEventListener('resize', handleResize);
         };
-    }, [socket, username, switchChat, room]);
+    }, [socket, username, switchChat]);
 
-
-    // ЭФФЕКТ №2: Логика для конкретной комнаты (запускается при смене room)
+    // ЭФФЕКТ №2: Логика для конкретной комнаты, запускается при смене room
     useEffect(() => {
         if (!room) return;
 
-        // Очищаем состояние предыдущего чата и присоединяемся к новому
         setMessageList([]);
         setHasMore(true);
         setTypingText("");
         setAttachedFiles([]);
         setCurrentMessage("");
+        setIsLoadingHistory(true);
         socket.emit("join_room", { username, room });
 
-        // --- Слушатели, специфичные для истории сообщений ---
+        const handleReceiveMessage = (data) => {
+             if (data.room === room) {
+                setMessageList((list) => [...list, data]);
+             }
+        };
+
         const handleChatHistory = (history) => {
             setMessageList(history);
             setHasMore(history.length >= 30);
             setIsLoadingHistory(false);
             setTimeout(() => messagesEndRef.current?.scrollIntoView({ behavior: "auto" }), 50);
         };
+
         const handleMoreMessages = (history) => {
             setMessageList((prev) => [...history, ...prev]);
             setHasMore(history.length >= 30);
             setIsLoadingHistory(false);
         };
+
         const handleNoMoreMessages = () => {
             setHasMore(false);
             setIsLoadingHistory(false);
         };
 
+        const handleDisplayTyping = (data) => {
+            if (data.room === room) {
+                setTypingText(`${data.username} печатает...`);
+                if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
+                typingTimeoutRef.current = setTimeout(() => setTypingText(""), 3000);
+            }
+        };
+        
+        const handleGroupInfo = (data) => {
+            if (data.room === room) {
+                setGroupMembers(data.members);
+                setMyRole(data.myRole);
+            }
+        };
+
+        socket.on("receive_message", handleReceiveMessage);
         socket.on("chat_history", handleChatHistory);
         socket.on("more_messages_loaded", handleMoreMessages);
         socket.on("no_more_messages", handleNoMoreMessages);
+        socket.on("display_typing", handleDisplayTyping);
+        socket.on("group_info_data", handleGroupInfo);
 
-        // Очистка слушателей истории при смене комнаты
         return () => {
+            socket.off("receive_message", handleReceiveMessage);
             socket.off("chat_history", handleChatHistory);
             socket.off("more_messages_loaded", handleMoreMessages);
             socket.off("no_more_messages", handleNoMoreMessages);
+            socket.off("display_typing", handleDisplayTyping);
+            socket.off("group_info_data", handleGroupInfo);
         };
-
     }, [room, socket, username]);
 
     // --- SCROLL MANAGEMENT ---
