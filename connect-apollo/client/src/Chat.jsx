@@ -59,7 +59,6 @@ const MessageItem = React.memo(({ msg, username, setImageModalSrc, onDelete }) =
 function Chat({ socket, username, room, setRoom, handleLogout }) {
     // --- STATE С "ПАМЯТЬЮ" (LocalStorage) ---
     
-    // 1. Чаты
     const [myChats, setMyChats] = useState(() => {
         try {
             const saved = localStorage.getItem("apollo_my_chats");
@@ -67,7 +66,6 @@ function Chat({ socket, username, room, setRoom, handleLogout }) {
         } catch (e) { return ["General"]; }
     });
 
-    // 2. Друзья
     const [friends, setFriends] = useState(() => {
         try {
             const saved = localStorage.getItem("apollo_friends");
@@ -75,7 +73,6 @@ function Chat({ socket, username, room, setRoom, handleLogout }) {
         } catch (e) { return []; }
     });
 
-    // 3. ПРОФИЛЬ
     const [myProfile, setMyProfile] = useState(() => {
         try {
             const saved = localStorage.getItem("apollo_my_profile");
@@ -104,7 +101,10 @@ function Chat({ socket, username, room, setRoom, handleLogout }) {
 
     // Inputs & Search
     const [newChatName, setNewChatName] = useState("");
+    
+    // Search Optimizations (Debounce)
     const [searchQuery, setSearchQuery] = useState("");
+    const [isSearching, setIsSearching] = useState(false);
     const [searchResults, setSearchResults] = useState([]);
     const [searchGroupResults, setSearchGroupResults] = useState([]);
 
@@ -136,6 +136,29 @@ function Chat({ socket, username, room, setRoom, handleLogout }) {
     useEffect(() => localStorage.setItem("apollo_my_chats", JSON.stringify(myChats)), [myChats]);
     useEffect(() => localStorage.setItem("apollo_friends", JSON.stringify(friends)), [friends]);
     useEffect(() => localStorage.setItem("apollo_my_profile", JSON.stringify(myProfile)), [myProfile]);
+
+
+    // --- DEBOUNCED SEARCH EFFECT ---
+    // Это исправляет "плохой поиск". Запрос уходит только когда перестали печатать.
+    useEffect(() => {
+        const delayDebounceFn = setTimeout(() => {
+            if (searchQuery.trim()) {
+                setIsSearching(true);
+                // Определяем, что ищем (людей или группы) в зависимости от открытой модалки
+                if (activeModal === 'addFriend') {
+                    socket.emit("search_users", searchQuery);
+                } else if (activeModal === 'searchGroup') {
+                    socket.emit("search_groups", searchQuery);
+                }
+            } else {
+                setSearchResults([]);
+                setSearchGroupResults([]);
+                setIsSearching(false);
+            }
+        }, 500); // 500ms задержка
+
+        return () => clearTimeout(delayDebounceFn);
+    }, [searchQuery, activeModal, socket]);
 
 
     const createImage = useCallback((url) => 
@@ -180,14 +203,11 @@ function Chat({ socket, username, room, setRoom, handleLogout }) {
 
     // --- INIT ---
     const switchChat = useCallback((targetName) => {
-        console.log("[CHAT DEBUG] switchChat called with:", targetName);
         if (!targetName || typeof targetName !== 'string') return;
         
         const isGroupChat = targetName === "General" || myChats.includes(targetName);
         const roomId = isGroupChat ? targetName : [username, targetName].sort().join("_");
         
-        console.log("[CHAT DEBUG] Calculated roomId:", roomId);
-
         if (roomId !== room) {
             setRoom(roomId);
             localStorage.setItem("apollo_room", roomId);
@@ -195,7 +215,6 @@ function Chat({ socket, username, room, setRoom, handleLogout }) {
 
         if (isMobile) {
             setShowMobileChat(true);
-            // Скрываем клавиатуру
             if (document.activeElement instanceof HTMLElement) {
                 document.activeElement.blur();
             }
@@ -204,7 +223,6 @@ function Chat({ socket, username, room, setRoom, handleLogout }) {
 
     // ЭФФЕКТ №1: Глобальные слушатели
     useEffect(() => {
-        console.log("[CHAT DEBUG] GLOBAL EFFECT MOUNTED");
         const handleResize = () => setIsMobile(window.innerWidth <= 768);
         window.addEventListener('resize', handleResize);
 
@@ -224,7 +242,15 @@ function Chat({ socket, username, room, setRoom, handleLogout }) {
             }
         };
 
-        const handleSearchResults = (results) => setSearchResults(results.filter(u => u.username !== username));
+        const handleSearchResults = (results) => {
+            setSearchResults(results.filter(u => u.username !== username));
+            setIsSearching(false);
+        };
+
+        const handleSearchGroupResults = (results) => {
+            setSearchGroupResults(results);
+            setIsSearching(false);
+        };
         
         const handleJoin = (data) => {
             setMyChats(prev => (!prev.includes(data.room) ? [...prev, data.room] : prev));
@@ -273,7 +299,7 @@ function Chat({ socket, username, room, setRoom, handleLogout }) {
         socket.on("user_groups", handleUserGroups);
         socket.on("friends_list", handleFriendsList);
         socket.on("search_results", handleSearchResults);
-        socket.on("search_groups_results", setSearchGroupResults);
+        socket.on("search_groups_results", handleSearchGroupResults);
         socket.on("group_created", handleJoin);
         socket.on("group_joined", handleJoin);
         socket.on("left_group_success", handleLeftGroup);
@@ -292,7 +318,6 @@ function Chat({ socket, username, room, setRoom, handleLogout }) {
 
         // --- ЗАПРОС ДАННЫХ ---
         const timer = setTimeout(() => {
-            console.log("[CHAT DEBUG] Emitting get_initial_data...");
             socket.emit("get_initial_data");
             socket.emit("get_my_profile", username);
         }, 300);
@@ -305,7 +330,7 @@ function Chat({ socket, username, room, setRoom, handleLogout }) {
             socket.off("user_groups", handleUserGroups);
             socket.off("friends_list", handleFriendsList);
             socket.off("search_results", handleSearchResults);
-            socket.off("search_groups_results", setSearchGroupResults);
+            socket.off("search_groups_results", handleSearchGroupResults);
             socket.off("group_created", handleJoin);
             socket.off("group_joined", handleJoin);
             socket.off("left_group_success", handleLeftGroup);
@@ -327,8 +352,7 @@ function Chat({ socket, username, room, setRoom, handleLogout }) {
     // ЭФФЕКТ №2: Логика конкретной комнаты
     useEffect(() => {
         if (!room) return;
-        console.log("[CHAT DEBUG] Joining room:", room);
-
+        
         setMessageList([]);
         setHasMore(true);
         setTypingText("");
@@ -580,7 +604,6 @@ function Chat({ socket, username, room, setRoom, handleLogout }) {
 
             {/* SIDEBAR */}
             <div className={`left-panel ${isMobile && showMobileChat ? 'hidden' : ''}`}>
-                {/* Шапка сайдбара */}
                 <div className="sidebar-top">
                     <div className="sidebar-header-content">
                         <div className="my-avatar" 
@@ -593,14 +616,12 @@ function Chat({ socket, username, room, setRoom, handleLogout }) {
                     <button className="fab-btn" onClick={() => setActiveModal('actionMenu')}>+</button>
                 </div>
 
-                {/* Список чатов */}
                 <div className="friends-list">
                     {myChats.filter(chat => chat && typeof chat === 'string').map((chat, idx) => ( 
                         <div key={idx} className="chat-list-item" onClick={() => switchChat(chat)}>
                             <div className="friend-avatar" style={{ background: chat === room ? '#2b95ff' : '#333', color: 'white' }}> 
                                 {chat.substring(0, 2)} 
                             </div>
-                            {/* Текст виден только на мобильных через CSS */}
                             <div className="chat-info-mobile">
                                 <div className="chat-name">{chat}</div>
                                 <div className="chat-preview">Нажмите, чтобы открыть</div>
@@ -684,9 +705,28 @@ function Chat({ socket, username, room, setRoom, handleLogout }) {
 
             {/* MODALS */}
             {activeModal === 'actionMenu' && ( <Modal title="Действия" onClose={() => setActiveModal(null)}> <div className="action-grid"> <div className="action-card" onClick={() => setActiveModal('createGroup')}> <span style={{ fontSize: 24 }}>📢</span> <div><div style={{ fontWeight: 'bold' }}>Создать Группу</div></div> </div> <div className="action-card" onClick={() => setActiveModal('searchGroup')}> <span style={{ fontSize: 24 }}>🔍</span> <div><div style={{ fontWeight: 'bold' }}>Найти Группу</div></div> </div> <div className="action-card" onClick={() => setActiveModal('addFriend')}> <span style={{ fontSize: 24 }}>👤</span> <div><div style={{ fontWeight: 'bold' }}>Найти Людей</div></div> </div> </div> </Modal> )}
+            
             {activeModal === 'createGroup' && ( <Modal title="Создать группу" onClose={() => setActiveModal(null)}> <input className="modal-input" placeholder="Название..." value={newChatName} onChange={(e) => setNewChatName(e.target.value)} /> <button className="btn-primary" onClick={() => { if (newChatName) socket.emit("create_group", { room: newChatName, username }) }}>Создать</button> </Modal> )}
-            {activeModal === 'searchGroup' && ( <Modal title="Поиск групп" onClose={() => { setActiveModal(null); setSearchGroupResults([]) }}> <input className="modal-input" placeholder="Название..." onChange={(e) => { if (e.target.value) socket.emit("search_groups", e.target.value) }} /> <div className="search-results"> {searchGroupResults.map((g, i) => ( <div key={i} className="search-item"> <span>{g.room}</span> {!myChats.includes(g.room) && <button className="add-btn-small" onClick={() => socket.emit("join_existing_group", { room: g.room, username })}>➜</button>} </div> ))} </div> </Modal> )}
-            {activeModal === 'addFriend' && ( <Modal title="Поиск людей" onClose={() => { setActiveModal(null); setSearchResults([]) }}> <input className="modal-input" placeholder="@username" onChange={(e) => { setSearchQuery(e.target.value); if (e.target.value) socket.emit("search_users", e.target.value) }} /> <div className="search-results"> {searchResults.map((u, i) => ( <div key={i} className="search-item"> <div className="member-info"> <div className="friend-avatar" style={{ fontSize: 12 }}>{u.username[0]}</div> <span>{u.username}</span> </div> {!friends.includes(u.username) && <button className="add-btn-small" onClick={() => { socket.emit("send_friend_request", { fromUser: username, toUserSocketId: u.socketId }); alert('Sent!') }}>+</button>} </div> ))} </div> </Modal> )}
+            
+            {activeModal === 'searchGroup' && ( 
+                <Modal title="Поиск групп" onClose={() => { setActiveModal(null); setSearchGroupResults([]); setSearchQuery(""); }}> 
+                    <input className="modal-input" placeholder="Название..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} /> 
+                    {isSearching && <div style={{textAlign: 'center', color: '#888', padding: 10}}>Поиск...</div>}
+                    <div className="search-results"> 
+                        {searchGroupResults.map((g, i) => ( <div key={i} className="search-item"> <span>{g.room}</span> {!myChats.includes(g.room) && <button className="add-btn-small" onClick={() => socket.emit("join_existing_group", { room: g.room, username })}>➜</button>} </div> ))} 
+                    </div> 
+                </Modal> 
+            )}
+            
+            {activeModal === 'addFriend' && ( 
+                <Modal title="Поиск людей" onClose={() => { setActiveModal(null); setSearchResults([]); setSearchQuery(""); }}> 
+                    <input className="modal-input" placeholder="@username" value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} /> 
+                    {isSearching && <div style={{textAlign: 'center', color: '#888', padding: 10}}>Поиск...</div>}
+                    <div className="search-results"> 
+                        {searchResults.map((u, i) => ( <div key={i} className="search-item"> <div className="member-info"> <div className="friend-avatar" style={{ fontSize: 12 }}>{u.username[0]}</div> <span>{u.username}</span> </div> {!friends.includes(u.username) && <button className="add-btn-small" onClick={() => { socket.emit("send_friend_request", { fromUser: username, toUserSocketId: u.socketId }); alert('Sent!') }}>+</button>} </div> ))} 
+                    </div> 
+                </Modal> 
+            )}
             
             {activeModal === 'settings' && (
                 <Modal title="My Profile" onClose={() => setActiveModal(null)}>
