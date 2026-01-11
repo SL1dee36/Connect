@@ -145,11 +145,14 @@ function Chat({ socket, username, room, setRoom, handleLogout }) {
 
     // --- INIT ---
     const switchChat = useCallback((targetName) => {
+        console.log("[CHAT DEBUG] switchChat called with:", targetName);
         if (!targetName || typeof targetName !== 'string') return;
         
         const isGroupChat = targetName === "General" || myChats.includes(targetName);
         const roomId = isGroupChat ? targetName : [username, targetName].sort().join("_");
         
+        console.log("[CHAT DEBUG] Calculated roomId:", roomId);
+
         if (roomId !== room) {
             setRoom(roomId);
             localStorage.setItem("apollo_room", roomId);
@@ -159,40 +162,56 @@ function Chat({ socket, username, room, setRoom, handleLogout }) {
 
     // ЭФФЕКТ №1: Глобальные слушатели
     useEffect(() => {
+        console.log("[CHAT DEBUG] GLOBAL EFFECT MOUNTED");
         const handleResize = () => setIsMobile(window.innerWidth <= 768);
         window.addEventListener('resize', handleResize);
 
-        // --- ОПРЕДЕЛЯЕМ ОБРАБОТЧИКИ (чтобы можно было их удалить точечно) ---
+        // --- ОБРАБОТЧИКИ СОБЫТИЙ ---
 
         const handleUserGroups = (groups) => {
-            if (!Array.isArray(groups)) return;
-            const safeGroups = groups.includes("General") ? groups : ["General", ...groups];
-            // Фильтруем мусор
-            setMyChats(safeGroups.filter(g => typeof g === 'string'));
+            console.log("[CHAT DEBUG] SOCKET EVENT: user_groups received:", groups);
+            
+            if (!Array.isArray(groups)) {
+                console.error("[CHAT DEBUG] user_groups is NOT an array!", groups);
+                return;
+            }
+
+            // Фильтрация
+            const validGroups = groups.filter(g => g && typeof g === 'string');
+            const safeGroups = validGroups.includes("General") ? validGroups : ["General", ...validGroups];
+            
+            console.log("[CHAT DEBUG] Setting myChats to:", safeGroups);
+            setMyChats(safeGroups);
 
             const currentRoom = localStorage.getItem("apollo_room") || "General";
             const isCurrentRoomPrivate = currentRoom.includes('_');
 
+            // Проверка, валидна ли текущая комната
             if (!isCurrentRoomPrivate && !safeGroups.includes(currentRoom)) {
+                console.log("[CHAT DEBUG] Current room is invalid, switching to General");
                 switchChat("General");
             }
         };
 
         const handleFriendsList = (list) => {
+            console.log("[CHAT DEBUG] SOCKET EVENT: friends_list received:", list);
             if (Array.isArray(list)) {
-                setFriends(list.filter(f => typeof f === 'string'));
+                const validFriends = list.filter(f => f && typeof f === 'string');
+                setFriends(validFriends);
             }
         };
 
         const handleSearchResults = (results) => setSearchResults(results.filter(u => u.username !== username));
         
         const handleJoin = (data) => {
+            console.log("[CHAT DEBUG] SOCKET EVENT: group_created/joined", data);
             setMyChats(prev => (!prev.includes(data.room) ? [...prev, data.room] : prev));
             switchChat(data.room);
             setActiveModal(null);
         };
 
         const handleLeftGroup = (data) => {
+            console.log("[CHAT DEBUG] SOCKET EVENT: left_group_success", data);
             setMyChats(prev => prev.filter(c => c !== data.room));
             switchChat("General");
             setActiveModal(null);
@@ -206,6 +225,7 @@ function Chat({ socket, username, room, setRoom, handleLogout }) {
         };
 
         const handleFriendAdded = (data) => { 
+            console.log("[CHAT DEBUG] SOCKET EVENT: friend_added", data);
             setFriends(prev => [...prev, data.username]); 
             alert(`${data.username} добавлен!`); 
         };
@@ -222,7 +242,7 @@ function Chat({ socket, username, room, setRoom, handleLogout }) {
         const handleGroupInfoUpdated = (data) => setGroupMembers(data.members);
         const handleMessageDeleted = (deletedId) => setMessageList((prev) => prev.filter((msg) => msg.id !== deletedId));
         const handleRequestDeclined = (data) => alert(`${data.from} отклонил заявку.`);
-        const handleError = (data) => alert(data.msg);
+        const handleError = (data) => { console.error("[CHAT DEBUG] SOCKET ERROR:", data); alert(data.msg); };
         const handleInfo = (data) => alert(data.msg);
 
         // --- ПОДПИСЫВАЕМСЯ ---
@@ -246,14 +266,16 @@ function Chat({ socket, username, room, setRoom, handleLogout }) {
         socket.on("group_info_updated", handleGroupInfoUpdated);
         socket.on("message_deleted", handleMessageDeleted);
 
-        // --- ЗАПРАШИВАЕМ ДАННЫЕ (ПОСЛЕ ПОДПИСКИ) ---
+        // --- ЗАПРОС ДАННЫХ ---
+        console.log("[CHAT DEBUG] Emitting get_initial_data...");
         socket.emit("get_initial_data");
         socket.emit("get_my_profile", username);
 
         // --- ОЧИСТКА ---
         return () => {
+            console.log("[CHAT DEBUG] GLOBAL EFFECT UNMOUNTED - Cleaning listeners");
             window.removeEventListener('resize', handleResize);
-            // Удаляем ТОЛЬКО эти слушатели, по именам функций
+            
             socket.off("user_groups", handleUserGroups);
             socket.off("friends_list", handleFriendsList);
             socket.off("search_results", handleSearchResults);
@@ -279,6 +301,7 @@ function Chat({ socket, username, room, setRoom, handleLogout }) {
     // ЭФФЕКТ №2: Логика конкретной комнаты
     useEffect(() => {
         if (!room) return;
+        console.log("[CHAT DEBUG] Joining room:", room);
 
         setMessageList([]);
         setHasMore(true);
@@ -287,16 +310,17 @@ function Chat({ socket, username, room, setRoom, handleLogout }) {
         setCurrentMessage("");
         setIsLoadingHistory(true);
         
-        // Присоединяемся к комнате
         socket.emit("join_room", { username, room });
 
         const handleReceiveMessage = (data) => {
              if (data.room === room) {
+                console.log("[CHAT DEBUG] Msg received:", data);
                 setMessageList((list) => [...list, data]);
              }
         };
 
         const handleChatHistory = (history) => {
+            console.log("[CHAT DEBUG] History loaded, count:", history.length);
             setMessageList(history);
             setHasMore(history.length >= 30);
             setIsLoadingHistory(false);
@@ -382,7 +406,6 @@ function Chat({ socket, username, room, setRoom, handleLogout }) {
     }, [currentMessage]);
 
     // --- FUNCTIONS ---
-    // ЗАЩИТА ОТ ОШИБОК РЕНДЕРА: проверяем, что myChats это массив строк
     const displayRoomName = (myChats.includes(room)) ? room : room.replace(username, "").replace("_", "");
     const isPrivateChat = !myChats.includes(room);
 
@@ -544,8 +567,12 @@ function Chat({ socket, username, room, setRoom, handleLogout }) {
                     <button className="fab-btn" onClick={() => setActiveModal('actionMenu')}>+</button>
                 </div>
                 <div className="friends-list">
-                    {/* РЕНДЕР ГРУПП: Защита от кривых данных */}
-                    {myChats.filter(chat => typeof chat === 'string').map((chat, idx) => ( 
+                    {/* РЕНДЕР ГРУПП С ФИЛЬТРОМ И ЛОГАМИ В КОНСОЛИ */}
+                    {myChats.filter(chat => {
+                        const isValid = chat && typeof chat === 'string';
+                        if (!isValid) console.warn("[CHAT DEBUG] Invalid chat detected in map:", chat);
+                        return isValid;
+                    }).map((chat, idx) => ( 
                         <div key={idx} className="friend-avatar" title={chat} onClick={() => switchChat(chat)} style={{ background: chat === room ? '#f0f0f0' : '#333', border: chat === room ? '2px solid #2b95ff' : 'none', color: chat === room ? 'black' : 'white' }}> 
                             {chat.substring(0, 2)} 
                         </div> 
@@ -553,8 +580,7 @@ function Chat({ socket, username, room, setRoom, handleLogout }) {
                     
                     {friends.length > 0 && <div className="divider">Контакты</div>}
                     
-                    {/* РЕНДЕР ДРУЗЕЙ: Защита от кривых данных */}
-                    {friends.filter(f => typeof f === 'string').map((friend, idx) => { 
+                    {friends.filter(f => f && typeof f === 'string').map((friend, idx) => { 
                         const isActive = [username, friend].sort().join("_") === room; 
                         return (
                             <div key={idx} className="friend-avatar" onClick={() => switchChat(friend)} title={friend} style={{ background: isActive ? '#2b95ff' : '#444' }}>
