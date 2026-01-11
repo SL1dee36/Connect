@@ -502,8 +502,20 @@ body {
   .hidden { display: none !important; }
 
   /* Auth Forms */
-  .auth-container { margin-top: 0; align-items: center !important; padding: 20px;}
-  .auth-form { background-color: #111 !important; border: 1px solid #333 !important; padding: 30px !important; box-shadow: none !important; }
+  .auth-container { margin-top: 15vh; align-items: flex-start !important;}
+  .auth-form {
+    background-color: rgba(30, 30, 30, 0)!important; 
+    -webkit-backdrop-filter: blur(0)!important;
+    backdrop-filter: blur(0)!important;
+    padding: 0px!important;;
+    border-radius: 20px!important;
+    border: 1px solid rgba(0, 0, 0, 0)!important;
+    width: 100%!important;
+    max-width: 360px!important;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0)!important;
+    text-align: left!important;
+  }
+  .auth-input {background: rgba(30, 30, 30, 0.7)!important; }
 }
 
 /* --- Message Footer & Actions --- */
