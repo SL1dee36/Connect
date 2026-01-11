@@ -120,6 +120,7 @@ body {
     padding: 10px 0;
     min-height: 0;
     padding-inline: 10px;
+    overflow-x: hidden;
 }
 .chat-body::-webkit-scrollbar { width: 5px; }
 .chat-body::-webkit-scrollbar-thumb { background: #444; border-radius: 10px; }
@@ -332,7 +333,7 @@ body {
   display: flex; 
   justify-content: space-between; 
   align-items: center; 
-  padding: 15px 20px;
+  padding: 40px 20px;
   background: #212121;
   z-index: 2;
   flex-shrink: 0;
@@ -422,7 +423,7 @@ body {
 
 .profile-status {
     font-size: 15px;
-    color: #8774e1; /* Telegram Blue */
+    color: #1a7bd6; /* Telegram Blue */
     text-align: center;
     font-weight: 500;
 }
@@ -460,7 +461,7 @@ body {
 
 /* Инпуты */
 .form-container { display: flex; flex-direction: column; gap: 15px; margin-top: 10px;}
-.input-group label { color: #8774e1; font-size: 13px; font-weight: 500; margin-bottom: 6px; }
+.input-group label { color: #1a7bd6; font-size: 13px; font-weight: 500; margin-bottom: 6px; }
 .modal-input {
     background: transparent;
     border: none;
@@ -471,11 +472,11 @@ body {
     font-size: 16px;
     width: 100%;
 }
-.modal-input:focus { border-color: #8774e1; outline: none; }
+.modal-input:focus { border-color: #1a7bd6; outline: none; }
 
 /* Кнопки */
 .btn-primary {
-    background: #8774e1;
+    background: #1a7bd6;
     color: white;
     padding: 12px;
     border-radius: 8px;
@@ -571,11 +572,11 @@ body {
 
   .settings-list {
       background: #1c1c1d;
-      padding: 0 15px;
+      padding: 0 0px;
   }
   
   /* Увеличенные тач-зоны */
-  .settings-item { padding: 18px 0; }
+  .settings-item { padding: 8px 16px; }
   .close-btn { width: 40px; height: 40px; font-size: 32px; }
 }
 
@@ -662,7 +663,7 @@ body {
   /* Шапка списка чатов */
   .sidebar-top {
     flex-direction: row; justify-content: space-between;
-    width: 100%; padding: 15px 20px; box-sizing: border-box;
+    width: 100%; padding: 20px 20px; box-sizing: border-box;
     background: rgba(15, 15, 15, 0.85); /* Полупрозрачность */
     backdrop-filter: blur(15px); -webkit-backdrop-filter: blur(15px);
     border-bottom: 1px solid #222;
@@ -712,7 +713,7 @@ body {
   /* 1. ВЕРХНЯЯ ПАНЕЛЬ (HEADER) - Парящая */
   .chat-header {
       position: absolute; top: 0; left: 0; right: 0;
-      padding: 15px 15px 15px 20px;
+      padding: 42px 15px 42px 20px;
       background: rgba(10, 10, 10, 0.65); /* Сильная прозрачность */
       backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px); /* Блюр */
       border-bottom: 1px solid rgba(255, 255, 255, 0.05);
@@ -750,6 +751,7 @@ body {
         radial-gradient(circle at 50% 50%, #111 0%, #000 100%);
 
       padding-inline: 10px;
+      overflow-x: hidden;
   }
 
   /* Исправление для сообщений, чтобы они читались на темном фоне */
@@ -957,4 +959,38 @@ body {
 /* Скрываем ручку на ПК */
 @media (min-width: 769px) {
     .modal-handle-bar { display: none; }
+}
+
+
+.bubble-container { user-select: none; -webkit-user-select: none; }
+.long-press-active { filter: brightness(0.7); transition: filter 0.2s; }
+.reply-preview-bubble {
+    position: relative;
+    padding-inline: 24px;
+    cursor: pointer;
+    background: #44444480;
+    border-radius: 8px;
+    border-left: 3px solid;
+}
+.reply-content { display: flex; flex-direction: column; overflow: hidden; }
+.reply-author { font-weight: bold; color: #ffffff; font-size: 13px; }
+.reply-text-preview { 
+    font-size: 13px;
+    white-space: nowrap; 
+    overflow: hidden; 
+    text-overflow: ellipsis; 
+    max-width: 250px; 
+    opacity: 0.8;
+}
+.reply-bar {
+    display: flex; align-items: center; justify-content: space-between;
+    background: #1e1e1e; padding: 8px 15px; border-left: 3px solid #8774e1;
+    margin-bottom: 5px; border-radius: 8px; margin-left: 10px; margin-right: 10px;
+}
+.message.highlighted .bubble {
+    animation: highlight-anim 1.5s ease-out;
+}
+@keyframes highlight-anim {
+    0% { background-color: rgba(135, 116, 225, 0.3); }
+    100% { background-color: transparent; }
 }

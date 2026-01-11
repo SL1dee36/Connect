@@ -12,19 +12,26 @@ const IconClock = () => (
         <path fill="currentColor" d="M12 21a9 9 0 1 0 0-18a9 9 0 0 0 0 18Zm11-9c0 6.075-4.925 11-11 11S1 18.075 1 12S5.925 1 12 1s11 4.925 11 11Zm-8 4.414l-4-4V5.5h2v6.086L16.414 15L15 16.414Z"/>
     </svg>
 );
-
 const IconCheck = () => (
     <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="currentColor" style={{marginLeft: 4, display: 'inline-block', verticalAlign: 'middle'}}>
         <path fill="currentColor" d="M9 16.2L4.8 12l-1.4 1.4L9 19L21 7l-1.4-1.4L9 16.2z"/>
     </svg>
 );
-
-const IconDoubleCheck = () => (
-    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="currentColor" style={{marginLeft: 4, display: 'inline-block', verticalAlign: 'middle'}}>
-        <path fill="currentColor" d="m18 7l-1.41-1.41l-6.34 6.34l1.41 1.41L18 7zm4.24-1.41L11.66 16.17L7.48 12l-1.41 1.41L11.66 19l12-12l-1.42-1.41zM.41 13.41L6 19l1.41-1.41L1.83 12L.41 13.41z"/>
+const IconReply = () => (
+    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+         <path fill="currentColor" d="M10 9V5l-7 7l7 7v-4.1c5 0 8.5 1.6 11 5.1c-1-5-4-10-11-11z"/>
     </svg>
 );
-
+const IconCopy = () => (
+    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+        <path fill="currentColor" d="M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z"/>
+    </svg>
+);
+const IconTrash = () => (
+    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+         <path fill="currentColor" d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/>
+    </svg>
+);
 
 // --- HELPER FUNCTION FOR TIMER ---
 const formatTime = (seconds) => {
@@ -33,19 +40,49 @@ const formatTime = (seconds) => {
     return `${mins}:${secs < 10 ? '0' : ''}${secs}`;
 };
 
-const MessageItem = React.memo(({ msg, username, setImageModalSrc, onDelete }) => {
-    const isMine = msg.author === username;
-    let content;
+// --- Context Menu Component ---
+const ContextMenu = ({ x, y, msg, onClose, onReply, onCopy, onDelete, isMine }) => {
+    return (
+        <div style={{
+            position: 'fixed', top: y, left: x, zIndex: 9999,
+            background: '#252525', borderRadius: 8, border: '1px solid #333',
+            boxShadow: '0 4px 12px rgba(0,0,0,0.5)', overflow: 'hidden', minWidth: 150
+        }} onClick={(e) => e.stopPropagation()}>
+            <div className="menu-item" onClick={onReply} style={{padding: '10px 15px', display: 'flex', alignItems: 'center', gap: 10, cursor: 'pointer', color: 'white'}}>
+                <IconReply/> Ответить
+            </div>
+            <div className="menu-item" onClick={onCopy} style={{padding: '10px 15px', display: 'flex', alignItems: 'center', gap: 10, cursor: 'pointer', color: 'white'}}>
+                <IconCopy/> Копировать
+            </div>
+            {isMine && (
+                <div className="menu-item" onClick={onDelete} style={{padding: '10px 15px', display: 'flex', alignItems: 'center', gap: 10, cursor: 'pointer', color: '#ff4d4d'}}>
+                    <IconTrash/> Удалить
+                </div>
+            )}
+        </div>
+    );
+};
 
+// --- Message Item with Swipe & Long Press ---
+const MessageItem = React.memo(({ msg, username, setImageModalSrc, onContextMenu, onReplyTrigger, scrollToMessage }) => {
+    const isMine = msg.author === username;
+    const [translateX, setTranslateX] = useState(0);
+    const [isLongPress, setIsLongPress] = useState(false);
+    
+    // Refs for touch handling
+    const touchStartRef = useRef(null);
+    const touchCurrentRef = useRef(null);
+    const longPressTimerRef = useRef(null);
+
+    // Content Rendering
+    let content;
     if (msg.type === 'image') {
         content = <img src={msg.message} alt="attachment" className="chat-image" loading="lazy" onClick={() => setImageModalSrc(msg.message)} />;
     } else if (msg.type === 'gallery') {
         const images = JSON.parse(msg.message);
         content = (
             <div className="gallery-grid">
-                {images.map((img, i) => (
-                    <img key={i} src={img} alt="gallery" className="gallery-image" loading="lazy" onClick={() => setImageModalSrc(img)} />
-                ))}
+                {images.map((img, i) => <img key={i} src={img} alt="gallery" className="gallery-image" loading="lazy" onClick={() => setImageModalSrc(img)} />)}
             </div>
         );
     } else if (msg.type === 'audio') {
@@ -58,26 +95,102 @@ const MessageItem = React.memo(({ msg, username, setImageModalSrc, onDelete }) =
         );
     }
 
+    // Touch Handlers
+    const handleTouchStart = (e) => {
+        touchStartRef.current = e.touches[0].clientX;
+        touchCurrentRef.current = e.touches[0].clientX;
+        
+        longPressTimerRef.current = setTimeout(() => {
+            setIsLongPress(true);
+            const touch = e.touches[0];
+            onContextMenu(e, msg, touch.clientX, touch.clientY);
+            if (window.navigator.vibrate) window.navigator.vibrate(20);
+        }, 500);
+    };
+
+    const handleTouchMove = (e) => {
+        touchCurrentRef.current = e.touches[0].clientX;
+        const diff = touchCurrentRef.current - touchStartRef.current;
+        
+        if (Math.abs(diff) > 10) {
+            clearTimeout(longPressTimerRef.current);
+            longPressTimerRef.current = null;
+        }
+
+        if (diff > 0 && diff < 150) {
+            setTranslateX(diff);
+        }
+    };
+
+    const handleTouchEnd = () => {
+        clearTimeout(longPressTimerRef.current);
+        if (isLongPress) {
+            setIsLongPress(false);
+            return;
+        }
+
+        if (translateX > 80) {
+            if (window.navigator.vibrate) window.navigator.vibrate(10);
+            onReplyTrigger(msg);
+        }
+        setTranslateX(0);
+    };
+    
+    const handleRightClick = (e) => {
+        e.preventDefault();
+        onContextMenu(e, msg, e.clientX, e.clientY);
+    };
+
     return (
-        <div className={`message ${isMine ? "mine" : "theirs"}`} style={{ opacity: msg.status === 'pending' ? 0.7 : 1 }}>
-            <div className="bubble">
-                {content}
+        <div 
+            id={`message-${msg.id}`}
+            className={`message ${isMine ? "mine" : "theirs"}`} 
+            style={{ opacity: msg.status === 'pending' ? 0.7 : 1, position: 'relative' }}
+            onContextMenu={handleRightClick}
+            onTouchStart={handleTouchStart}
+            onTouchMove={handleTouchMove}
+            onTouchEnd={handleTouchEnd}
+        >
+            <div style={{
+                position: 'absolute', left: isMine ? 'auto' : -40, right: isMine ? -40 : 'auto', top: '50%', transform: 'translateY(-50%)',
+                opacity: Math.min(translateX / 80, 1), transition: 'opacity 0.2s', color: '#888'
+            }}>
+                <IconReply />
             </div>
-            <div className="message-footer">
-                <span className="meta" style={{display: 'flex', alignItems: 'center'}}>
-                    {msg.time} • {msg.author}
-                    {isMine && (
-                        <>
-                           {msg.status === 'pending' && <IconClock />}
-                           {msg.status === 'sent' && <IconCheck />}
-                        </>
+
+            <div 
+                className={`bubble-container ${isLongPress ? 'long-press-active' : ''}`}
+                style={{ 
+                    transform: `translateX(${translateX}px)`, 
+                    transition: translateX === 0 ? 'transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275)' : 'none'
+                }}
+            >
+                <div className="bubble">
+                    {msg.reply_to_id && (
+                        <div className="reply-preview-bubble" onClick={() => scrollToMessage(msg.reply_to_id)}>
+                            <div className="reply-content">
+                                <span className="reply-author">{msg.reply_to_author}</span>
+                                <span className="reply-text-preview">
+                                    {msg.reply_to_message?.includes('uploads/') 
+                                        ? (msg.reply_to_message.includes('.webm') ? '🎤 Voice Message' : '📷 Photo') 
+                                        : msg.reply_to_message}
+                                </span>
+                            </div>
+                        </div>
                     )}
-                </span>
-                {isMine && msg.status !== 'pending' && (
-                    <button className="delete-msg-btn" onClick={() => onDelete(msg.id)} title="Удалить">
-                        🗑
-                    </button>
-                )}
+                    {content}
+                </div>
+                <div className="message-footer">
+                    <span className="meta" style={{display: 'flex', alignItems: 'center'}}>
+                        {msg.time} • {msg.author}
+                        {isMine && (
+                            <>
+                               {msg.status === 'pending' && <IconClock />}
+                               {msg.status === 'sent' && <IconCheck />}
+                            </>
+                        )}
+                    </span>
+                </div>
             </div>
         </div>
     );
@@ -86,26 +199,14 @@ const MessageItem = React.memo(({ msg, username, setImageModalSrc, onDelete }) =
 
 function Chat({ socket, username, room, setRoom, handleLogout }) {
     // --- STATE С "ПАМЯТЬЮ" (LocalStorage) ---
-    
     const [myChats, setMyChats] = useState(() => {
-        try {
-            const saved = localStorage.getItem("apollo_my_chats");
-            return saved ? JSON.parse(saved) : ["General"];
-        } catch (e) { return ["General"]; }
+        try { const saved = localStorage.getItem("apollo_my_chats"); return saved ? JSON.parse(saved) : ["General"]; } catch (e) { return ["General"]; }
     });
-
     const [friends, setFriends] = useState(() => {
-        try {
-            const saved = localStorage.getItem("apollo_friends");
-            return saved ? JSON.parse(saved) : [];
-        } catch (e) { return []; }
+        try { const saved = localStorage.getItem("apollo_friends"); return saved ? JSON.parse(saved) : []; } catch (e) { return []; }
     });
-
     const [myProfile, setMyProfile] = useState(() => {
-        try {
-            const saved = localStorage.getItem("apollo_my_profile");
-            return saved ? JSON.parse(saved) : { bio: "", phone: "", avatar_url: "" };
-        } catch (e) { return { bio: "", phone: "", avatar_url: "" }; }
+        try { const saved = localStorage.getItem("apollo_my_profile"); return saved ? JSON.parse(saved) : { bio: "", phone: "", avatar_url: "" }; } catch (e) { return { bio: "", phone: "", avatar_url: "" }; }
     });
 
     const [currentMessage, setCurrentMessage] = useState("");
@@ -121,6 +222,10 @@ function Chat({ socket, username, room, setRoom, handleLogout }) {
     const [isMobile, setIsMobile] = useState(window.innerWidth <= 768);
     const [showMobileChat, setShowMobileChat] = useState(false);
     
+    // Interaction
+    const [replyingTo, setReplyingTo] = useState(null);
+    const [contextMenu, setContextMenu] = useState(null);
+
     // Media
     const [imageModalSrc, setImageModalSrc] = useState(null);
     const [attachedFiles, setAttachedFiles] = useState([]); 
@@ -129,14 +234,12 @@ function Chat({ socket, username, room, setRoom, handleLogout }) {
 
     // Inputs & Search
     const [newChatName, setNewChatName] = useState("");
-    
-    // Search Optimizations (Debounce)
     const [searchQuery, setSearchQuery] = useState("");
     const [isSearching, setIsSearching] = useState(false);
     const [searchResults, setSearchResults] = useState([]);
     const [searchGroupResults, setSearchGroupResults] = useState([]);
 
-    // Profile & Avatars
+    // Profile
     const [viewProfileData, setViewProfileData] = useState(null);
     const [profileForm, setProfileForm] = useState({ bio: "", phone: "" });
     const [groupMembers, setGroupMembers] = useState([]);
@@ -146,7 +249,6 @@ function Chat({ socket, username, room, setRoom, handleLogout }) {
         isOpen: false, image: null, crop: { x: 0, y: 0 }, zoom: 1,
         croppedAreaPixels: null, filters: { brightness: 100, contrast: 100, saturate: 100, blur: 0 }
     });
-
 
     // Refs
     const messagesEndRef = useRef(null);
@@ -160,44 +262,65 @@ function Chat({ socket, username, room, setRoom, handleLogout }) {
     const audioChunksRef = useRef([]);
     const timerIntervalRef = useRef(null);
     
-    // --- ЭФФЕКТЫ СОХРАНЕНИЯ В LOCALSTORAGE ---
+    // --- GLOBAL EFFECTS (Zoom prevention & Close Menu) ---
+    useEffect(() => {
+        const handleGlobalClick = () => setContextMenu(null);
+        window.addEventListener('click', handleGlobalClick);
+        return () => window.removeEventListener('click', handleGlobalClick);
+    }, []);
+
+    // Prevent Browser Context Menu & Zoom
+    useEffect(() => {
+        const preventDefault = (e) => e.preventDefault();
+        document.body.addEventListener('contextmenu', preventDefault);
+
+        // Prevent zoom
+        const preventZoom = (e) => {
+            if (e.ctrlKey) {
+                e.preventDefault();
+            }
+        };
+        window.addEventListener('wheel', preventZoom, { passive: false });
+        window.addEventListener('keydown', (e) => {
+            if (e.ctrlKey && (e.key === '+' || e.key === '-' || e.key === '=')) {
+                e.preventDefault();
+            }
+        });
+
+        return () => {
+            document.body.removeEventListener('contextmenu', preventDefault);
+            window.removeEventListener('wheel', preventZoom);
+        };
+    }, []);
+
+    // --- OTHER EFFECTS ---
     useEffect(() => localStorage.setItem("apollo_my_chats", JSON.stringify(myChats)), [myChats]);
     useEffect(() => localStorage.setItem("apollo_friends", JSON.stringify(friends)), [friends]);
     useEffect(() => localStorage.setItem("apollo_my_profile", JSON.stringify(myProfile)), [myProfile]);
-
-
-    // --- DEBOUNCED SEARCH EFFECT ---
     useEffect(() => {
         const delayDebounceFn = setTimeout(() => {
             if (searchQuery.trim()) {
                 setIsSearching(true);
-                console.log(`[SEARCH] Sending query: "${searchQuery}" for modal: ${activeModal}`);
-                
-                if (activeModal === 'addFriend') {
-                    socket.emit("search_users", searchQuery);
-                } else if (activeModal === 'searchGroup') {
-                    socket.emit("search_groups", searchQuery);
-                }
+                if (activeModal === 'addFriend') socket.emit("search_users", searchQuery);
+                else if (activeModal === 'searchGroup') socket.emit("search_groups", searchQuery);
             } else {
                 setSearchResults([]);
                 setSearchGroupResults([]);
                 setIsSearching(false);
             }
-        }, 500); // 500ms задержка
-
+        }, 500);
         return () => clearTimeout(delayDebounceFn);
     }, [searchQuery, activeModal, socket]);
 
 
-    const createImage = useCallback((url) => 
-        new Promise((resolve, reject) => {
-            const image = new Image();
-            image.addEventListener('load', () => resolve(image));
-            image.addEventListener('error', (error) => reject(error));
-            image.setAttribute('crossOrigin', 'anonymous');
-            image.src = url;
-        }), 
-    []);
+    // --- HELPERS ---
+    const createImage = useCallback((url) => new Promise((resolve, reject) => {
+        const image = new Image();
+        image.addEventListener('load', () => resolve(image));
+        image.addEventListener('error', (error) => reject(error));
+        image.setAttribute('crossOrigin', 'anonymous');
+        image.src = url;
+    }), []);
 
     const getCroppedImg = useCallback(async (imageSrc, pixelCrop, filters) => {
         const image = await createImage(imageSrc);
@@ -205,124 +328,93 @@ function Chat({ socket, username, room, setRoom, handleLogout }) {
         canvas.width = pixelCrop.width;
         canvas.height = pixelCrop.height;
         const ctx = canvas.getContext('2d');
-
         if (!ctx) return null;
-        
         ctx.filter = `brightness(${filters.brightness}%) contrast(${filters.contrast}%) saturate(${filters.saturate}%) blur(${filters.blur}px)`;
-        ctx.drawImage(
-            image,
-            pixelCrop.x, pixelCrop.y, pixelCrop.width, pixelCrop.height,
-            0, 0, pixelCrop.width, pixelCrop.height
-        );
-
-        return new Promise((resolve) => {
-            canvas.toBlob((blob) => {
-                if (blob) resolve(blob);
-            }, 'image/webp', 0.8);
-        });
+        ctx.drawImage(image, pixelCrop.x, pixelCrop.y, pixelCrop.width, pixelCrop.height, 0, 0, pixelCrop.width, pixelCrop.height);
+        return new Promise((resolve) => { canvas.toBlob((blob) => { if (blob) resolve(blob); }, 'image/webp', 0.8); });
     }, [createImage]);
 
-    // --- DELETE HANDLER ---
     const handleDeleteMessage = useCallback((id) => {
         if (window.confirm("Удалить это сообщение?")) {
             socket.emit("delete_message", id);
         }
     }, [socket]);
 
+    const handleContextMenu = useCallback((e, msg, x, y) => {
+        let menuX = x;
+        let menuY = y;
+        if (x + 150 > window.innerWidth) menuX = window.innerWidth - 160;
+        if (y + 120 > window.innerHeight) menuY = window.innerHeight - 130;
+
+        setContextMenu({ x: menuX, y: menuY, msg: msg });
+    }, []);
+
+    const handleReply = (msg) => {
+        setReplyingTo(msg);
+        textareaRef.current?.focus();
+        setContextMenu(null);
+    };
+
+    const handleCopy = (text) => {
+        navigator.clipboard.writeText(text);
+        setContextMenu(null);
+    };
+
+    const handleScrollToReply = (messageId) => {
+        const element = document.getElementById(`message-${messageId}`);
+        if (element) {
+            element.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            element.classList.add('highlighted');
+            setTimeout(() => {
+                element.classList.remove('highlighted');
+            }, 1500);
+        }
+    };
+
     // --- INIT ---
     const switchChat = useCallback((targetName) => {
         if (!targetName || typeof targetName !== 'string') return;
-        
         const isGroupChat = targetName === "General" || myChats.includes(targetName);
         const roomId = isGroupChat ? targetName : [username, targetName].sort().join("_");
-        
         if (roomId !== room) {
             setRoom(roomId);
             localStorage.setItem("apollo_room", roomId);
         }
-
         if (isMobile) {
             setShowMobileChat(true);
-            if (document.activeElement instanceof HTMLElement) {
-                document.activeElement.blur();
-            }
+            if (document.activeElement instanceof HTMLElement) document.activeElement.blur();
         }
     }, [room, setRoom, username, isMobile, myChats]);
 
-    // ЭФФЕКТ №1: Глобальные слушатели
+    // GLOBAL LISTENERS EFFECT
     useEffect(() => {
         const handleResize = () => setIsMobile(window.innerWidth <= 768);
         window.addEventListener('resize', handleResize);
-
-        // --- ОБРАБОТЧИКИ СОБЫТИЙ ---
-
         const handleUserGroups = (groups) => {
             if (!Array.isArray(groups)) return;
             const validGroups = groups.filter(g => g && typeof g === 'string');
             const safeGroups = validGroups.includes("General") ? validGroups : ["General", ...validGroups];
             setMyChats(safeGroups); 
         };
-
-        const handleFriendsList = (list) => {
-            if (Array.isArray(list)) {
-                const validFriends = list.filter(f => f && typeof f === 'string');
-                setFriends(validFriends);
-            }
-        };
-
-        // --- ИСПРАВЛЕННЫЙ ПОИСК ---
-        const handleSearchResults = (results) => {
-            console.log("[SEARCH] Users results received:", results);
-            // Если пришел null или не массив, ставим пустой массив
-            const safeResults = Array.isArray(results) ? results : [];
-            // Фильтруем себя, чтобы не искать себя
-            setSearchResults(safeResults.filter(u => u.username !== username));
-            setIsSearching(false);
-        };
-
-        const handleSearchGroupResults = (results) => {
-             console.log("[SEARCH] Groups results received:", results);
-             const safeResults = Array.isArray(results) ? results : [];
-             setSearchGroupResults(safeResults);
-             setIsSearching(false);
-        };
-        
-        const handleJoin = (data) => {
-            setMyChats(prev => (!prev.includes(data.room) ? [...prev, data.room] : prev));
-            switchChat(data.room);
-            setActiveModal(null);
-        };
-
-        const handleLeftGroup = (data) => {
-            setMyChats(prev => prev.filter(c => c !== data.room));
-            switchChat("General");
-            setActiveModal(null);
-        };
-
+        const handleFriendsList = (list) => { if (Array.isArray(list)) setFriends(list.filter(f => f && typeof f === 'string')); };
+        const handleSearchResults = (results) => { setSearchResults(Array.isArray(results) ? results.filter(u => u.username !== username) : []); setIsSearching(false); };
+        const handleSearchGroupResults = (results) => { setSearchGroupResults(Array.isArray(results) ? results : []); setIsSearching(false); };
+        const handleJoin = (data) => { setMyChats(prev => (!prev.includes(data.room) ? [...prev, data.room] : prev)); switchChat(data.room); setActiveModal(null); };
+        const handleLeftGroup = (data) => { setMyChats(prev => prev.filter(c => c !== data.room)); switchChat("General"); setActiveModal(null); };
         const handleGroupDeleted = (data) => {
             setMyChats(prev => prev.filter(c => c !== data.room));
             const currentRoom = localStorage.getItem("apollo_room") || "General";
             if (currentRoom === data.room) switchChat("General");
             alert(`Группа "${data.room}" удалена владельцем.`);
         };
-
-        const handleFriendAdded = (data) => { 
-            setFriends(prev => [...prev, data.username]); 
-            alert(`${data.username} добавлен!`); 
-        };
-
+        const handleFriendAdded = (data) => { setFriends(prev => [...prev, data.username]); alert(`${data.username} добавлен!`); };
         const handleFriendRemoved = (data) => {
             setFriends(prev => prev.filter(f => f !== data.username));
             const chatRoom = [username, data.username].sort().join("_");
             const currentRoom = localStorage.getItem("apollo_room") || "General";
             if (currentRoom === chatRoom) switchChat("General");
         };
-
-        const handleMyProfile = (data) => { 
-            setMyProfile(data); 
-            setProfileForm({ bio: data.bio || "", phone: data.phone || ""}); 
-        };
-
+        const handleMyProfile = (data) => { setMyProfile(data); setProfileForm({ bio: data.bio || "", phone: data.phone || ""}); };
         const handleUserProfile = (data) => { setViewProfileData(data); setActiveModal("userProfile"); socket.emit("get_avatar_history", data.username) };
         const handleGroupInfoUpdated = (data) => setGroupMembers(data.members);
         const handleMessageDeleted = (deletedId) => setMessageList((prev) => prev.filter((msg) => msg.id !== deletedId));
@@ -330,7 +422,6 @@ function Chat({ socket, username, room, setRoom, handleLogout }) {
         const handleError = (data) => { console.error("[CHAT DEBUG] SOCKET ERROR:", data); alert(data.msg); };
         const handleInfo = (data) => alert(data.msg);
 
-        // --- ПОДПИСЫВАЕМСЯ ---
         socket.on("user_groups", handleUserGroups);
         socket.on("friends_list", handleFriendsList);
         socket.on("search_results", handleSearchResults);
@@ -351,17 +442,10 @@ function Chat({ socket, username, room, setRoom, handleLogout }) {
         socket.on("group_info_updated", handleGroupInfoUpdated);
         socket.on("message_deleted", handleMessageDeleted);
 
-        // --- ЗАПРОС ДАННЫХ ---
-        const timer = setTimeout(() => {
-            socket.emit("get_initial_data");
-            socket.emit("get_my_profile", username);
-        }, 300);
-
-        // --- ОЧИСТКА ---
+        const timer = setTimeout(() => { socket.emit("get_initial_data"); socket.emit("get_my_profile", username); }, 300);
         return () => {
             clearTimeout(timer);
             window.removeEventListener('resize', handleResize);
-            
             socket.off("user_groups", handleUserGroups);
             socket.off("friends_list", handleFriendsList);
             socket.off("search_results", handleSearchResults);
@@ -384,29 +468,24 @@ function Chat({ socket, username, room, setRoom, handleLogout }) {
         };
     }, [socket, username, switchChat]);
 
-    // ЭФФЕКТ №2: Логика конкретной комнаты
+    // ROOM LOGIC EFFECT
     useEffect(() => {
         if (!room) return;
-        
         setMessageList([]);
         setHasMore(true);
         setTypingText("");
         setAttachedFiles([]);
         setCurrentMessage("");
+        setReplyingTo(null);
         setIsLoadingHistory(true);
-        
         socket.emit("join_room", { username, room });
 
         const handleReceiveMessage = (data) => {
              if (data.room === room) {
                 setMessageList((list) => {
-                    // Check if we already have this message (optimistic update deduction)
                     if (data.author === username && data.tempId) {
                          const exists = list.find(m => m.tempId === data.tempId);
-                         if (exists) {
-                             // Update existing optimistic message just in case (though callback does it too)
-                             return list.map(m => m.tempId === data.tempId ? { ...data, status: 'sent' } : m);
-                         }
+                         if (exists) return list.map(m => m.tempId === data.tempId ? { ...data, status: 'sent' } : m);
                     }
                     return [...list, data];
                 });
@@ -414,7 +493,6 @@ function Chat({ socket, username, room, setRoom, handleLogout }) {
         };
 
         const handleChatHistory = (history) => {
-            // History messages are always 'sent'
             const processedHistory = history.map(msg => ({ ...msg, status: 'sent' }));
             setMessageList(processedHistory);
             setHasMore(history.length >= 30);
@@ -429,11 +507,7 @@ function Chat({ socket, username, room, setRoom, handleLogout }) {
             setIsLoadingHistory(false);
         };
 
-        const handleNoMoreMessages = () => {
-            setHasMore(false);
-            setIsLoadingHistory(false);
-        };
-
+        const handleNoMoreMessages = () => { setHasMore(false); setIsLoadingHistory(false); };
         const handleDisplayTyping = (data) => {
             if (data.room === room) {
                 setTypingText(`${data.username} печатает...`);
@@ -441,13 +515,7 @@ function Chat({ socket, username, room, setRoom, handleLogout }) {
                 typingTimeoutRef.current = setTimeout(() => setTypingText(""), 3000);
             }
         };
-        
-        const handleGroupInfo = (data) => {
-            if (data.room === room) {
-                setGroupMembers(data.members);
-                setMyRole(data.myRole);
-            }
-        };
+        const handleGroupInfo = (data) => { if (data.room === room) { setGroupMembers(data.members); setMyRole(data.myRole); } };
 
         socket.on("receive_message", handleReceiveMessage);
         socket.on("chat_history", handleChatHistory);
@@ -455,7 +523,6 @@ function Chat({ socket, username, room, setRoom, handleLogout }) {
         socket.on("no_more_messages", handleNoMoreMessages);
         socket.on("display_typing", handleDisplayTyping);
         socket.on("group_info_data", handleGroupInfo);
-
         return () => {
             socket.off("receive_message", handleReceiveMessage);
             socket.off("chat_history", handleChatHistory);
@@ -466,34 +533,28 @@ function Chat({ socket, username, room, setRoom, handleLogout }) {
         };
     }, [room, socket, username]);
 
-    // --- SCROLL MANAGEMENT ---
     useEffect(() => {
         if (!isLoadingHistory && messageList.length > 0) {
             const lastMsg = messageList[messageList.length - 1];
-            if(lastMsg && (lastMsg.author === username || !isLoadingHistory)) {
-                 messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-            }
+            if(lastMsg && (lastMsg.author === username || !isLoadingHistory)) messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
         }
     }, [messageList, username, isLoadingHistory]);
 
     useLayoutEffect(() => {
         if (chatBodyRef.current && previousScrollHeight.current !== 0) {
-            const newScrollHeight = chatBodyRef.current.scrollHeight;
-            const diff = newScrollHeight - previousScrollHeight.current;
+            const diff = chatBodyRef.current.scrollHeight - previousScrollHeight.current;
             if (diff > 0) chatBodyRef.current.scrollTop = diff;
         }
     }, [messageList]);
 
     const handleScroll = (e) => {
-        const scrollTop = e.target.scrollTop;
-        if (scrollTop === 0 && hasMore && !isLoadingHistory && messageList.length > 0) {
+        if (e.target.scrollTop === 0 && hasMore && !isLoadingHistory && messageList.length > 0) {
             setIsLoadingHistory(true);
             previousScrollHeight.current = e.target.scrollHeight;
             socket.emit("load_more_messages", { room, offset: messageList.length });
         }
     };
 
-    // --- AUTO RESIZE TEXTAREA ---
     useEffect(() => {
         if (textareaRef.current) {
             textareaRef.current.style.height = "auto";
@@ -501,13 +562,8 @@ function Chat({ socket, username, room, setRoom, handleLogout }) {
         }
     }, [currentMessage]);
 
-    // --- FUNCTIONS ---
-    const displayRoomName = (myChats.includes(room)) ? room : room.replace(username, "").replace("_", "");
-    const isPrivateChat = !myChats.includes(room);
-
-    // --- AVATAR FUNCTIONS ---
+    // --- OTHER UI & SENDING ---
     const getAvatarStyle = (imgUrl) => imgUrl ? { backgroundImage: `url(${imgUrl})`, backgroundSize: 'cover', backgroundPosition: 'center', color: 'transparent', border: '2px solid #333' } : {};
-
     const onFileChange = (e) => {
         if (e.target.files && e.target.files.length > 0) {
             const file = e.target.files[0];
@@ -517,30 +573,18 @@ function Chat({ socket, username, room, setRoom, handleLogout }) {
             setActiveModal(null);
         }
     };
-
     const handleSaveAvatar = async () => {
         if (!avatarEditor.croppedAreaPixels) return;
         const croppedImageBlob = await getCroppedImg(avatarEditor.image, avatarEditor.croppedAreaPixels, avatarEditor.filters);
-        
         const formData = new FormData();
         formData.append('avatar', croppedImageBlob, 'avatar.webp');
         formData.append('username', username);
-
         try {
             const res = await fetch(`${BACKEND_URL}/upload-avatar`, { method: 'POST', body: formData });
             const data = await res.json();
-            if(data.profile) {
-                setMyProfile(data.profile);
-            }
-        } catch (error) {
-            console.error('Avatar upload failed', error);
-            alert('Ошибка загрузки аватара');
-        } finally {
-            setAvatarEditor({ isOpen: false, image: null, crop: { x: 0, y: 0 }, zoom: 1, croppedAreaPixels: null, filters: { brightness: 100, contrast: 100, saturate: 100, blur: 0 }});
-        }
+            if(data.profile) setMyProfile(data.profile);
+        } catch (error) { console.error('Avatar upload failed', error); alert('Ошибка загрузки аватара'); } finally { setAvatarEditor({ isOpen: false, image: null, crop: { x: 0, y: 0 }, zoom: 1, croppedAreaPixels: null, filters: { brightness: 100, contrast: 100, saturate: 100, blur: 0 }}); }
     };
-    
-    // --- RECORDING ---
     const startRecording = async () => {
         try {
             const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
@@ -554,7 +598,6 @@ function Chat({ socket, username, room, setRoom, handleLogout }) {
             timerIntervalRef.current = setInterval(() => setRecordingTime(prev => prev + 1), 1000);
         } catch (err) { alert("Не удалось получить доступ к микрофону"); }
     };
-
     const stopRecording = () => {
         if (mediaRecorderRef.current) {
             mediaRecorderRef.current.stop();
@@ -563,60 +606,45 @@ function Chat({ socket, username, room, setRoom, handleLogout }) {
             mediaRecorderRef.current.stream.getTracks().forEach(track => track.stop());
         }
     };
-
     const sendVoiceMessage = async () => {
         const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/webm' });
         const formData = new FormData();
         formData.append('file', audioBlob, 'voice_message.webm');
-
         try {
             const response = await fetch(`${BACKEND_URL}/upload`, { method: 'POST', body: formData });
             const data = await response.json();
             if (data.url) {
-                // For voice/files, we can use the same logic if we want, but keeping it simple for now
-                // Voice messages are sent directly to socket here
                 const time = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
                 const tempId = Date.now();
                 const optimisticMsg = { 
-                    room, 
-                    author: username, 
-                    message: data.url, 
-                    type: 'audio', 
-                    time, 
-                    status: 'pending', 
-                    tempId,
-                    id: tempId
+                    room, author: username, message: data.url, type: 'audio', time, status: 'pending', tempId, id: tempId,
+                    replyTo: replyingTo ? { id: replyingTo.id, author: replyingTo.author, message: replyingTo.message } : null
                 };
-                
                 setMessageList(prev => [...prev, optimisticMsg]);
-                
-                socket.emit("send_message", optimisticMsg, (res) => {
-                     if (res && res.status === 'ok') {
-                        setMessageList(prev => prev.map(m => 
-                            m.tempId === tempId ? { ...m, id: res.id, status: 'sent' } : m
-                        ));
-                     }
-                });
+                setReplyingTo(null);
+                socket.emit("send_message", optimisticMsg, (res) => { if (res && res.status === 'ok') setMessageList(prev => prev.map(m => m.tempId === tempId ? { ...m, id: res.id, status: 'sent' } : m)); });
             }
         } catch (err) { console.error("Audio upload error", err); }
     };
-
-    // --- SENDING ---
     const handleFileSelect = (e) => {
         const files = Array.from(e.target.files);
         if (attachedFiles.length + files.length > 10) { alert("Максимум 10 файлов"); return; }
         setAttachedFiles(prev => [...prev, ...files]);
         e.target.value = "";
     };
-
     const removeAttachment = (index) => setAttachedFiles(prev => prev.filter((_, i) => i !== index));
-
     const handleKeyDown = (e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(); } };
 
     const sendMessage = async () => {
         if (!currentMessage.trim() && attachedFiles.length === 0) return;
         previousScrollHeight.current = 0;
         const time = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+        
+        const replyData = replyingTo ? {
+            id: replyingTo.id,
+            author: replyingTo.author,
+            message: replyingTo.message
+        } : null;
 
         if (attachedFiles.length > 0) {
             const formData = new FormData();
@@ -627,28 +655,10 @@ function Chat({ socket, username, room, setRoom, handleLogout }) {
                 if (data.urls && data.urls.length > 0) {
                     let msgType = data.urls.length === 1 ? 'image' : 'gallery';
                     let msgContent = data.urls.length === 1 ? data.urls[0] : JSON.stringify(data.urls);
-                    
                     const tempId = Date.now() + Math.random();
-                    const optimisticMsg = { 
-                        room, 
-                        author: username, 
-                        message: msgContent, 
-                        type: msgType, 
-                        time, 
-                        status: 'pending', 
-                        tempId,
-                        id: tempId 
-                    };
-                    
+                    const optimisticMsg = { room, author: username, message: msgContent, type: msgType, time, status: 'pending', tempId, id: tempId, replyTo: replyData };
                     setMessageList(prev => [...prev, optimisticMsg]);
-
-                    socket.emit("send_message", optimisticMsg, (res) => {
-                         if (res && res.status === 'ok') {
-                            setMessageList(prev => prev.map(m => 
-                                m.tempId === tempId ? { ...m, id: res.id, status: 'sent' } : m
-                            ));
-                         }
-                    });
+                    socket.emit("send_message", optimisticMsg, (res) => { if (res && res.status === 'ok') setMessageList(prev => prev.map(m => m.tempId === tempId ? { ...m, id: res.id, status: 'sent' } : m)); });
                 }
             } catch (err) { alert("Ошибка отправки файлов"); }
             setAttachedFiles([]);
@@ -656,46 +666,79 @@ function Chat({ socket, username, room, setRoom, handleLogout }) {
 
         if (currentMessage.trim()) {
             const tempId = Date.now();
-            const optimisticMsg = { 
-                room, 
-                author: username, 
-                message: currentMessage, 
-                type: 'text', 
-                time, 
-                status: 'pending', 
-                tempId, 
-                id: tempId 
-            };
-
-            // 1. Optimistic Update
+            const optimisticMsg = { room, author: username, message: currentMessage, type: 'text', time, status: 'pending', tempId, id: tempId, replyTo: replyData };
             setMessageList(prev => [...prev, optimisticMsg]);
             setCurrentMessage("");
-
-            // 2. Send with callback
-            socket.emit("send_message", optimisticMsg, (res) => {
-                 if (res && res.status === 'ok') {
-                    setMessageList(prev => prev.map(m => 
-                        m.tempId === tempId ? { ...m, id: res.id, status: 'sent' } : m
-                    ));
-                 }
-            });
+            socket.emit("send_message", optimisticMsg, (res) => { if (res && res.status === 'ok') setMessageList(prev => prev.map(m => m.tempId === tempId ? { ...m, id: res.id, status: 'sent' } : m)); });
         }
+        setReplyingTo(null);
     };
 
-    // --- UI HELPERS ---
     const openGroupInfo = () => {
         if (!isPrivateChat) { socket.emit("get_group_info", room); setActiveModal("groupInfo"); setShowMenu(false); }
         else { socket.emit("get_user_profile", displayRoomName); setShowMenu(false); }
     };
-
     const saveProfile = () => { socket.emit("update_profile", { username, bio: profileForm.bio, phone: profileForm.phone }); setActiveModal(null); };
     const leaveGroup = () => { if (window.confirm(myRole === 'owner' ? "Удалить группу?" : "Выйти из группы?")) socket.emit("leave_group", { room }); };
     const removeFriend = (t) => { if (window.confirm(`Удалить ${t}?`)) { socket.emit("remove_friend", t); setActiveModal(null); }};
     const blockUser = (t) => { if (window.confirm(`Заблокировать ${t}?`)) { socket.emit("block_user", t); setActiveModal(null); }};
+    const displayRoomName = (myChats.includes(room)) ? room : room.replace(username, "").replace("_", "");
+    const isPrivateChat = !myChats.includes(room);
 
-    // --- RENDER ---
+    // --- STYLES INJECTION FOR NEW FEATURES ---
+    // const styleInjection = `
+    //     <style>
+    //         .bubble-container { user-select: none; -webkit-user-select: none; }
+    //         .long-press-active { filter: brightness(0.7); transition: filter 0.2s; }
+    //         .reply-preview-bubble {
+    //             position: relative;
+    //             padding-left: 12px;
+    //             margin: -2px 0 8px -10px;
+    //             border-left: 2px solid #8774e1;
+    //             cursor: pointer;
+    //         }
+    //         .reply-content { display: flex; flex-direction: column; overflow: hidden; }
+    //         .reply-author { font-weight: bold; color: #8774e1; font-size: 13px; }
+    //         .reply-text-preview { 
+    //             font-size: 13px;
+    //             white-space: nowrap; 
+    //             overflow: hidden; 
+    //             text-overflow: ellipsis; 
+    //             max-width: 250px; 
+    //             opacity: 0.8;
+    //         }
+    //         .reply-bar {
+    //             display: flex; align-items: center; justify-content: space-between;
+    //             background: #1e1e1e; padding: 8px 15px; border-left: 3px solid #8774e1;
+    //             margin-bottom: 5px; border-radius: 8px; margin-left: 10px; margin-right: 10px;
+    //         }
+    //         .message.highlighted .bubble {
+    //             animation: highlight-anim 1.5s ease-out;
+    //         }
+    //         @keyframes highlight-anim {
+    //             0% { background-color: rgba(135, 116, 225, 0.3); }
+    //             100% { background-color: transparent; }
+    //         }
+    //     </style>
+    // `;
+
     return (
-        <div className={`main-layout ${isMobile ? 'mobile-mode' : ''}`}>
+        <div className={`main-layout ${isMobile ? 'mobile-mode' : ''}`} style={{touchAction: 'pan-y'}}>
+            {/* <div dangerouslySetInnerHTML={{__html: styleInjection}} /> */}
+            
+            {contextMenu && (
+                <ContextMenu 
+                    x={contextMenu.x} 
+                    y={contextMenu.y} 
+                    msg={contextMenu.msg}
+                    onClose={() => setContextMenu(null)}
+                    onReply={() => handleReply(contextMenu.msg)}
+                    onCopy={() => handleCopy(contextMenu.msg.message)}
+                    onDelete={() => { handleDeleteMessage(contextMenu.msg.id); setContextMenu(null); }}
+                    isMine={contextMenu.msg.author === username}
+                />
+            )}
+
             {notification && (
                 <div className="notification-toast">
                     <div style={{ fontWeight: 'bold', marginBottom: 5 }}>🔔 {notification.from}</div>
@@ -780,11 +823,33 @@ function Chat({ socket, username, room, setRoom, handleLogout }) {
                     
                     <div className="chat-body" ref={chatBodyRef} onScroll={handleScroll}>
                         {isLoadingHistory && <div style={{textAlign: 'center', fontSize: 12, color: '#666', padding: 10}}>Загрузка истории...</div>}
-                        {messageList.map((msg, index) => ( <MessageItem key={msg.id || index} msg={msg} username={username} setImageModalSrc={setImageModalSrc} onDelete={handleDeleteMessage}/> ))}
+                        {messageList.map((msg, index) => ( 
+                            <MessageItem 
+                                key={msg.id || index} 
+                                msg={msg} 
+                                username={username} 
+                                setImageModalSrc={setImageModalSrc} 
+                                onContextMenu={handleContextMenu}
+                                onReplyTrigger={handleReply}
+                                scrollToMessage={handleScrollToReply}
+                            /> 
+                        ))}
                         <div ref={messagesEndRef} />
                     </div>
 
                     <div className="chat-input-wrapper">
+                        {replyingTo && (
+                            <div className="reply-bar">
+                                <div>
+                                    <div style={{color: '#8774e1', fontSize: 13, fontWeight: 'bold'}}>В ответ {replyingTo.author}</div>
+                                    <div style={{fontSize: 14, color: '#ccc', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '250px'}}>
+                                        {replyingTo.message}
+                                    </div>
+                                </div>
+                                <button onClick={() => setReplyingTo(null)} style={{background:'none', border:'none', color:'#888', cursor:'pointer', fontSize: 24}}>&times;</button>
+                            </div>
+                        )}
+
                         {attachedFiles.length > 0 && (
                             <div className="attachments-preview"> {attachedFiles.map((f, i) => ( <div key={i} className="attachment-thumb"> <img src={URL.createObjectURL(f)} alt="preview" /> <button onClick={() => removeAttachment(i)}>&times;</button> </div> ))} </div>
                         )}

@@ -34,6 +34,8 @@ let db;
 async function initDB() {
   const dbPath = path.join(dataDir, "database.db");
   db = await open({ filename: dbPath, driver: sqlite3.Database });
+  
+  // Create tables
   await db.exec(`
         CREATE TABLE IF NOT EXISTS users (id INTEGER PRIMARY KEY AUTOINCREMENT, username TEXT UNIQUE NOT NULL, password_hash TEXT NOT NULL, created_at DATETIME DEFAULT CURRENT_TIMESTAMP);
         CREATE TABLE IF NOT EXISTS messages (id INTEGER PRIMARY KEY AUTOINCREMENT, room TEXT, author TEXT, message TEXT, type TEXT DEFAULT 'text', time TEXT);
@@ -43,9 +45,13 @@ async function initDB() {
         CREATE TABLE IF NOT EXISTS blocked_users (id INTEGER PRIMARY KEY AUTOINCREMENT, blocker TEXT, blocked TEXT);
         CREATE TABLE IF NOT EXISTS user_avatars (id INTEGER PRIMARY KEY AUTOINCREMENT, username TEXT, avatar_url TEXT, created_at DATETIME DEFAULT CURRENT_TIMESTAMP, FOREIGN KEY (username) REFERENCES user_profiles(username) ON DELETE CASCADE);
     `);
-  try {
-    await db.exec(`ALTER TABLE messages ADD COLUMN type TEXT DEFAULT 'text'`);
-  } catch (e) {}
+
+  // Migrations for new columns
+  try { await db.exec(`ALTER TABLE messages ADD COLUMN type TEXT DEFAULT 'text'`); } catch (e) {}
+  try { await db.exec(`ALTER TABLE messages ADD COLUMN reply_to_id INTEGER`); } catch (e) {}
+  try { await db.exec(`ALTER TABLE messages ADD COLUMN reply_to_author TEXT`); } catch (e) {}
+  try { await db.exec(`ALTER TABLE messages ADD COLUMN reply_to_message TEXT`); } catch (e) {}
+  
   console.log("Database connected & Tables ready");
 }
 initDB();
@@ -231,7 +237,7 @@ io.on("connection", (socket) => {
     );
   });
 
-  // UPDATED: Now supports callback for acknowledgement
+  // UPDATED: Now supports callback for acknowledgement AND replies
   socket.on("send_message", async (data, callback) => {
     const author = socket.data.username;
     if (data.room.includes("_")) {
@@ -239,18 +245,40 @@ io.on("connection", (socket) => {
       if (target && (await isBlocked(target, author)))
         return socket.emit("error_message", { msg: "Blocked" });
     }
+    
+    // Insert with reply data if present
     const res = await db.run(
-      "INSERT INTO messages (room, author, message, type, time) VALUES (?,?,?,?,?)",
-      [data.room, author, data.message, data.type || "text", data.time]
+      "INSERT INTO messages (room, author, message, type, time, reply_to_id, reply_to_author, reply_to_message) VALUES (?,?,?,?,?,?,?,?)",
+      [
+          data.room, 
+          author, 
+          data.message, 
+          data.type || "text", 
+          data.time,
+          data.replyTo?.id || null,
+          data.replyTo?.author || null,
+          data.replyTo?.message || null
+      ]
     );
     
-    // Broadcast to room (including sender)
-    io.to(data.room).emit("receive_message", {
-      ...data,
-      id: res.lastID,
-      author,
-      type: data.type || "text",
-    });
+    // ---- THIS IS THE FIX ----
+    // Create a new object for broadcasting that matches the database/history structure
+    const broadcastMessage = {
+        id: res.lastID,
+        room: data.room,
+        author: author,
+        message: data.message,
+        type: data.type || "text",
+        time: data.time,
+        // Add the flat reply properties that the client component expects
+        reply_to_id: data.replyTo?.id || null,
+        reply_to_author: data.replyTo?.author || null,
+        reply_to_message: data.replyTo?.message || null,
+        // Pass tempId back so the sender can reconcile their optimistic update
+        tempId: data.tempId 
+    };
+
+    io.to(data.room).emit("receive_message", broadcastMessage);
 
     // Acknowledge to sender with real ID
     if (callback) {
