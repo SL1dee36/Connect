@@ -54,7 +54,7 @@ function Chat({ socket, username, room, setRoom, handleLogout }) {
     const [currentMessage, setCurrentMessage] = useState("");
     const [messageList, setMessageList] = useState([]);
     const [friends, setFriends] = useState([]);
-    const [myChats, setMyChats] = useState(["General"]);
+    const [myChats, setMyChats] = useState([]);
     const [hasMore, setHasMore] = useState(true);
     const [isLoadingHistory, setIsLoadingHistory] = useState(false);
     
@@ -195,7 +195,13 @@ function Chat({ socket, username, room, setRoom, handleLogout }) {
             setActiveModal(null);
         };
         
-        socket.on("user_groups", (groups) => setMyChats(prev => Array.from(new Set([...prev, ...groups]))));
+        socket.on("user_groups", (groups) => {
+            setMyChats(groups);
+            const isCurrentRoomPrivate = room.includes('_');
+            if (!isCurrentRoomPrivate && !groups.includes(room)) {
+                switchChat("General");
+            }
+        });
         socket.on("friends_list", (list) => setFriends(list));
         socket.on("group_created", handleJoin);
         socket.on("group_joined", handleJoin);
