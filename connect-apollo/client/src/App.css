@@ -350,7 +350,7 @@ body {
 }
 .avatar-history-item:hover .delete-avatar-btn { opacity: 1; }
 
-/* --- MOBILE RESPONSIVE --- */
+/* --- MOBILE RESPONSIVE ---
 @media (max-width: 768px) {
   .main-layout { width: 100vw; height: 100vh; margin: 0; border-radius: 0; }
   .left-panel { width: 100%; border-radius: 0; padding: 10px; box-sizing: border-box; }
@@ -376,7 +376,135 @@ body {
     text-align: left!important;
   }
   .auth-input {background: rgba(30, 30, 30, 0.7)!important; }
-} 
+}  */
+
+/* --- НОВЫЕ СТИЛИ ДЛЯ СПИСКА (Скрыты на Desktop) --- */
+.chat-info-mobile { display: none; }
+.mobile-app-title { display: none; }
+
+/* --- MOBILE RESPONSIVE --- */
+/* --- MOBILE RESPONSIVE --- */
+@media (max-width: 768px) {
+  /* Базовая структура */
+  body { background-color: #000; }
+  
+  /* Отключаем дефолтный margin для layout */
+  .main-layout { 
+    width: 100%; 
+    height: 100%; 
+    margin: 0; 
+    border-radius: 0; 
+    gap: 0;
+  }
+
+  /* --- LEFT PANEL (Список чатов) --- */
+  .left-panel { 
+    width: 100%; height: 100%; padding: 0;
+    background: #000; border-radius: 0;
+    display: flex; flex-direction: column; gap: 0;
+  }
+
+  /* Шапка списка чатов */
+  .sidebar-top {
+    flex-direction: row; justify-content: space-between;
+    width: 100%; padding: 15px 20px; box-sizing: border-box;
+    background: rgba(15, 15, 15, 0.85); /* Полупрозрачность */
+    backdrop-filter: blur(15px); -webkit-backdrop-filter: blur(15px);
+    border-bottom: 1px solid #222;
+    position: sticky; top: 0; z-index: 10;
+  }
+  
+  /* Контент шапки списка */
+  .sidebar-header-content { display: flex; align-items: center; gap: 15px; }
+  .mobile-app-title { display: block; font-size: 24px; font-weight: 700; letter-spacing: -0.5px; }
+  .my-avatar { width: 40px; height: 40px; border: 1px solid #444; font-size: 16px; }
+  .fab-btn { width: 40px; height: 40px; border-radius: 12px; box-shadow: none; background: #222; border: 1px solid #333; }
+
+  /* Список чатов */
+  .friends-list { 
+    width: 100%; background: transparent; padding: 10px 15px 80px 15px; 
+    box-sizing: border-box; gap: 8px; align-items: stretch; overflow-y: auto;
+  }
+  .divider { margin: 15px 0 5px 10px; color: #666; font-size: 11px; letter-spacing: 1px; }
+
+  /* Карточка чата */
+  .chat-list-item {
+      display: flex; align-items: center; gap: 15px; padding: 12px;
+      background: #111; border: 1px solid #222; border-radius: 16px;
+      transition: 0.2s; width: 100%; box-sizing: border-box;
+  }
+  .chat-list-item:active { background: #1a1a1a; transform: scale(0.98); }
+  .friend-avatar { width: 50px; height: 50px; font-size: 18px; margin: 0; border-radius: 14px; }
+  
+  .chat-info-mobile { display: flex; flex-direction: column; justify-content: center; gap: 2px; overflow: hidden; }
+  .chat-name { font-size: 16px; font-weight: 600; color: #eee; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .chat-preview { font-size: 13px; color: #777; }
+
+  /* --- RIGHT PANEL (Окно чата - GLASS EFFECT) --- */
+  .right-panel { 
+    width: 100%; height: 100%; 
+    position: fixed; top: 0; left: 0; z-index: 20;
+    background: #000;
+  }
+
+  .glass-chat { 
+    border-radius: 0; border: none; padding: 0; 
+    background: transparent; height: 100dvh;
+    display: flex; flex-direction: column;
+    position: relative; /* Контекст для абсолютных панелей */
+  }
+
+  /* 1. ВЕРХНЯЯ ПАНЕЛЬ (HEADER) - Парящая */
+  .chat-header {
+      position: absolute; top: 0; left: 0; right: 0;
+      padding: 15px 15px 15px 20px;
+      background: rgba(10, 10, 10, 0.65); /* Сильная прозрачность */
+      backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px); /* Блюр */
+      border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+      z-index: 50;
+      height: 60px; /* Фиксируем высоту для расчета padding */
+      box-sizing: border-box;
+  }
+
+  /* 2. НИЖНЯЯ ПАНЕЛЬ (INPUT) - Парящая */
+  .chat-input-wrapper {
+      position: absolute; bottom: 0; left: 0; right: 0;
+      margin: 0; border-radius: 0;
+      background: rgba(10, 10, 10, 0.65); /* Сильная прозрачность */
+      backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px); /* Блюр */
+      border-top: 1px solid rgba(255, 255, 255, 0.05);
+      border-left: none; border-right: none; border-bottom: none;
+      padding: 10px 15px;
+      padding-bottom: max(10px, env(safe-area-inset-bottom)); /* Для iPhone Home Bar */
+      z-index: 50;
+  }
+
+  /* 3. ТЕЛО ЧАТА - Растянуто на весь экран */
+  .chat-body {
+      height: 100%;
+      padding: 0;
+      margin: 0;
+      overflow-y: auto;
+      
+      /* ВАЖНО: Отступы, чтобы контент не перекрывался панелями в покое */
+      padding-top: 75px;   /* Высота хедера + воздух */
+      padding-bottom: 100px; /* Высота инпута + воздух */
+      
+      /* Фон с легким паттерном, чтобы было видно блюр */
+      background-image: 
+        radial-gradient(circle at 50% 50%, #111 0%, #000 100%);
+  }
+
+  /* Исправление для сообщений, чтобы они читались на темном фоне */
+  .message { max-width: 80%; z-index: 1; }
+  .back-btn { background: rgba(255,255,255,0.0); width: 32px; height: 32px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 14px; margin-right: 12px; color: white; }
+
+  .hidden { display: none !important; }
+
+  /* Auth Forms */
+  .auth-container { margin-top: 0; align-items: center !important; padding: 20px;}
+  .auth-form { background-color: #111 !important; border: 1px solid #333 !important; padding: 30px !important; box-shadow: none !important; }
+}
 
 /* --- Message Footer & Actions --- */
 .message-footer { display: flex; justify-content: space-between; align-items: center; margin-top: 4px; gap: 10px; }

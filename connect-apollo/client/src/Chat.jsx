@@ -575,22 +575,32 @@ function Chat({ socket, username, room, setRoom, handleLogout }) {
 
             {/* SIDEBAR */}
             <div className={`left-panel ${isMobile && showMobileChat ? 'hidden' : ''}`}>
+                {/* Шапка сайдбара */}
                 <div className="sidebar-top">
-                    {/* Аватар профиля: используем myProfile.avatar_url, который теперь не мигает */}
-                    <div className="my-avatar" style={getAvatarStyle(myProfile.avatar_url)} onClick={() => { socket.emit("get_my_profile", username); socket.emit("get_avatar_history", username); setActiveModal('settings'); }}>
-                        {!myProfile.avatar_url && username[0].toUpperCase()}
+                    <div className="sidebar-header-content">
+                        <div className="my-avatar" 
+                            style={getAvatarStyle(myProfile.avatar_url)} 
+                            onClick={() => { socket.emit("get_my_profile", username); socket.emit("get_avatar_history", username); setActiveModal('settings'); }}>
+                            {!myProfile.avatar_url && username[0].toUpperCase()}
+                        </div>
+                        {isMobile && <div className="mobile-app-title">Chats</div>}
                     </div>
                     <button className="fab-btn" onClick={() => setActiveModal('actionMenu')}>+</button>
                 </div>
+
+                {/* Список чатов */}
                 <div className="friends-list">
-                    {myChats.filter(chat => {
-                        const isValid = chat && typeof chat === 'string';
-                        if (!isValid) console.warn("[CHAT DEBUG] Invalid chat detected in map:", chat);
-                        return isValid;
-                    }).map((chat, idx) => ( 
-                        <div key={idx} className="friend-avatar" title={chat} onClick={() => switchChat(chat)} style={{ background: chat === room ? '#f0f0f0' : '#333', border: chat === room ? '2px solid #2b95ff' : 'none', color: chat === room ? 'black' : 'white' }}> 
-                            {chat.substring(0, 2)} 
-                        </div> 
+                    {myChats.filter(chat => chat && typeof chat === 'string').map((chat, idx) => ( 
+                        <div key={idx} className="chat-list-item" onClick={() => switchChat(chat)}>
+                            <div className="friend-avatar" style={{ background: chat === room ? '#2b95ff' : '#333', color: 'white' }}> 
+                                {chat.substring(0, 2)} 
+                            </div>
+                            {/* Текст виден только на мобильных через CSS */}
+                            <div className="chat-info-mobile">
+                                <div className="chat-name">{chat}</div>
+                                <div className="chat-preview">Нажмите, чтобы открыть</div>
+                            </div>
+                        </div>
                     ))}
                     
                     {friends.length > 0 && <div className="divider">Контакты</div>}
@@ -598,9 +608,15 @@ function Chat({ socket, username, room, setRoom, handleLogout }) {
                     {friends.filter(f => f && typeof f === 'string').map((friend, idx) => { 
                         const isActive = [username, friend].sort().join("_") === room; 
                         return (
-                            <div key={idx} className="friend-avatar" onClick={() => switchChat(friend)} title={friend} style={{ background: isActive ? '#2b95ff' : '#444' }}>
-                                {friend[0] ? friend[0].toUpperCase() : '?'}
-                            </div> 
+                            <div key={idx} className="chat-list-item" onClick={() => switchChat(friend)}>
+                                <div className="friend-avatar" style={{ background: isActive ? '#2b95ff' : '#444' }}>
+                                    {friend[0] ? friend[0].toUpperCase() : '?'}
+                                </div>
+                                <div className="chat-info-mobile">
+                                    <div className="chat-name">{friend}</div>
+                                    <div className="chat-preview">Личное сообщение</div>
+                                </div>
+                            </div>
                         )
                     })}
                 </div>
