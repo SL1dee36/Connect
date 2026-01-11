@@ -54,7 +54,6 @@ function Chat({ socket, username, room, setRoom, handleLogout }) {
     const [currentMessage, setCurrentMessage] = useState("");
     const [messageList, setMessageList] = useState([]);
     const [friends, setFriends] = useState([]);
-    // Инициализируем всегда с General, чтобы он не пропадал до загрузки
     const [myChats, setMyChats] = useState(["General"]); 
     const [hasMore, setHasMore] = useState(true);
     const [isLoadingHistory, setIsLoadingHistory] = useState(false);
@@ -146,8 +145,8 @@ function Chat({ socket, username, room, setRoom, handleLogout }) {
 
     // --- INIT ---
     const switchChat = useCallback((targetName) => {
-        // Если чат в списке групп (или General) - используем имя как есть.
-        // Иначе (личка) - формируем имя комнаты.
+        if (!targetName || typeof targetName !== 'string') return;
+        
         const isGroupChat = targetName === "General" || myChats.includes(targetName);
         const roomId = isGroupChat ? targetName : [username, targetName].sort().join("_");
         
@@ -163,77 +162,119 @@ function Chat({ socket, username, room, setRoom, handleLogout }) {
         const handleResize = () => setIsMobile(window.innerWidth <= 768);
         window.addEventListener('resize', handleResize);
 
-        // 1. Сразу просим сервер прислать актуальные данные (PULL)
-        socket.emit("get_initial_data");
-        socket.emit("get_my_profile", username);
+        // --- ОПРЕДЕЛЯЕМ ОБРАБОТЧИКИ (чтобы можно было их удалить точечно) ---
 
-        // 2. Слушаем списки групп
-        socket.on("user_groups", (groups) => {
-            // Гарантируем, что General всегда есть
+        const handleUserGroups = (groups) => {
+            if (!Array.isArray(groups)) return;
             const safeGroups = groups.includes("General") ? groups : ["General", ...groups];
-            setMyChats(safeGroups);
+            // Фильтруем мусор
+            setMyChats(safeGroups.filter(g => typeof g === 'string'));
 
             const currentRoom = localStorage.getItem("apollo_room") || "General";
             const isCurrentRoomPrivate = currentRoom.includes('_');
 
-            // Если текущая комната - группа, и её больше нет в списке, кидаем в General
             if (!isCurrentRoomPrivate && !safeGroups.includes(currentRoom)) {
                 switchChat("General");
             }
-        });
+        };
 
-        socket.on("friends_list", setFriends);
-        socket.on("search_results", (results) => setSearchResults(results.filter(u => u.username !== username)));
-        socket.on("search_groups_results", setSearchGroupResults);
+        const handleFriendsList = (list) => {
+            if (Array.isArray(list)) {
+                setFriends(list.filter(f => typeof f === 'string'));
+            }
+        };
 
+        const handleSearchResults = (results) => setSearchResults(results.filter(u => u.username !== username));
+        
         const handleJoin = (data) => {
             setMyChats(prev => (!prev.includes(data.room) ? [...prev, data.room] : prev));
             switchChat(data.room);
             setActiveModal(null);
         };
-        socket.on("group_created", handleJoin);
-        socket.on("group_joined", handleJoin);
-        
-        socket.on("left_group_success", (data) => {
+
+        const handleLeftGroup = (data) => {
             setMyChats(prev => prev.filter(c => c !== data.room));
             switchChat("General");
             setActiveModal(null);
-        });
+        };
 
-        socket.on("group_deleted", (data) => {
+        const handleGroupDeleted = (data) => {
             setMyChats(prev => prev.filter(c => c !== data.room));
             const currentRoom = localStorage.getItem("apollo_room") || "General";
-            if (currentRoom === data.room) {
-                switchChat("General");
-            }
+            if (currentRoom === data.room) switchChat("General");
             alert(`Группа "${data.room}" удалена владельцем.`);
-        });
+        };
 
-        socket.on("incoming_friend_request", setNotification);
-        socket.on("friend_added", (data) => { setFriends(prev => [...prev, data.username]); alert(`${data.username} добавлен!`); });
-        socket.on("friend_removed", (data) => {
+        const handleFriendAdded = (data) => { 
+            setFriends(prev => [...prev, data.username]); 
+            alert(`${data.username} добавлен!`); 
+        };
+
+        const handleFriendRemoved = (data) => {
             setFriends(prev => prev.filter(f => f !== data.username));
             const chatRoom = [username, data.username].sort().join("_");
             const currentRoom = localStorage.getItem("apollo_room") || "General";
-            if (currentRoom === chatRoom) {
-                switchChat("General");
-            }
-        });
-
-        socket.on("request_declined", (data) => alert(`${data.from} отклонил заявку.`));
-        socket.on("error_message", (data) => alert(data.msg));
-        socket.on("info_message", (data) => alert(data.msg));
-        socket.on("my_profile_data", (data) => { setMyProfile(data); setProfileForm({ bio: data.bio || "", phone: data.phone || ""}); });
-        socket.on("user_profile_data", (data) => { setViewProfileData(data); setActiveModal("userProfile"); socket.emit("get_avatar_history", data.username) });
-        socket.on("avatar_history_data", setAvatarHistory);
-        socket.on("group_info_updated", (data) => setGroupMembers(data.members));
-        socket.on("message_deleted", (deletedId) => setMessageList((prev) => prev.filter((msg) => msg.id !== deletedId)));
-
-        return () => {
-            socket.removeAllListeners();
-            window.removeEventListener('resize', handleResize);
+            if (currentRoom === chatRoom) switchChat("General");
         };
-    }, [socket, username, switchChat]); // Зависимости минимальны
+
+        const handleMyProfile = (data) => { setMyProfile(data); setProfileForm({ bio: data.bio || "", phone: data.phone || ""}); };
+        const handleUserProfile = (data) => { setViewProfileData(data); setActiveModal("userProfile"); socket.emit("get_avatar_history", data.username) };
+        const handleGroupInfoUpdated = (data) => setGroupMembers(data.members);
+        const handleMessageDeleted = (deletedId) => setMessageList((prev) => prev.filter((msg) => msg.id !== deletedId));
+        const handleRequestDeclined = (data) => alert(`${data.from} отклонил заявку.`);
+        const handleError = (data) => alert(data.msg);
+        const handleInfo = (data) => alert(data.msg);
+
+        // --- ПОДПИСЫВАЕМСЯ ---
+        socket.on("user_groups", handleUserGroups);
+        socket.on("friends_list", handleFriendsList);
+        socket.on("search_results", handleSearchResults);
+        socket.on("search_groups_results", setSearchGroupResults);
+        socket.on("group_created", handleJoin);
+        socket.on("group_joined", handleJoin);
+        socket.on("left_group_success", handleLeftGroup);
+        socket.on("group_deleted", handleGroupDeleted);
+        socket.on("incoming_friend_request", setNotification);
+        socket.on("friend_added", handleFriendAdded);
+        socket.on("friend_removed", handleFriendRemoved);
+        socket.on("request_declined", handleRequestDeclined);
+        socket.on("error_message", handleError);
+        socket.on("info_message", handleInfo);
+        socket.on("my_profile_data", handleMyProfile);
+        socket.on("user_profile_data", handleUserProfile);
+        socket.on("avatar_history_data", setAvatarHistory);
+        socket.on("group_info_updated", handleGroupInfoUpdated);
+        socket.on("message_deleted", handleMessageDeleted);
+
+        // --- ЗАПРАШИВАЕМ ДАННЫЕ (ПОСЛЕ ПОДПИСКИ) ---
+        socket.emit("get_initial_data");
+        socket.emit("get_my_profile", username);
+
+        // --- ОЧИСТКА ---
+        return () => {
+            window.removeEventListener('resize', handleResize);
+            // Удаляем ТОЛЬКО эти слушатели, по именам функций
+            socket.off("user_groups", handleUserGroups);
+            socket.off("friends_list", handleFriendsList);
+            socket.off("search_results", handleSearchResults);
+            socket.off("search_groups_results", setSearchGroupResults);
+            socket.off("group_created", handleJoin);
+            socket.off("group_joined", handleJoin);
+            socket.off("left_group_success", handleLeftGroup);
+            socket.off("group_deleted", handleGroupDeleted);
+            socket.off("incoming_friend_request", setNotification);
+            socket.off("friend_added", handleFriendAdded);
+            socket.off("friend_removed", handleFriendRemoved);
+            socket.off("request_declined", handleRequestDeclined);
+            socket.off("error_message", handleError);
+            socket.off("info_message", handleInfo);
+            socket.off("my_profile_data", handleMyProfile);
+            socket.off("user_profile_data", handleUserProfile);
+            socket.off("avatar_history_data", setAvatarHistory);
+            socket.off("group_info_updated", handleGroupInfoUpdated);
+            socket.off("message_deleted", handleMessageDeleted);
+        };
+    }, [socket, username, switchChat]);
 
     // ЭФФЕКТ №2: Логика конкретной комнаты
     useEffect(() => {
@@ -296,7 +337,6 @@ function Chat({ socket, username, room, setRoom, handleLogout }) {
         socket.on("group_info_data", handleGroupInfo);
 
         return () => {
-            // Удаляем ТОЛЬКО слушатели этого эффекта
             socket.off("receive_message", handleReceiveMessage);
             socket.off("chat_history", handleChatHistory);
             socket.off("more_messages_loaded", handleMoreMessages);
@@ -305,9 +345,6 @@ function Chat({ socket, username, room, setRoom, handleLogout }) {
             socket.off("group_info_data", handleGroupInfo);
         };
     }, [room, socket, username]);
-
-    // ... (Остальной код: SCROLL, TEXTAREA, FUNCTIONS и RENDER остаются без изменений) ...
-    // ... Ниже я приведу оставшуюся часть файла для удобства копирования ...
 
     // --- SCROLL MANAGEMENT ---
     useEffect(() => {
@@ -345,8 +382,8 @@ function Chat({ socket, username, room, setRoom, handleLogout }) {
     }, [currentMessage]);
 
     // --- FUNCTIONS ---
-    // Упрощенная логика отображения имени
-    const displayRoomName = myChats.includes(room) ? room : room.replace(username, "").replace("_", "");
+    // ЗАЩИТА ОТ ОШИБОК РЕНДЕРА: проверяем, что myChats это массив строк
+    const displayRoomName = (myChats.includes(room)) ? room : room.replace(username, "").replace("_", "");
     const isPrivateChat = !myChats.includes(room);
 
     // --- AVATAR FUNCTIONS ---
@@ -507,9 +544,24 @@ function Chat({ socket, username, room, setRoom, handleLogout }) {
                     <button className="fab-btn" onClick={() => setActiveModal('actionMenu')}>+</button>
                 </div>
                 <div className="friends-list">
-                    {myChats.map((chat, idx) => ( <div key={idx} className="friend-avatar" title={chat} onClick={() => switchChat(chat)} style={{ background: chat === room ? '#f0f0f0' : '#333', border: chat === room ? '2px solid #2b95ff' : 'none', color: chat === room ? 'black' : 'white' }}> {chat.substring(0, 2)} </div> ))}
+                    {/* РЕНДЕР ГРУПП: Защита от кривых данных */}
+                    {myChats.filter(chat => typeof chat === 'string').map((chat, idx) => ( 
+                        <div key={idx} className="friend-avatar" title={chat} onClick={() => switchChat(chat)} style={{ background: chat === room ? '#f0f0f0' : '#333', border: chat === room ? '2px solid #2b95ff' : 'none', color: chat === room ? 'black' : 'white' }}> 
+                            {chat.substring(0, 2)} 
+                        </div> 
+                    ))}
+                    
                     {friends.length > 0 && <div className="divider">Контакты</div>}
-                    {friends.map((friend, idx) => { const isActive = [username, friend].sort().join("_") === room; return <div key={idx} className="friend-avatar" onClick={() => switchChat(friend)} title={friend} style={{ background: isActive ? '#2b95ff' : '#444' }}>{friend[0].toUpperCase()}</div> })}
+                    
+                    {/* РЕНДЕР ДРУЗЕЙ: Защита от кривых данных */}
+                    {friends.filter(f => typeof f === 'string').map((friend, idx) => { 
+                        const isActive = [username, friend].sort().join("_") === room; 
+                        return (
+                            <div key={idx} className="friend-avatar" onClick={() => switchChat(friend)} title={friend} style={{ background: isActive ? '#2b95ff' : '#444' }}>
+                                {friend[0] ? friend[0].toUpperCase() : '?'}
+                            </div> 
+                        )
+                    })}
                 </div>
             </div>
 
