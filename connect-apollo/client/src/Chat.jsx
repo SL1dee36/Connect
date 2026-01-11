@@ -49,7 +49,7 @@ const MessageItem = React.memo(({ msg, username, setImageModalSrc, onDelete }) =
 });
 
 
-function Chat({ socket, username, room, setRoom }) {
+function Chat({ socket, username, room, setRoom, handleLogout }) {
     // State
     const [currentMessage, setCurrentMessage] = useState("");
     const [messageList, setMessageList] = useState([]);
@@ -167,7 +167,7 @@ function Chat({ socket, username, room, setRoom }) {
         const handleResize = () => setIsMobile(window.innerWidth <= 768);
         window.addEventListener('resize', handleResize);
         
-        socket.emit("login_user", username);
+        // Эта логика переехала в App.jsx, но socket listener'ы остаются здесь
         socket.emit("get_my_profile", username);
 
         socket.on("user_groups", (groups) => setMyChats(prev => Array.from(new Set([...prev, ...groups]))));
@@ -469,33 +469,28 @@ function Chat({ socket, username, room, setRoom }) {
                         )}
                         <textarea ref={textareaRef} value={currentMessage} placeholder="Написать сообщение..." className="chat-textarea" onChange={(e) => { setCurrentMessage(e.target.value); socket.emit("typing", { room, username }) }} onKeyDown={handleKeyDown} rows={1}/>
                         <div className="input-toolbar">
-                        <div className="toolbar-left">
-                            <input type="file" style={{ display: 'none' }} multiple ref={fileInputRef} onChange={handleFileSelect} accept="image/*" />
-                            <button className="tool-btn" onClick={() => fileInputRef.current.click()} title="Прикрепить фото">
-                                {/* Старая иконка: 📎 */}
-                                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
-                                    <path fill="currentColor" d="M16.5 6v11.5c0 2.21-1.79 4-4 4s-4-1.79-4-4V5a2.5 2.5 0 0 1 5 0v10.5c0 .55-.45 1-1 1s-1-.45-1-1V6H10v9.5a2.5 2.5 0 0 0 5 0V5c0-2.21-1.79-4-4-4S7 2.79 7 5v12.5c0 3.04 2.46 5.5 5.5 5.5s5.5-2.46 5.5-5.5V6h-1.5z"/>
-                                </svg>
-                            </button>
-                        </div>
-
-                        <div className="toolbar-right">
-                            {currentMessage.trim() || attachedFiles.length > 0 ? (
-                                <button className="send-pill-btn" onClick={sendMessage}>
-                                    Отправить ↵
+                            <div className="toolbar-left">
+                                <input type="file" style={{ display: 'none' }} multiple ref={fileInputRef} onChange={handleFileSelect} accept="image/*" />
+                                <button className="tool-btn" onClick={() => fileInputRef.current.click()} title="Прикрепить фото">
+                                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+                                        <path fill="currentColor" d="M16.5 6v11.5c0 2.21-1.79 4-4 4s-4-1.79-4-4V5a2.5 2.5 0 0 1 5 0v10.5c0 .55-.45 1-1 1s-1-.45-1-1V6H10v9.5a2.5 2.5 0 0 0 5 0V5c0-2.21-1.79-4-4-4S7 2.79 7 5v12.5c0 3.04 2.46 5.5 5.5 5.5s5.5-2.46 5.5-5.5V6h-1.5z"/>
+                                    </svg>
                                 </button>
-                            ) : (
-                                <button className={`mic-btn ${isRecording ? 'recording' : ''}`} onClick={isRecording ? stopRecording : startRecording}>
-                                    {isRecording ? formatTime(recordingTime) : (
-                                        // Старая иконка: 🎤
-                                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
-                                            <path fill="currentColor" d="M12 14c1.66 0 2.99-1.34 2.99-3L15 5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3zm5.3-3c0 3-2.54 5.1-5.3 5.1S6.7 14 6.7 11H5c0 3.41 2.72 6.23 6 6.72V21h2v-3.28c3.28-.48 6-3.3 6-6.72h-1.7z"/>
-                                        </svg>
-                                    )}
-                                </button>
-                            )}
+                            </div>
+                            <div className="toolbar-right">
+                                {currentMessage.trim() || attachedFiles.length > 0 ? (
+                                    <button className="send-pill-btn" onClick={sendMessage}> Отправить ↵ </button>
+                                ) : (
+                                    <button className={`mic-btn ${isRecording ? 'recording' : ''}`} onClick={isRecording ? stopRecording : startRecording}>
+                                        {isRecording ? formatTime(recordingTime) : (
+                                            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+                                                <path fill="currentColor" d="M12 14c1.66 0 2.99-1.34 2.99-3L15 5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3zm5.3-3c0 3-2.54 5.1-5.3 5.1S6.7 14 6.7 11H5c0 3.41 2.72 6.23 6 6.72V21h2v-3.28c3.28-.48 6-3.3 6-6.72h-1.7z"/>
+                                            </svg>
+                                        )}
+                                    </button>
+                                )}
+                            </div>
                         </div>
-                    </div>
                     </div>
                 </div>
             </div>
@@ -529,7 +524,7 @@ function Chat({ socket, username, room, setRoom }) {
                         </div>
                     </div>
                     <button className="btn-primary" onClick={saveProfile}>Сохранить</button>
-                    <button className="btn-danger" style={{ marginTop: 10 }} onClick={() => { localStorage.clear(); window.location.reload() }}>Выйти</button>
+                    <button className="btn-danger" style={{ marginTop: 10 }} onClick={handleLogout}>Выйти</button>
                 </Modal>
             )}
 
@@ -537,16 +532,7 @@ function Chat({ socket, username, room, setRoom }) {
                 <Modal title="Редактор Аватара" onClose={() => setAvatarEditor({ ...avatarEditor, isOpen: false })}>
                     <div className="avatar-editor-content">
                         <div className="crop-container">
-                            <Cropper
-                                image={avatarEditor.image}
-                                crop={avatarEditor.crop}
-                                zoom={avatarEditor.zoom}
-                                aspect={1}
-                                onCropChange={(crop) => setAvatarEditor(p => ({...p, crop}))}
-                                onZoomChange={(zoom) => setAvatarEditor(p => ({...p, zoom}))}
-                                onCropComplete={(_, croppedAreaPixels) => setAvatarEditor(p => ({...p, croppedAreaPixels}))}
-                                imageStyle={{ filter: `brightness(${avatarEditor.filters.brightness}%) contrast(${avatarEditor.filters.contrast}%) saturate(${avatarEditor.filters.saturate}%) blur(${avatarEditor.filters.blur}px)` }}
-                            />
+                            <Cropper image={avatarEditor.image} crop={avatarEditor.crop} zoom={avatarEditor.zoom} aspect={1} onCropChange={(crop) => setAvatarEditor(p => ({...p, crop}))} onZoomChange={(zoom) => setAvatarEditor(p => ({...p, zoom}))} onCropComplete={(_, croppedAreaPixels) => setAvatarEditor(p => ({...p, croppedAreaPixels}))} imageStyle={{ filter: `brightness(${avatarEditor.filters.brightness}%) contrast(${avatarEditor.filters.contrast}%) saturate(${avatarEditor.filters.saturate}%) blur(${avatarEditor.filters.blur}px)` }} />
                         </div>
                         <div className="editor-controls">
                             <div className="slider-group"> <label>Zoom</label> <input type="range" min={1} max={3} step={0.1} value={avatarEditor.zoom} onChange={e => setAvatarEditor(p => ({...p, zoom: e.target.value}))}/> </div>

@@ -9,41 +9,81 @@ const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
 const sharp = require('sharp');
+const bcrypt = require('bcrypt');
+const jwt = require('jsonwebtoken');
 
-// --- ИЗМЕНЕНИЕ: Настройка переменных окружения ---
+// --- Настройка переменных окружения ---
 const PORT = process.env.PORT || 3001;
 const FRONTEND_URL = process.env.FRONTEND_URL || "http://localhost:5173";
 const BACKEND_URL = process.env.BACKEND_URL || `http://localhost:${PORT}`;
+const JWT_SECRET = process.env.JWT_SECRET || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9';
 
-// --- ИЗМЕНЕНИЕ: Создаем постоянную папку для данных ---
+// --- Настройка папок для данных ---
 const dataDir = path.join(__dirname, 'data');
-if (!fs.existsSync(dataDir)) {
-    fs.mkdirSync(dataDir);
-}
-const uploadDir = path.join(dataDir, 'uploads'); // Загрузки теперь внутри 'data'
-if (!fs.existsSync(uploadDir)) {
-    fs.mkdirSync(uploadDir);
-}
+if (!fs.existsSync(dataDir)) fs.mkdirSync(dataDir);
+const uploadDir = path.join(dataDir, 'uploads');
+if (!fs.existsSync(uploadDir)) fs.mkdirSync(uploadDir);
 
 app.use(cors());
 app.use(express.json());
-
-// --- ИЗМЕНЕНИЕ: Сервируем папку uploads из папки data ---
 app.use('/uploads', express.static(uploadDir));
 
+// --- МАРШРУТЫ ДЛЯ АВТОРИЗАЦИИ ---
+
+// РЕГИСТРАЦИЯ
+app.post('/register', async (req, res) => {
+    const { username, password } = req.body;
+    if (!username || !password) {
+        return res.status(400).json({ message: "Имя пользователя и пароль обязательны" });
+    }
+    try {
+        const existingUser = await db.get('SELECT * FROM users WHERE username = ?', [username]);
+        if (existingUser) {
+            return res.status(409).json({ message: "Пользователь с таким именем уже существует" });
+        }
+        const password_hash = await bcrypt.hash(password, 10);
+        await db.run('INSERT INTO users (username, password_hash) VALUES (?, ?)', [username, password_hash]);
+        
+        const user = await db.get('SELECT * FROM users WHERE username = ?', [username]);
+        const token = jwt.sign({ id: user.id, username: user.username }, JWT_SECRET, { expiresIn: '7d' });
+        res.status(201).json({ message: "Регистрация успешна", token });
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ message: "Ошибка сервера" });
+    }
+});
+
+// ВХОД
+app.post('/login', async (req, res) => {
+    const { username, password } = req.body;
+    if (!username || !password) {
+        return res.status(400).json({ message: "Имя пользователя и пароль обязательны" });
+    }
+    try {
+        const user = await db.get('SELECT * FROM users WHERE username = ?', [username]);
+        if (!user) {
+            return res.status(404).json({ message: "Пользователь не найден" });
+        }
+        const isPasswordCorrect = await bcrypt.compare(password, user.password_hash);
+        if (!isPasswordCorrect) {
+            return res.status(401).json({ message: "Неверный пароль" });
+        }
+        const token = jwt.sign({ id: user.id, username: user.username }, JWT_SECRET, { expiresIn: '7d' });
+        res.json({ token });
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ message: "Ошибка сервера" });
+    }
+});
+
+// --- МАРШРУТЫ ДЛЯ ЗАГРУЗКИ ФАЙЛОВ ---
 const storage = multer.memoryStorage();
 const upload = multer({ storage: storage });
 
 async function processAndSaveImage(buffer, originalName) {
     const name = Date.now() + '-' + Math.round(Math.random() * 1E9) + '.webp';
     const outputPath = path.join(uploadDir, name);
-
-    await sharp(buffer)
-        .resize(1280, 1280, { fit: 'inside', withoutEnlargement: true })
-        .webp({ quality: 80 })
-        .toFile(outputPath);
-    
-    // --- ИЗМЕНЕНИЕ: Используем динамический URL ---
+    await sharp(buffer).resize(1280, 1280, { fit: 'inside', withoutEnlargement: true }).webp({ quality: 80 }).toFile(outputPath);
     return `${BACKEND_URL}/uploads/${name}`;
 }
 
@@ -51,7 +91,6 @@ async function saveAudio(buffer) {
     const name = Date.now() + '-' + Math.round(Math.random() * 1E9) + '.webm';
     const outputPath = path.join(uploadDir, name);
     fs.writeFileSync(outputPath, buffer);
-    // --- ИЗМЕНЕНИЕ: Используем динамический URL ---
     return `${BACKEND_URL}/uploads/${name}`;
 }
 
@@ -99,21 +138,24 @@ app.post('/upload-avatar', upload.single('avatar'), async (req, res) => {
     }
 });
 
+
 const server = http.createServer(app);
-const io = new Server(server, {
-    // --- ИЗМЕНЕНИЕ: Используем динамический URL для CORS ---
-    cors: { origin: FRONTEND_URL, methods: ["GET", "POST"] },
-});
+const io = new Server(server, { cors: { origin: FRONTEND_URL, methods: ["GET", "POST"] } });
 
 let db;
 let onlineUsers = [];
 const MESSAGES_PER_PAGE = 30;
 
 async function initDB() {
-    // --- ИЗМЕНЕНИЕ: База данных теперь в папке data ---
     const dbPath = path.join(dataDir, 'database.db');
     db = await open({ filename: dbPath, driver: sqlite3.Database });
     await db.exec(`
+        CREATE TABLE IF NOT EXISTS users (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            username TEXT UNIQUE NOT NULL,
+            password_hash TEXT NOT NULL,
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+        );
         CREATE TABLE IF NOT EXISTS messages (id INTEGER PRIMARY KEY AUTOINCREMENT, room TEXT, author TEXT, message TEXT, type TEXT DEFAULT 'text', time TEXT);
         CREATE TABLE IF NOT EXISTS friends (id INTEGER PRIMARY KEY AUTOINCREMENT, user_1 TEXT, user_2 TEXT);
         CREATE TABLE IF NOT EXISTS group_members (id INTEGER PRIMARY KEY AUTOINCREMENT, room TEXT, username TEXT, role TEXT DEFAULT 'member', custom_title TEXT DEFAULT '');
@@ -140,36 +182,43 @@ async function isBlocked(target, sender) {
 io.on("connection", (socket) => {
     console.log(`User connected: ${socket.id}`);
 
-    socket.on("login_user", async (username) => {
-        socket.data.username = username;
-        onlineUsers = onlineUsers.filter(u => u.username !== username); 
-        onlineUsers.push({ socketId: socket.id, username });
-        
-        try { await db.run(`INSERT OR IGNORE INTO user_profiles (username) VALUES (?)`, [username]); } catch (e) {}
-        
-        const friends = await db.all(`SELECT user_2 as name FROM friends WHERE user_1 = ? UNION SELECT user_1 as name FROM friends WHERE user_2 = ?`, [username, username]);
-        socket.emit("friends_list", friends.map(f => f.name));
+    socket.on("authenticate", async (data) => {
+        try {
+            const decoded = jwt.verify(data.token, JWT_SECRET);
+            const username = decoded.username;
+            
+            socket.data.username = username;
+            
+            onlineUsers = onlineUsers.filter(u => u.username !== username); 
+            onlineUsers.push({ socketId: socket.id, username });
+            
+            try { await db.run(`INSERT OR IGNORE INTO user_profiles (username) VALUES (?)`, [username]); } catch (e) {}
+            
+            const friends = await db.all(`SELECT user_2 as name FROM friends WHERE user_1 = ? UNION SELECT user_1 as name FROM friends WHERE user_2 = ?`, [username, username]);
+            socket.emit("friends_list", friends.map(f => f.name));
 
-        const myGroups = await db.all(`SELECT room FROM group_members WHERE username = ?`, [username]);
-        const groupNames = myGroups.map(g => g.room);
-        if (!groupNames.includes("General")) groupNames.unshift("General");
-        socket.emit("user_groups", groupNames);
+            const myGroups = await db.all(`SELECT room FROM group_members WHERE username = ?`, [username]);
+            const groupNames = myGroups.map(g => g.room);
+            if (!groupNames.includes("General")) groupNames.unshift("General");
+            socket.emit("user_groups", groupNames);
+            
+            console.log(`User ${username} authenticated for socket ${socket.id}`);
+
+        } catch (error) {
+            console.log("Authentication error:", error.message);
+            socket.emit("auth_error");
+            socket.disconnect();
+        }
     });
 
     socket.on("join_room", async (data) => {
         socket.join(data.room);
-        const history = await db.all(
-            'SELECT * FROM messages WHERE room = ? ORDER BY id DESC LIMIT ? OFFSET 0', 
-            [data.room, MESSAGES_PER_PAGE]
-        );
+        const history = await db.all('SELECT * FROM messages WHERE room = ? ORDER BY id DESC LIMIT ? OFFSET 0', [data.room, MESSAGES_PER_PAGE]);
         socket.emit("chat_history", history.reverse());
     });
 
     socket.on("load_more_messages", async (data) => {
-        const moreMessages = await db.all(
-            'SELECT * FROM messages WHERE room = ? ORDER BY id DESC LIMIT ? OFFSET ?',
-            [data.room, MESSAGES_PER_PAGE, data.offset]
-        );
+        const moreMessages = await db.all('SELECT * FROM messages WHERE room = ? ORDER BY id DESC LIMIT ? OFFSET ?', [data.room, MESSAGES_PER_PAGE, data.offset]);
         if (moreMessages.length > 0) {
             socket.emit("more_messages_loaded", moreMessages.reverse());
         } else {
@@ -342,7 +391,6 @@ io.on("connection", (socket) => {
         const user = socket.data.username;
         try {
             const msg = await db.get("SELECT * FROM messages WHERE id = ?", [id]);
-            
             if (msg && msg.author === user) {
                 await db.run("DELETE FROM messages WHERE id = ?", [id]);
                 io.to(msg.room).emit("message_deleted", id);
@@ -354,8 +402,10 @@ io.on("connection", (socket) => {
         }
     });
 
-    socket.on("disconnect", () => onlineUsers = onlineUsers.filter((u) => u.socketId !== socket.id));
+    socket.on("disconnect", () => {
+        onlineUsers = onlineUsers.filter((u) => u.socketId !== socket.id)
+        console.log(`User disconnected: ${socket.id}`);
+    });
 });
 
-// --- ИЗМЕНЕНИЕ: Запускаем сервер на порту из переменной окружения ---
 server.listen(PORT, () => console.log(`SERVER RUNNING ON PORT ${PORT}`));
