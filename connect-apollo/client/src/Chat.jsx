@@ -51,8 +51,8 @@ const MessageItem = React.memo(({ msg, username, setImageModalSrc, onDelete }) =
 
 function Chat({ socket, username, room, setRoom, handleLogout }) {
     // --- STATE С "ПАМЯТЬЮ" (LocalStorage) ---
-    // Чаты и друзья загружаются сразу из памяти браузера, чтобы не было "мигания"
     
+    // 1. Чаты
     const [myChats, setMyChats] = useState(() => {
         try {
             const saved = localStorage.getItem("apollo_my_chats");
@@ -60,11 +60,20 @@ function Chat({ socket, username, room, setRoom, handleLogout }) {
         } catch (e) { return ["General"]; }
     });
 
+    // 2. Друзья
     const [friends, setFriends] = useState(() => {
         try {
             const saved = localStorage.getItem("apollo_friends");
             return saved ? JSON.parse(saved) : [];
         } catch (e) { return []; }
+    });
+
+    // 3. ПРОФИЛЬ (ИСПРАВЛЕНИЕ МИГАНИЯ)
+    const [myProfile, setMyProfile] = useState(() => {
+        try {
+            const saved = localStorage.getItem("apollo_my_profile");
+            return saved ? JSON.parse(saved) : { bio: "", phone: "", avatar_url: "" };
+        } catch (e) { return { bio: "", phone: "", avatar_url: "" }; }
     });
 
     const [currentMessage, setCurrentMessage] = useState("");
@@ -93,7 +102,6 @@ function Chat({ socket, username, room, setRoom, handleLogout }) {
     const [searchGroupResults, setSearchGroupResults] = useState([]);
 
     // Profile & Avatars
-    const [myProfile, setMyProfile] = useState({ bio: "", phone: "", avatar_url: "" });
     const [viewProfileData, setViewProfileData] = useState(null);
     const [profileForm, setProfileForm] = useState({ bio: "", phone: "" });
     const [groupMembers, setGroupMembers] = useState([]);
@@ -117,14 +125,10 @@ function Chat({ socket, username, room, setRoom, handleLogout }) {
     const audioChunksRef = useRef([]);
     const timerIntervalRef = useRef(null);
     
-    // --- СОХРАНЕНИЕ В LOCALSTORAGE ПРИ ИЗМЕНЕНИИ ---
-    useEffect(() => {
-        localStorage.setItem("apollo_my_chats", JSON.stringify(myChats));
-    }, [myChats]);
-
-    useEffect(() => {
-        localStorage.setItem("apollo_friends", JSON.stringify(friends));
-    }, [friends]);
+    // --- ЭФФЕКТЫ СОХРАНЕНИЯ В LOCALSTORAGE ---
+    useEffect(() => localStorage.setItem("apollo_my_chats", JSON.stringify(myChats)), [myChats]);
+    useEffect(() => localStorage.setItem("apollo_friends", JSON.stringify(friends)), [friends]);
+    useEffect(() => localStorage.setItem("apollo_my_profile", JSON.stringify(myProfile)), [myProfile]);
 
 
     const createImage = useCallback((url) => 
@@ -181,7 +185,14 @@ function Chat({ socket, username, room, setRoom, handleLogout }) {
             setRoom(roomId);
             localStorage.setItem("apollo_room", roomId);
         }
-        if (isMobile) setShowMobileChat(true);
+
+        if (isMobile) {
+            setShowMobileChat(true);
+            // Скрываем клавиатуру
+            if (document.activeElement instanceof HTMLElement) {
+                document.activeElement.blur();
+            }
+        }
     }, [room, setRoom, username, isMobile, myChats]);
 
     // ЭФФЕКТ №1: Глобальные слушатели
@@ -193,25 +204,14 @@ function Chat({ socket, username, room, setRoom, handleLogout }) {
         // --- ОБРАБОТЧИКИ СОБЫТИЙ ---
 
         const handleUserGroups = (groups) => {
-            console.log("[CHAT DEBUG] SOCKET EVENT: user_groups received:", groups);
-            
-            if (!Array.isArray(groups)) {
-                console.error("[CHAT DEBUG] user_groups is NOT an array!", groups);
-                return;
-            }
-
+            if (!Array.isArray(groups)) return;
             // Фильтрация
             const validGroups = groups.filter(g => g && typeof g === 'string');
             const safeGroups = validGroups.includes("General") ? validGroups : ["General", ...validGroups];
-            
-            console.log("[CHAT DEBUG] Setting myChats to:", safeGroups);
             setMyChats(safeGroups); 
-            // МЫ УБРАЛИ АВТОМАТИЧЕСКИЙ SWITCH НА GENERAL ЗДЕСЬ
-            // Чат переключится только если явно придет событие удаления или выхода
         };
 
         const handleFriendsList = (list) => {
-            console.log("[CHAT DEBUG] SOCKET EVENT: friends_list received:", list);
             if (Array.isArray(list)) {
                 const validFriends = list.filter(f => f && typeof f === 'string');
                 setFriends(validFriends);
@@ -221,14 +221,12 @@ function Chat({ socket, username, room, setRoom, handleLogout }) {
         const handleSearchResults = (results) => setSearchResults(results.filter(u => u.username !== username));
         
         const handleJoin = (data) => {
-            console.log("[CHAT DEBUG] SOCKET EVENT: group_created/joined", data);
             setMyChats(prev => (!prev.includes(data.room) ? [...prev, data.room] : prev));
             switchChat(data.room);
             setActiveModal(null);
         };
 
         const handleLeftGroup = (data) => {
-            console.log("[CHAT DEBUG] SOCKET EVENT: left_group_success", data);
             setMyChats(prev => prev.filter(c => c !== data.room));
             switchChat("General");
             setActiveModal(null);
@@ -242,7 +240,6 @@ function Chat({ socket, username, room, setRoom, handleLogout }) {
         };
 
         const handleFriendAdded = (data) => { 
-            console.log("[CHAT DEBUG] SOCKET EVENT: friend_added", data);
             setFriends(prev => [...prev, data.username]); 
             alert(`${data.username} добавлен!`); 
         };
@@ -254,7 +251,11 @@ function Chat({ socket, username, room, setRoom, handleLogout }) {
             if (currentRoom === chatRoom) switchChat("General");
         };
 
-        const handleMyProfile = (data) => { setMyProfile(data); setProfileForm({ bio: data.bio || "", phone: data.phone || ""}); };
+        const handleMyProfile = (data) => { 
+            setMyProfile(data); 
+            setProfileForm({ bio: data.bio || "", phone: data.phone || ""}); 
+        };
+
         const handleUserProfile = (data) => { setViewProfileData(data); setActiveModal("userProfile"); socket.emit("get_avatar_history", data.username) };
         const handleGroupInfoUpdated = (data) => setGroupMembers(data.members);
         const handleMessageDeleted = (deletedId) => setMessageList((prev) => prev.filter((msg) => msg.id !== deletedId));
@@ -294,7 +295,6 @@ function Chat({ socket, username, room, setRoom, handleLogout }) {
         // --- ОЧИСТКА ---
         return () => {
             clearTimeout(timer);
-            console.log("[CHAT DEBUG] GLOBAL EFFECT UNMOUNTED - Cleaning listeners");
             window.removeEventListener('resize', handleResize);
             
             socket.off("user_groups", handleUserGroups);
@@ -335,13 +335,11 @@ function Chat({ socket, username, room, setRoom, handleLogout }) {
 
         const handleReceiveMessage = (data) => {
              if (data.room === room) {
-                console.log("[CHAT DEBUG] Msg received:", data);
                 setMessageList((list) => [...list, data]);
              }
         };
 
         const handleChatHistory = (history) => {
-            console.log("[CHAT DEBUG] History loaded, count:", history.length);
             setMessageList(history);
             setHasMore(history.length >= 30);
             setIsLoadingHistory(false);
@@ -431,6 +429,8 @@ function Chat({ socket, username, room, setRoom, handleLogout }) {
     const isPrivateChat = !myChats.includes(room);
 
     // --- AVATAR FUNCTIONS ---
+    const getAvatarStyle = (imgUrl) => imgUrl ? { backgroundImage: `url(${imgUrl})`, backgroundSize: 'cover', backgroundPosition: 'center', color: 'transparent', border: '2px solid #333' } : {};
+
     const onFileChange = (e) => {
         if (e.target.files && e.target.files.length > 0) {
             const file = e.target.files[0];
@@ -550,12 +550,6 @@ function Chat({ socket, username, room, setRoom, handleLogout }) {
     const leaveGroup = () => { if (window.confirm(myRole === 'owner' ? "Удалить группу?" : "Выйти из группы?")) socket.emit("leave_group", { room }); };
     const removeFriend = (t) => { if (window.confirm(`Удалить ${t}?`)) { socket.emit("remove_friend", t); setActiveModal(null); }};
     const blockUser = (t) => { if (window.confirm(`Заблокировать ${t}?`)) { socket.emit("block_user", t); setActiveModal(null); }};
-    const getAvatarStyle = (imgUrl) => imgUrl ? { backgroundImage: `url(${imgUrl})`, backgroundSize: 'cover', backgroundPosition: 'center', color: 'transparent', border: '2px solid #333' } : {};
-    const formatTime = (sec) => {
-        const m = Math.floor(sec / 60);
-        const s = sec % 60;
-        return `${m}:${s < 10 ? '0' : ''}${s}`;
-    };
 
     // --- RENDER ---
     return (
@@ -582,13 +576,13 @@ function Chat({ socket, username, room, setRoom, handleLogout }) {
             {/* SIDEBAR */}
             <div className={`left-panel ${isMobile && showMobileChat ? 'hidden' : ''}`}>
                 <div className="sidebar-top">
+                    {/* Аватар профиля: используем myProfile.avatar_url, который теперь не мигает */}
                     <div className="my-avatar" style={getAvatarStyle(myProfile.avatar_url)} onClick={() => { socket.emit("get_my_profile", username); socket.emit("get_avatar_history", username); setActiveModal('settings'); }}>
                         {!myProfile.avatar_url && username[0].toUpperCase()}
                     </div>
                     <button className="fab-btn" onClick={() => setActiveModal('actionMenu')}>+</button>
                 </div>
                 <div className="friends-list">
-                    {/* РЕНДЕР ГРУПП С ФИЛЬТРОМ И ЛОГАМИ В КОНСОЛИ */}
                     {myChats.filter(chat => {
                         const isValid = chat && typeof chat === 'string';
                         if (!isValid) console.warn("[CHAT DEBUG] Invalid chat detected in map:", chat);
@@ -714,6 +708,36 @@ function Chat({ socket, username, room, setRoom, handleLogout }) {
                             <div className="slider-group"> <label>Размытие</label> <input type="range" min={0} max={10} step={0.1} value={avatarEditor.filters.blur} onChange={e => setAvatarEditor(p => ({...p, filters: {...p.filters, blur: e.target.value}}))}/> </div>
                         </div>
                         <button className="btn-primary" onClick={handleSaveAvatar}>Применить</button>
+                    </div>
+                </Modal>
+            )}
+
+            {activeModal === 'groupInfo' && ( <Modal title="Участники" onClose={() => setActiveModal(null)}> <div className="profile-hero"> <div className="profile-avatar-large">{room.substring(0, 2)}</div> <div className="profile-name">{room}</div> <div className="profile-status">{groupMembers.length} members</div> </div> <div style={{ maxHeight: 200, overflowY: 'auto', marginBottom: 15 }}> {groupMembers.map((m, i) => ( <div key={i} className="member-item"> <div className="member-info"> <div className="friend-avatar" style={{ fontSize: 12 }}>{m.username[0]}</div> <div>{m.username} {m.role === 'owner' && <span style={{ fontSize: 10, color: '#FFD700', marginLeft: 5 }}>Owner</span>}</div> </div> {myRole === 'owner' && m.role !== 'owner' && m.username !== username && ( <button style={{ color: 'red', background: 'none', border: 'none', cursor: 'pointer' }} onClick={() => socket.emit("remove_group_member", { room, username: m.username })}>&times;</button> )} </div> ))} </div> <div className="action-card" onClick={() => { const n = prompt("Ник:"); if (n) socket.emit("add_group_member", { room, username: n }) }} style={{ marginBottom: 10, justifyContent: 'center' }}><span>➕ Добавить</span></div> <button className="btn-danger" onClick={leaveGroup}>{myRole === 'owner' ? 'Удалить группу' : 'Покинуть группу'}</button> </Modal> )}
+            
+            {activeModal === 'userProfile' && viewProfileData && (
+                <Modal title="Профиль" onClose={() => setActiveModal(null)}>
+                    <div className="profile-hero">
+                        <div className="profile-avatar-large" style={getAvatarStyle(viewProfileData.avatar_url)}>{!viewProfileData.avatar_url && viewProfileData.username[0]?.toUpperCase()}</div>
+                        <div className="profile-name">{viewProfileData.username}</div>
+                        {viewProfileData.isFriend && <div className="profile-status">В контактах</div>}
+                    </div>
+                    <div className="settings-list">
+                        {viewProfileData.bio && <div className="settings-item"><span className="settings-icon">📝</span><div className="settings-label">{viewProfileData.bio}</div></div>}
+                        {viewProfileData.phone && <div className="settings-item"><span className="settings-icon">📞</span><div className="settings-label">{viewProfileData.phone}</div></div>}
+                    </div>
+                    <div className="avatar-history">
+                        <h4>История аватаров</h4>
+                        <div className="avatar-history-container">
+                            {avatarHistory.map(avatar => (
+                                <div key={avatar.id} className="avatar-history-item">
+                                    <img src={avatar.avatar_url} alt="old avatar" onClick={() => setImageModalSrc(avatar.avatar_url)} />
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                    <div style={{marginTop: '20px', display: 'flex', flexDirection: 'column', gap: '5px'}}>
+                      {viewProfileData.isFriend && <div className="settings-item" onClick={() => removeFriend(viewProfileData.username)} style={{ color: 'orange' }}><span className="settings-icon">💔</span><div className="settings-label">Удалить из друзей</div></div>}
+                      <div className="settings-item" onClick={() => blockUser(viewProfileData.username)} style={{ color: 'red' }}><span className="settings-icon">🚫</span><div className="settings-label">Заблокировать</div></div>
                     </div>
                 </Modal>
             )}

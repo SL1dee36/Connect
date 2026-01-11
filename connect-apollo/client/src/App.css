@@ -6,10 +6,11 @@ body {
   background-color: #0f0f0f;
   color: white;
   overflow: hidden;
+  -webkit-tap-highlight-color: transparent;
 }
 
 .App {
-  width: 100vw; height: 100vh;
+  width: 100vw; height: 100dvh;
   display: flex; justify-content: center; align-items: center;
 }
 
