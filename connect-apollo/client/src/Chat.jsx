@@ -139,12 +139,12 @@ function Chat({ socket, username, room, setRoom, handleLogout }) {
 
 
     // --- DEBOUNCED SEARCH EFFECT ---
-    // Это исправляет "плохой поиск". Запрос уходит только когда перестали печатать.
     useEffect(() => {
         const delayDebounceFn = setTimeout(() => {
             if (searchQuery.trim()) {
                 setIsSearching(true);
-                // Определяем, что ищем (людей или группы) в зависимости от открытой модалки
+                console.log(`[SEARCH] Sending query: "${searchQuery}" for modal: ${activeModal}`);
+                
                 if (activeModal === 'addFriend') {
                     socket.emit("search_users", searchQuery);
                 } else if (activeModal === 'searchGroup') {
@@ -242,14 +242,21 @@ function Chat({ socket, username, room, setRoom, handleLogout }) {
             }
         };
 
+        // --- ИСПРАВЛЕННЫЙ ПОИСК ---
         const handleSearchResults = (results) => {
-            setSearchResults(results.filter(u => u.username !== username));
+            console.log("[SEARCH] Users results received:", results);
+            // Если пришел null или не массив, ставим пустой массив
+            const safeResults = Array.isArray(results) ? results : [];
+            // Фильтруем себя, чтобы не искать себя
+            setSearchResults(safeResults.filter(u => u.username !== username));
             setIsSearching(false);
         };
 
         const handleSearchGroupResults = (results) => {
-            setSearchGroupResults(results);
-            setIsSearching(false);
+             console.log("[SEARCH] Groups results received:", results);
+             const safeResults = Array.isArray(results) ? results : [];
+             setSearchGroupResults(safeResults);
+             setIsSearching(false);
         };
         
         const handleJoin = (data) => {
@@ -713,6 +720,7 @@ function Chat({ socket, username, room, setRoom, handleLogout }) {
                     <input className="modal-input" placeholder="Название..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} /> 
                     {isSearching && <div style={{textAlign: 'center', color: '#888', padding: 10}}>Поиск...</div>}
                     <div className="search-results"> 
+                        {searchGroupResults.length === 0 && searchQuery && !isSearching && <div style={{textAlign: 'center', color: '#666', padding: 10}}>Ничего не найдено</div>}
                         {searchGroupResults.map((g, i) => ( <div key={i} className="search-item"> <span>{g.room}</span> {!myChats.includes(g.room) && <button className="add-btn-small" onClick={() => socket.emit("join_existing_group", { room: g.room, username })}>➜</button>} </div> ))} 
                     </div> 
                 </Modal> 
@@ -723,6 +731,7 @@ function Chat({ socket, username, room, setRoom, handleLogout }) {
                     <input className="modal-input" placeholder="@username" value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} /> 
                     {isSearching && <div style={{textAlign: 'center', color: '#888', padding: 10}}>Поиск...</div>}
                     <div className="search-results"> 
+                         {searchResults.length === 0 && searchQuery && !isSearching && <div style={{textAlign: 'center', color: '#666', padding: 10}}>Ничего не найдено</div>}
                         {searchResults.map((u, i) => ( <div key={i} className="search-item"> <div className="member-info"> <div className="friend-avatar" style={{ fontSize: 12 }}>{u.username[0]}</div> <span>{u.username}</span> </div> {!friends.includes(u.username) && <button className="add-btn-small" onClick={() => { socket.emit("send_friend_request", { fromUser: username, toUserSocketId: u.socketId }); alert('Sent!') }}>+</button>} </div> ))} 
                     </div> 
                 </Modal> 
