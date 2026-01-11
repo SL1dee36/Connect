@@ -50,11 +50,25 @@ const MessageItem = React.memo(({ msg, username, setImageModalSrc, onDelete }) =
 
 
 function Chat({ socket, username, room, setRoom, handleLogout }) {
-    // State
+    // --- STATE С "ПАМЯТЬЮ" (LocalStorage) ---
+    // Чаты и друзья загружаются сразу из памяти браузера, чтобы не было "мигания"
+    
+    const [myChats, setMyChats] = useState(() => {
+        try {
+            const saved = localStorage.getItem("apollo_my_chats");
+            return saved ? JSON.parse(saved) : ["General"];
+        } catch (e) { return ["General"]; }
+    });
+
+    const [friends, setFriends] = useState(() => {
+        try {
+            const saved = localStorage.getItem("apollo_friends");
+            return saved ? JSON.parse(saved) : [];
+        } catch (e) { return []; }
+    });
+
     const [currentMessage, setCurrentMessage] = useState("");
     const [messageList, setMessageList] = useState([]);
-    const [friends, setFriends] = useState([]);
-    const [myChats, setMyChats] = useState(["General"]); 
     const [hasMore, setHasMore] = useState(true);
     const [isLoadingHistory, setIsLoadingHistory] = useState(false);
     
@@ -103,6 +117,16 @@ function Chat({ socket, username, room, setRoom, handleLogout }) {
     const audioChunksRef = useRef([]);
     const timerIntervalRef = useRef(null);
     
+    // --- СОХРАНЕНИЕ В LOCALSTORAGE ПРИ ИЗМЕНЕНИИ ---
+    useEffect(() => {
+        localStorage.setItem("apollo_my_chats", JSON.stringify(myChats));
+    }, [myChats]);
+
+    useEffect(() => {
+        localStorage.setItem("apollo_friends", JSON.stringify(friends));
+    }, [friends]);
+
+
     const createImage = useCallback((url) => 
         new Promise((resolve, reject) => {
             const image = new Image();
@@ -151,6 +175,8 @@ function Chat({ socket, username, room, setRoom, handleLogout }) {
         const isGroupChat = targetName === "General" || myChats.includes(targetName);
         const roomId = isGroupChat ? targetName : [username, targetName].sort().join("_");
         
+        console.log("[CHAT DEBUG] Calculated roomId:", roomId);
+
         if (roomId !== room) {
             setRoom(roomId);
             localStorage.setItem("apollo_room", roomId);
@@ -169,21 +195,19 @@ function Chat({ socket, username, room, setRoom, handleLogout }) {
         const handleUserGroups = (groups) => {
             console.log("[CHAT DEBUG] SOCKET EVENT: user_groups received:", groups);
             
-            if (!Array.isArray(groups)) return;
+            if (!Array.isArray(groups)) {
+                console.error("[CHAT DEBUG] user_groups is NOT an array!", groups);
+                return;
+            }
 
             // Фильтрация
             const validGroups = groups.filter(g => g && typeof g === 'string');
             const safeGroups = validGroups.includes("General") ? validGroups : ["General", ...validGroups];
             
-            setMyChats(safeGroups);
-
-            const currentRoom = localStorage.getItem("apollo_room") || "General";
-            const isCurrentRoomPrivate = currentRoom.includes('_');
-
-            if (!isCurrentRoomPrivate && !safeGroups.includes(currentRoom)) {
-                console.log("[CHAT DEBUG] Current room invalid, switching to General");
-                switchChat("General");
-            }
+            console.log("[CHAT DEBUG] Setting myChats to:", safeGroups);
+            setMyChats(safeGroups); 
+            // МЫ УБРАЛИ АВТОМАТИЧЕСКИЙ SWITCH НА GENERAL ЗДЕСЬ
+            // Чат переключится только если явно придет событие удаления или выхода
         };
 
         const handleFriendsList = (list) => {
@@ -204,6 +228,7 @@ function Chat({ socket, username, room, setRoom, handleLogout }) {
         };
 
         const handleLeftGroup = (data) => {
+            console.log("[CHAT DEBUG] SOCKET EVENT: left_group_success", data);
             setMyChats(prev => prev.filter(c => c !== data.room));
             switchChat("General");
             setActiveModal(null);
@@ -217,6 +242,7 @@ function Chat({ socket, username, room, setRoom, handleLogout }) {
         };
 
         const handleFriendAdded = (data) => { 
+            console.log("[CHAT DEBUG] SOCKET EVENT: friend_added", data);
             setFriends(prev => [...prev, data.username]); 
             alert(`${data.username} добавлен!`); 
         };
@@ -257,18 +283,18 @@ function Chat({ socket, username, room, setRoom, handleLogout }) {
         socket.on("group_info_updated", handleGroupInfoUpdated);
         socket.on("message_deleted", handleMessageDeleted);
 
-        // --- ЗАПРОС ДАННЫХ (С ЗАДЕРЖКОЙ) ---
-        // Ждем 500мс, чтобы App.jsx успел отправить 'authenticate' и сервер сохранил username
+        // --- ЗАПРОС ДАННЫХ ---
+        // Задержка небольшая, чтобы убедиться что авторизация прошла
         const timer = setTimeout(() => {
             console.log("[CHAT DEBUG] Emitting get_initial_data...");
             socket.emit("get_initial_data");
             socket.emit("get_my_profile", username);
-        }, 500);
+        }, 300);
 
         // --- ОЧИСТКА ---
         return () => {
             clearTimeout(timer);
-            console.log("[CHAT DEBUG] GLOBAL EFFECT UNMOUNTED");
+            console.log("[CHAT DEBUG] GLOBAL EFFECT UNMOUNTED - Cleaning listeners");
             window.removeEventListener('resize', handleResize);
             
             socket.off("user_groups", handleUserGroups);
@@ -309,11 +335,13 @@ function Chat({ socket, username, room, setRoom, handleLogout }) {
 
         const handleReceiveMessage = (data) => {
              if (data.room === room) {
+                console.log("[CHAT DEBUG] Msg received:", data);
                 setMessageList((list) => [...list, data]);
              }
         };
 
         const handleChatHistory = (history) => {
+            console.log("[CHAT DEBUG] History loaded, count:", history.length);
             setMessageList(history);
             setHasMore(history.length >= 30);
             setIsLoadingHistory(false);
@@ -560,8 +588,12 @@ function Chat({ socket, username, room, setRoom, handleLogout }) {
                     <button className="fab-btn" onClick={() => setActiveModal('actionMenu')}>+</button>
                 </div>
                 <div className="friends-list">
-                    {/* Исправлен баг с "0" и добавлена фильтрация */}
-                    {myChats.filter(chat => typeof chat === 'string').map((chat, idx) => ( 
+                    {/* РЕНДЕР ГРУПП С ФИЛЬТРОМ И ЛОГАМИ В КОНСОЛИ */}
+                    {myChats.filter(chat => {
+                        const isValid = chat && typeof chat === 'string';
+                        if (!isValid) console.warn("[CHAT DEBUG] Invalid chat detected in map:", chat);
+                        return isValid;
+                    }).map((chat, idx) => ( 
                         <div key={idx} className="friend-avatar" title={chat} onClick={() => switchChat(chat)} style={{ background: chat === room ? '#f0f0f0' : '#333', border: chat === room ? '2px solid #2b95ff' : 'none', color: chat === room ? 'black' : 'white' }}> 
                             {chat.substring(0, 2)} 
                         </div> 
@@ -569,7 +601,7 @@ function Chat({ socket, username, room, setRoom, handleLogout }) {
                     
                     {friends.length > 0 && <div className="divider">Контакты</div>}
                     
-                    {friends.filter(f => typeof f === 'string').map((friend, idx) => { 
+                    {friends.filter(f => f && typeof f === 'string').map((friend, idx) => { 
                         const isActive = [username, friend].sort().join("_") === room; 
                         return (
                             <div key={idx} className="friend-avatar" onClick={() => switchChat(friend)} title={friend} style={{ background: isActive ? '#2b95ff' : '#444' }}>
@@ -658,13 +690,30 @@ function Chat({ socket, username, room, setRoom, handleLogout }) {
                             {avatarHistory.map(avatar => (
                                 <div key={avatar.id} className="avatar-history-item">
                                     <img src={avatar.avatar_url} alt="old avatar" onClick={() => setImageModalSrc(avatar.avatar_url)} />
+                                    <button className="delete-avatar-btn" onClick={() => socket.emit('delete_avatar', { avatarId: avatar.id })}>🗑</button>
                                 </div>
                             ))}
                         </div>
                     </div>
-                    <div style={{marginTop: '20px', display: 'flex', flexDirection: 'column', gap: '5px'}}>
-                      {viewProfileData.isFriend && <div className="settings-item" onClick={() => removeFriend(viewProfileData.username)} style={{ color: 'orange' }}><span className="settings-icon">💔</span><div className="settings-label">Удалить из друзей</div></div>}
-                      <div className="settings-item" onClick={() => blockUser(viewProfileData.username)} style={{ color: 'red' }}><span className="settings-icon">🚫</span><div className="settings-label">Заблокировать</div></div>
+                    <button className="btn-primary" onClick={saveProfile}>Сохранить</button>
+                    <button className="btn-danger" style={{ marginTop: 10 }} onClick={handleLogout}>Выйти</button>
+                </Modal>
+            )}
+
+            {avatarEditor.isOpen && (
+                <Modal title="Редактор Аватара" onClose={() => setAvatarEditor({ ...avatarEditor, isOpen: false })}>
+                    <div className="avatar-editor-content">
+                        <div className="crop-container">
+                            <Cropper image={avatarEditor.image} crop={avatarEditor.crop} zoom={avatarEditor.zoom} aspect={1} onCropChange={(crop) => setAvatarEditor(p => ({...p, crop}))} onZoomChange={(zoom) => setAvatarEditor(p => ({...p, zoom}))} onCropComplete={(_, croppedAreaPixels) => setAvatarEditor(p => ({...p, croppedAreaPixels}))} imageStyle={{ filter: `brightness(${avatarEditor.filters.brightness}%) contrast(${avatarEditor.filters.contrast}%) saturate(${avatarEditor.filters.saturate}%) blur(${avatarEditor.filters.blur}px)` }} />
+                        </div>
+                        <div className="editor-controls">
+                            <div className="slider-group"> <label>Zoom</label> <input type="range" min={1} max={3} step={0.1} value={avatarEditor.zoom} onChange={e => setAvatarEditor(p => ({...p, zoom: e.target.value}))}/> </div>
+                            <div className="slider-group"> <label>Яркость</label> <input type="range" min={0} max={200} value={avatarEditor.filters.brightness} onChange={e => setAvatarEditor(p => ({...p, filters: {...p.filters, brightness: e.target.value}}))}/> </div>
+                            <div className="slider-group"> <label>Контраст</label> <input type="range" min={0} max={200} value={avatarEditor.filters.contrast} onChange={e => setAvatarEditor(p => ({...p, filters: {...p.filters, contrast: e.target.value}}))}/> </div>
+                            <div className="slider-group"> <label>Насыщ.</label> <input type="range" min={0} max={200} value={avatarEditor.filters.saturate} onChange={e => setAvatarEditor(p => ({...p, filters: {...p.filters, saturate: e.target.value}}))}/> </div>
+                            <div className="slider-group"> <label>Размытие</label> <input type="range" min={0} max={10} step={0.1} value={avatarEditor.filters.blur} onChange={e => setAvatarEditor(p => ({...p, filters: {...p.filters, blur: e.target.value}}))}/> </div>
+                        </div>
+                        <button className="btn-primary" onClick={handleSaveAvatar}>Применить</button>
                     </div>
                 </Modal>
             )}
