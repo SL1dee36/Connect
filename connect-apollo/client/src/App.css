@@ -371,3 +371,11 @@ body {
 .delete-msg-btn:hover { color: #ff4d4d; transform: scale(1.1); }
 
 @media (max-width: 768px) { .delete-msg-btn { opacity: 0.7; } }
+
+.tool-btn svg,
+.mic-btn svg {
+  width: 20px;
+  height: 20px;
+  flex-shrink: 0;
+  display: block;
+}
