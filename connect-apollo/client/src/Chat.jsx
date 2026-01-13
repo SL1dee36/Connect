@@ -1006,8 +1006,8 @@ function Chat({ socket, username, room, setRoom, handleLogout }) {
                 >
                   <svg
                     xmlns="http://www.w3.org/2000/svg"
-                    width="32"
-                    height="32"
+                    width="18"
+                    height="18"
                     viewBox="0 0 24 24"
                   >
                     <path
