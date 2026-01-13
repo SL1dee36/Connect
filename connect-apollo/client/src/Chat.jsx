@@ -1002,9 +1002,9 @@ function Chat({ socket, username, room, setRoom, handleLogout }) {
                     fontSize: 12,
                     color: "#666",
                     padding: 10,
-                    display: flex,
-                    alignItems: center,
-                    justifyContent: center,
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
                   }}
                 >
                   <svg
