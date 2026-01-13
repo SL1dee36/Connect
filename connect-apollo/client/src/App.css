@@ -103,7 +103,7 @@ body {
 
 .menu-btn { background: none; border: none; color: #aaa; font-size: 24px; cursor: pointer; }
 .dropdown-menu {
-  position: absolute; top: 60px; right: 30px; width: 200px;
+  position: absolute; top: 40px; right: 10px; width: 200px;
   background: #1e1e1e; border: 1px solid #333; border-radius: 12px;
   padding: 5px; z-index: 100;
 }
@@ -501,14 +501,25 @@ body {
 .btn-danger:hover { background: rgba(255, 89, 89, 0.1); }
 
 /* --- Grid кнопок действий --- */
-.action-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.action-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; padding: 24px;}
 .action-card {
     background: #2c2c2c;
     padding: 15px;
     border-radius: 12px;
-    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    display: flex; 
+    flex-direction: column; 
+    align-items: center; 
+    justify-content: center;
     gap: 8px;
     cursor: pointer;
+    height: 100px;
+}
+
+.action-card span {
+  padding: 0px !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important
 }
 
 /* Анимации Desktop */
@@ -554,7 +565,7 @@ body {
       background: #1c1c1d;
       height: 56px;
       box-sizing: border-box;
-      border-bottom: 1px solid #141414;
+      /* border-bottom: 1px solid #141414; */
   }
   
   .modal-body, .modal-content > div:not(.modal-header) {
@@ -567,7 +578,8 @@ body {
       background: #1c1c1d;
       padding-top: 30px;
       padding-bottom: 25px;
-      border-bottom: 10px solid #000;
+      /* border-bottom: 10px solid #000; */
+      border-bottom: 1px solid #00000000;
   }
 
   .settings-list {
@@ -756,8 +768,18 @@ body {
 
   /* Исправление для сообщений, чтобы они читались на темном фоне */
   .message { max-width: 80%; z-index: 1; }
-  .back-btn { background: rgba(255,255,255,0.0); width: 32px; height: 32px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 14px; margin-right: 12px; color: white; }
-
+    .back-btn {
+      background: rgba(255, 255, 255, 0.0);
+      /* width: 32px;
+      height: 32px; */
+      /* border-radius: 50%; */
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 14px;
+      margin-right: 12px;
+      color: white;
+    }
   .hidden { display: none !important; }
 
   /* Auth Forms */
@@ -903,6 +925,75 @@ body {
     /* Важно для iOS скролла */
     -webkit-overflow-scrolling: touch; 
     padding: 0 20px 20px 20px;
+}
+
+.modal-scroll-container {
+
+  .search-result {
+    padding: 4px 16px;
+    border: 1px solid #333;
+    border-radius: 16px
+  }
+
+  .modal-input {
+    margin-bottom: 12px;
+  }
+
+}
+
+span {
+  /* border: 1px solid; */
+  width: 80%;
+  /* height: 50px; */
+  display: flex;
+  align-items: center;
+  padding-left: 20px;
+  /* justify-content: center;; */
+}
+
+.search-item {
+  display: flex;
+  /* padding: 5px; */
+  height: 50px;
+  border-radius: 12px;
+  border: 1px solid #333;
+  padding: 4px;
+  background-color: #252525;
+  flex-direction: row;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 4px;
+}
+
+.member-info {
+  display: flex;
+}
+
+.search-item button {
+  height: 50px;
+  border-radius: 12px;
+}
+
+@media (max-width: 768px) {
+
+  .modal-scroll-container {
+    margin-inline: 24px;
+  }
+
+  .search-item {
+    display: flex;
+    /* padding: 5px; */
+    height: 50px;
+    border-radius: 12px;
+    border: none !important;
+    padding: 4px;
+    background-color: #222 !important;
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 4px;
+  }
+
 }
 
 /* Переопределяем padding для modal-body, так как теперь у нас wrapper */
