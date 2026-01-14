@@ -1135,3 +1135,7 @@ span {
 .toggle-switch.on .knob {
     transform: translateX(18px);
 }
+
+#plus-icon {
+  margin-top: -3px;
+}
