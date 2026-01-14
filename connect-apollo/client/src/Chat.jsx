@@ -273,15 +273,11 @@ function Chat({ socket, username, room, setRoom, handleLogout }) {
     useEffect(() => localStorage.setItem("apollo_friends", JSON.stringify(friends)), [friends]);
     useEffect(() => localStorage.setItem("apollo_my_profile", JSON.stringify(myProfile)), [myProfile]);
 
-    // --- AUTO MARK READ EFFECT ---
-    // Это автоматически пометит уведомления как прочитанные при открытии модального окна
     useEffect(() => {
         if (activeModal === 'notifications') {
             const unread = notifications.filter(n => !n.is_read);
             if (unread.length > 0) {
-                // Отправляем на сервер
                 unread.forEach(n => socket.emit("mark_notification_read", { id: n.id }));
-                // Обновляем локально, чтобы убрать красную точку
                 setNotifications(prev => prev.map(n => ({ ...n, is_read: 1 })));
                 setHasUnreadNotifs(false);
             }
@@ -352,7 +348,7 @@ function Chat({ socket, username, room, setRoom, handleLogout }) {
         if (isMobile) { setShowMobileChat(true); if (document.activeElement instanceof HTMLElement) document.activeElement.blur(); }
     }, [room, setRoom, username, isMobile, myChats]);
 
-    // GLOBAL LISTENERS EFFECT
+    // --- FIX: SEPARATED GLOBAL SOCKET LISTENERS ---
     useEffect(() => {
         const handleResize = () => setIsMobile(window.innerWidth <= 768);
         window.addEventListener('resize', handleResize);
@@ -378,6 +374,12 @@ function Chat({ socket, username, room, setRoom, handleLogout }) {
             sendSystemNotification("Новое уведомление", notif.type === 'friend_request' ? `Заявка в друзья от ${notif.content}` : notif.content);
         };
 
+        const handleMyProfile = (data) => {
+             setMyProfile(data);
+             // FIX: DON'T OVERWRITE FORM WHILE TYPING.
+             // We only update the global store, form is updated when opening modal.
+        };
+
         socket.on("user_groups", (groups) => { if(Array.isArray(groups)) setMyChats(groups.includes("General") ? groups : ["General", ...groups]); });
         socket.on("friends_list", (list) => { if(Array.isArray(list)) setFriends(list); });
         socket.on("search_results", handleSearchResults);
@@ -388,27 +390,42 @@ function Chat({ socket, username, room, setRoom, handleLogout }) {
         socket.on("group_deleted", (data) => { setMyChats(prev => prev.filter(c => c !== data.room)); if(localStorage.getItem("apollo_room") === data.room) switchChat("General"); alert("Group Deleted"); });
         socket.on("friend_added", (data) => { setFriends(prev => [...prev, data.username]); alert(`${data.username} добавлен!`); });
         socket.on("friend_removed", (data) => { setFriends(prev => prev.filter(f => f !== data.username)); if(localStorage.getItem("apollo_room") === [username, data.username].sort().join("_")) switchChat("General"); });
-        socket.on("my_profile_data", (data) => { setMyProfile(data); setProfileForm({ bio: data.bio || "", phone: data.phone || ""}); });
+        socket.on("my_profile_data", handleMyProfile);
         socket.on("user_profile_data", (data) => { setViewProfileData(data); setActiveModal("userProfile"); socket.emit("get_avatar_history", data.username); });
-        socket.on("group_info_updated", (data) => setGroupMembers(data.members));
-        socket.on("message_deleted", (id) => setMessageList((prev) => prev.filter((msg) => msg.id !== id)));
+        
         socket.on("notification_history", handleNotificationHistory);
         socket.on("new_notification", handleNewNotification);
         socket.on("error_message", (d) => alert(d.msg));
 
-        const timer = setTimeout(() => { socket.emit("get_initial_data"); socket.emit("get_my_profile", username); }, 300);
+        // Initial Data Fetch
+        socket.emit("get_initial_data"); 
+        socket.emit("get_my_profile", username);
+
         return () => {
-            clearTimeout(timer);
             window.removeEventListener('resize', handleResize);
-            socket.off("search_results", handleSearchResults);
-            socket.off("search_groups_results", handleSearchGroupResults);
-            socket.off("notification_history", handleNotificationHistory);
-            socket.off("new_notification", handleNewNotification);
+            socket.off("user_groups");
+            socket.off("friends_list");
+            socket.off("search_results");
+            socket.off("search_groups_results");
+            socket.off("group_created");
+            socket.off("group_joined");
+            socket.off("left_group_success");
+            socket.off("group_deleted");
+            socket.off("friend_added");
+            socket.off("friend_removed");
+            socket.off("my_profile_data");
+            socket.off("user_profile_data");
+            socket.off("notification_history");
+            socket.off("new_notification");
+            socket.off("error_message");
         };
     }, [socket, username, switchChat, playNotificationSound, sendSystemNotification]);
 
+    // --- FIX: SEPARATED ROOM LISTENERS (No more flooding) ---
     useEffect(() => {
         if (!room) return;
+        
+        // Reset local room state
         setMessageList([]);
         setHasMore(true);
         setTypingText("");
@@ -416,6 +433,7 @@ function Chat({ socket, username, room, setRoom, handleLogout }) {
         setCurrentMessage("");
         setReplyingTo(null);
         setIsLoadingHistory(true);
+        
         socket.emit("join_room", { username, room });
 
         const handleReceiveMessage = (data) => {
@@ -439,7 +457,9 @@ function Chat({ socket, username, room, setRoom, handleLogout }) {
         socket.on("no_more_messages", () => { setHasMore(false); setIsLoadingHistory(false); });
         socket.on("display_typing", (d) => { if(d.room === room) { setTypingText(`${d.username} печатает...`); clearTimeout(typingTimeoutRef.current); typingTimeoutRef.current = setTimeout(() => setTypingText(""), 3000); } });
         socket.on("group_info_data", (d) => { if(d.room === room) { setGroupMembers(d.members); setMyRole(d.myRole); } });
-        
+        socket.on("group_info_updated", (data) => { if(room === data.members?.[0]?.room) setGroupMembers(data.members); });
+        socket.on("message_deleted", (id) => setMessageList((prev) => prev.filter((msg) => msg.id !== id)));
+
         return () => {
             socket.off("receive_message", handleReceiveMessage);
             socket.off("chat_history");
@@ -447,6 +467,8 @@ function Chat({ socket, username, room, setRoom, handleLogout }) {
             socket.off("no_more_messages");
             socket.off("display_typing");
             socket.off("group_info_data");
+            socket.off("group_info_updated");
+            socket.off("message_deleted");
         };
     }, [room, socket, username, playNotificationSound, sendSystemNotification]);
 
@@ -573,6 +595,15 @@ function Chat({ socket, username, room, setRoom, handleLogout }) {
         if (!myChats.includes(room)) { socket.emit("get_user_profile", room.replace(username, "").replace("_", "") || room); setShowMenu(false); }
         else { socket.emit("get_group_info", room); setActiveModal("groupInfo"); setShowMenu(false); }
     };
+    
+    // FIX: Initialize form only when opening settings
+    const openSettings = () => {
+        socket.emit("get_my_profile", username); 
+        socket.emit("get_avatar_history", username); 
+        setProfileForm({ bio: myProfile.bio || "", phone: myProfile.phone || "" });
+        setActiveModal("settings");
+    };
+
     const saveProfile = () => { socket.emit("update_profile", { username, bio: profileForm.bio, phone: profileForm.phone }); setActiveModal(null); };
     const leaveGroup = () => { if (window.confirm(myRole === 'owner' ? "Удалить группу?" : "Выйти из группы?")) socket.emit("leave_group", { room }); };
     const removeFriend = (t) => { if (window.confirm(`Удалить ${t}?`)) { socket.emit("remove_friend", t); setActiveModal(null); }};
@@ -598,7 +629,7 @@ function Chat({ socket, username, room, setRoom, handleLogout }) {
         <div className={`left-panel ${isMobile && showMobileChat ? "hidden" : ""}`}>
           <div className="sidebar-top">
             <div className="sidebar-header-content">
-              <div className="my-avatar" style={getAvatarStyle(myProfile.avatar_url)} onClick={() => { socket.emit("get_my_profile", username); socket.emit("get_avatar_history", username); setActiveModal("settings"); }}>{!myProfile.avatar_url && username[0].toUpperCase()}</div>
+              <div className="my-avatar" style={getAvatarStyle(myProfile.avatar_url)} onClick={openSettings}>{!myProfile.avatar_url && username[0].toUpperCase()}</div>
               {isMobile && <div className="mobile-app-title">Chats</div>}
             </div>
             <div className="actMenu" style={{display: 'flex', gap: 15, alignItems: 'center'}}>
