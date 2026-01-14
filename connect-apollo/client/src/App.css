@@ -689,7 +689,7 @@ body {
   .sidebar-header-content { display: flex; align-items: center; gap: 15px; }
   .mobile-app-title { display: block; font-size: 24px; font-weight: 700; letter-spacing: -0.5px; }
   .my-avatar { width: 40px; height: 40px; border: 1px solid #444; font-size: 16px; }
-  .fab-btn { width: 40px; height: 40px; border-radius: 12px; box-shadow: none; background: #222; border: 1px solid #333; }
+  .fab-btn { width: 40px; height: 40px; display: grid; border-radius: 12px; box-shadow: none; background: #222; border: 1px solid #333; }
 
   /* Список чатов */
   .friends-list { 
