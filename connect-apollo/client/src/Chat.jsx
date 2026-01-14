@@ -736,8 +736,8 @@ function Chat({ socket, username, room, setRoom, handleLogout }) {
               {isMobile && <div className="mobile-app-title">Chats</div>}
             </div>
             <div className="actMenu" style={{display: 'flex', gap: 15, alignItems: 'center'}}>
-                 <div onClick={() => setActiveModal("notifications")} title="Уведомления"><IconBell hasUnread={hasUnreadNotifs} /></div>
-                 <button className="fab-btn" onClick={() => setActiveModal("actionMenu")}>+</button>
+                 <div onClick={() => setActiveModal("notifications")} title="notifications"><IconBell hasUnread={hasUnreadNotifs} /></div>
+                 <button className="fab-btn" onClick={() => setActiveModal("actionMenu")}><svg xmlns="http://www.w3.org/2000/svg" width="200" height="200" viewBox="0 0 24 24" fill="#ffffff"><path fill="#ffffff" d="M11 4h2v7h7v2h-7v7h-2v-7H4v-2h7V4z"/></svg></button>
             </div>
           </div>
 
