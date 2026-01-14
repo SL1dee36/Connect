@@ -437,7 +437,8 @@ function Chat({ socket, username, room, setRoom, handleLogout }) {
                  notifications_enabled: data.notifications_enabled === 1 // Convert sqlite integer to boolean check
              });
         };
-
+        
+        socket.on("avatar_history_data", (data) => setAvatarHistory(data)); 
         socket.on("user_groups", (groups) => { if(Array.isArray(groups)) setMyChats(groups.includes("General") ? groups : ["General", ...groups]); });
         socket.on("friends_list", (list) => { if(Array.isArray(list)) setFriends(list); });
         socket.on("search_results", handleSearchResults);
@@ -574,8 +575,19 @@ function Chat({ socket, username, room, setRoom, handleLogout }) {
         try {
             const res = await fetch(`${BACKEND_URL}/upload-avatar`, { method: 'POST', body: formData });
             const data = await res.json();
-            if(data.profile) setMyProfile(prev => ({...prev, ...data.profile}));
-        } catch (error) {} finally { setAvatarEditor({ isOpen: false, image: null, crop: { x: 0, y: 0 }, zoom: 1, croppedAreaPixels: null, filters: { brightness: 100, contrast: 100, saturate: 100, blur: 0 }}); }
+            if(data.profile) {
+                setMyProfile(prev => ({...prev, ...data.profile}));
+                // FIX: Обновляем историю аватарок сразу после загрузки
+                socket.emit("get_avatar_history", username);
+            }
+        } catch (error) {
+            console.error(error);
+        } finally { 
+            setAvatarEditor({ 
+                isOpen: false, image: null, crop: { x: 0, y: 0 }, zoom: 1, croppedAreaPixels: null, 
+                filters: { brightness: 100, contrast: 100, saturate: 100, blur: 0 }
+            }); 
+        }
     };
     const startRecording = async () => {
         try {

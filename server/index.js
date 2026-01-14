@@ -428,6 +428,8 @@ io.on("connection", async (socket) => {
 
                 // TRANSACTION for changing username (Nametag)
                 await db.run("BEGIN TRANSACTION");
+
+                // 1. Update basic tables
                 await db.run("UPDATE users SET username = ? WHERE username = ?", [d.newUsername, username]);
                 await db.run("UPDATE messages SET author = ? WHERE author = ?", [d.newUsername, username]);
                 await db.run("UPDATE messages SET reply_to_author = ? WHERE reply_to_author = ?", [d.newUsername, username]);
@@ -439,10 +441,30 @@ io.on("connection", async (socket) => {
                 await db.run("UPDATE blocked_users SET blocked = ? WHERE blocked = ?", [d.newUsername, username]);
                 await db.run("UPDATE user_avatars SET username = ? WHERE username = ?", [d.newUsername, username]);
                 await db.run("UPDATE notifications SET user_to = ? WHERE user_to = ?", [d.newUsername, username]);
+
+                // 2. CRITICAL FIX: Update Room IDs for private chats in messages table
+                // Find all rooms involving the old username
+                const involvedRooms = await db.all(
+                    "SELECT DISTINCT room FROM messages WHERE room LIKE ? OR room LIKE ?", 
+                    [`${username}_%`, `%_${username}`]
+                );
+
+                for (const row of involvedRooms) {
+                    const parts = row.room.split('_');
+                    // Check if it's a private chat format (exactly 2 parts)
+                    if (parts.length === 2 && (parts[0] === username || parts[1] === username)) {
+                        const otherUser = parts[0] === username ? parts[1] : parts[0];
+                        // Generate new room ID alphabetically sorted
+                        const newRoomName = [d.newUsername, otherUser].sort().join('_');
+                        
+                        // Update messages to point to the new room
+                        await db.run("UPDATE messages SET room = ? WHERE room = ?", [newRoomName, row.room]);
+                    }
+                }
+
                 await db.run("COMMIT");
 
                 // Since username changed, token is invalid. 
-                // In a real app, we might issue a new token, but for safety/simplicity, force logout.
                 socket.emit("force_logout", { msg: "Ваш @nametag изменен. Пожалуйста, войдите снова." });
                 return; 
             } catch (err) {
