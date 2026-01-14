@@ -1014,7 +1014,9 @@ span {
 @keyframes fadeOut { to { opacity: 0; } }
 @keyframes popOut { to { opacity: 0; transform: scale(0.9); } }
 
-
+.actMenu {
+  flex-direction: column-reverse;
+}
 /* --- МОБИЛЬНЫЕ СТИЛИ (ОБНОВЛЕНИЕ) --- */
 @media (max-width: 768px) {
   .modal-content {
@@ -1039,6 +1041,10 @@ span {
   /* Убираем паддинги у wrapper'а, они теперь внутри container */
   .modal-scroll-container {
       padding: 0 15px 30px 15px; /* Больше отступ снизу на мобилке */
+  }
+
+  .actMenu {
+    flex-direction: row !important;
   }
 }
 
