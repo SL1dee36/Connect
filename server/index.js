@@ -1,3 +1,5 @@
+// --- START OF FILE index.js ---
+
 const express = require("express");
 const app = express();
 const http = require("http");
@@ -56,6 +58,10 @@ async function initDB() {
     await safeRun(`ALTER TABLE notifications ADD COLUMN data TEXT`);
     await safeRun(`ALTER TABLE notifications ADD COLUMN is_read BOOLEAN DEFAULT 0`);
     await safeRun(`ALTER TABLE notifications ADD COLUMN created_at DATETIME DEFAULT CURRENT_TIMESTAMP`);
+    
+    // --- NEW COLUMNS FOR FEATURES ---
+    await safeRun(`ALTER TABLE user_profiles ADD COLUMN display_name TEXT DEFAULT ''`);
+    await safeRun(`ALTER TABLE user_profiles ADD COLUMN notifications_enabled BOOLEAN DEFAULT 1`);
 
     console.log("Database connected & Schema synced");
 }
@@ -71,6 +77,9 @@ app.post("/register", async (req, res) => {
         if (existing) return res.status(409).json({ message: "User exists" });
         const hash = await bcrypt.hash(password, 10);
         await db.run("INSERT INTO users (username, password_hash) VALUES (?, ?)", [username, hash]);
+        // Init profile
+        await db.run("INSERT INTO user_profiles (username, display_name) VALUES (?, ?)", [username, username]);
+        
         const user = await db.get("SELECT * FROM users WHERE username = ?", [username]);
         const token = jwt.sign({ id: user.id, username: user.username }, JWT_SECRET, { expiresIn: "7d" });
         res.status(201).json({ token });
@@ -95,7 +104,7 @@ app.post("/login", async (req, res) => {
     }
 });
 
-// --- UPLOAD ROUTES ---
+// --- UPLOAD ROUTES (SAME AS BEFORE) ---
 const upload = multer({ storage: multer.memoryStorage() });
 const processImage = async (buf) => {
     const name = Date.now() + "-" + Math.round(Math.random() * 1e9) + ".webp";
@@ -161,43 +170,51 @@ async function isBlocked(t, s) {
     return !!(await db.get(`SELECT * FROM blocked_users WHERE blocker=? AND blocked=?`, [t, s]));
 }
 
-// --- MIDDLEWARE AUTH (ИСПРАВЛЕНИЕ ПРОПАВШЕГО АВТОРА) ---
+// --- HELPER FOR NOTIFICATIONS ---
+async function sendNotification(toUser, type, content, dataStr = "") {
+    if (!db) return;
+    
+    // Check user settings
+    const pref = await db.get("SELECT notifications_enabled FROM user_profiles WHERE username = ?", [toUser]);
+    if (pref && pref.notifications_enabled === 0) return; // Silent if disabled
+
+    const res = await db.run("INSERT INTO notifications (user_to, type, content, data) VALUES (?, ?, ?, ?)", [toUser, type, content, dataStr]);
+    const targetSocket = onlineUsers.find(u => u.username === toUser);
+    if (targetSocket) {
+        io.to(targetSocket.socketId).emit("new_notification", {
+            id: res.lastID, user_to: toUser, type, content, data: dataStr, is_read: 0, created_at: new Date()
+        });
+    }
+}
+
 io.use((socket, next) => {
     const token = socket.handshake.auth.token;
-    if (!token) {
-        return next(new Error("Authentication error"));
-    }
+    if (!token) return next(new Error("Authentication error"));
     try {
         const user = jwt.verify(token, JWT_SECRET);
-        socket.data.username = user.username; // Сохраняем имя в сессии сокета
+        socket.data.username = user.username;
         next();
-    } catch (err) {
-        next(new Error("Authentication error"));
-    }
+    } catch (err) { next(new Error("Authentication error")); }
 });
 
 io.on("connection", async (socket) => {
     const username = socket.data.username;
     console.log(`Connect: ${socket.id} (${username})`);
     
-    // Обновляем список онлайн
     onlineUsers = onlineUsers.filter((u) => u.username !== username);
     onlineUsers.push({ socketId: socket.id, username: username });
 
-    // Инициализация при подключении
     if (db) {
-        await db.run(`INSERT OR IGNORE INTO user_profiles (username) VALUES (?)`, [username]);
+        await db.run(`INSERT OR IGNORE INTO user_profiles (username, display_name) VALUES (?, ?)`, [username, username]);
         const lists = await getListsData(username);
         socket.emit("friends_list", lists.friends);
         socket.emit("user_groups", lists.groups);
-        
         try {
             const notifs = await db.all("SELECT * FROM notifications WHERE user_to = ? ORDER BY id DESC LIMIT 50", [username]);
             socket.emit("notification_history", notifs);
         } catch(e) {}
     }
 
-    // Обработчики событий
     socket.on("get_initial_data", async () => {
         if (username && db) {
             const lists = await getListsData(username);
@@ -208,12 +225,7 @@ io.on("connection", async (socket) => {
 
     socket.on("join_room", async ({ room }) => {
         if (!db) return;
-        // Покидаем предыдущие комнаты, чтобы не получать лишние сообщения
-        // Но оставляем "личную" комнату (обычно socket.id)
-        Array.from(socket.rooms).forEach(r => {
-            if (r !== socket.id) socket.leave(r);
-        });
-        
+        Array.from(socket.rooms).forEach(r => { if (r !== socket.id) socket.leave(r); });
         socket.join(room);
         const msgs = await db.all("SELECT * FROM messages WHERE room = ? ORDER BY id DESC LIMIT 30", [room]);
         socket.emit("chat_history", msgs.reverse());
@@ -227,9 +239,8 @@ io.on("connection", async (socket) => {
 
     socket.on("send_message", async (data, callback) => {
         if (!db) return;
-        // Берем имя ИЗ СЕССИИ, а не от клиента. Это гарантирует безопасность.
-        const author = socket.data.username; 
-        if (!author) return console.error("No author in socket session");
+        const author = socket.data.username;
+        if (!author) return;
 
         if (data.room.includes("_")) {
             const target = data.room.split("_").find((u) => u !== author);
@@ -243,20 +254,42 @@ io.on("connection", async (socket) => {
         );
 
         const broadcastMessage = {
-            id: res.lastID,
-            room: data.room,
-            author: author,
-            message: data.message,
-            type: data.type || "text",
-            time: data.time,
-            reply_to_id: data.replyTo?.id || null,
-            reply_to_author: data.replyTo?.author || null,
-            reply_to_message: data.replyTo?.message || null,
-            tempId: data.tempId,
+            id: res.lastID, room: data.room, author: author, message: data.message, type: data.type || "text", time: data.time,
+            reply_to_id: data.replyTo?.id || null, reply_to_author: data.replyTo?.author || null, reply_to_message: data.replyTo?.message || null, tempId: data.tempId,
         };
 
         io.to(data.room).emit("receive_message", broadcastMessage);
         if (callback) callback({ status: "ok", id: res.lastID });
+
+        // --- MENTIONS LOGIC ---
+        // Regex to find @username
+        const mentionRegex = /@(\w+)/g;
+        let match;
+        const uniqueMentions = new Set();
+        while ((match = mentionRegex.exec(data.message)) !== null) {
+            uniqueMentions.add(match[1]);
+        }
+
+        for (const mentionedUser of uniqueMentions) {
+            // Validate user exists
+            const userExists = await db.get("SELECT id FROM users WHERE username = ?", [mentionedUser]);
+            if (userExists && mentionedUser !== author) {
+                // Check if user is in the room (for groups) or it's a private chat
+                let isInRoom = false;
+                if (data.room === "General") isInRoom = true; // Everyone in General
+                else if (data.room.includes("_")) {
+                   if(data.room.includes(mentionedUser)) isInRoom = true;
+                } else {
+                   // Group chat check
+                   const member = await db.get("SELECT * FROM group_members WHERE room = ? AND username = ?", [data.room, mentionedUser]);
+                   if(member) isInRoom = true;
+                }
+
+                if (isInRoom) {
+                    await sendNotification(mentionedUser, 'mention', `${author} упомянул вас в ${data.room}`, data.room);
+                }
+            }
+        }
     });
 
     socket.on("create_group", async ({ room }) => {
@@ -308,6 +341,7 @@ io.on("connection", async (socket) => {
 
     socket.on("typing", (d) => socket.to(d.room).emit("display_typing", { username: username }));
     
+    // --- UPDATED SEARCH ---
     socket.on("search_groups", async (q) => {
         try {
             if (!db) return socket.emit("search_groups_results", []);
@@ -319,11 +353,21 @@ io.on("connection", async (socket) => {
     socket.on("search_users", async (q) => {
         try {
             if (!db) return socket.emit("search_results", []);
-            const dbUsers = await db.all(`SELECT username FROM users WHERE username LIKE ? LIMIT 20`, [`%${q}%`]);
+            // Search by username (@nametag) OR display_name
+            const dbUsers = await db.all(`
+                SELECT u.username, p.display_name, p.avatar_url 
+                FROM users u 
+                LEFT JOIN user_profiles p ON u.username = p.username
+                WHERE u.username LIKE ? OR p.display_name LIKE ? 
+                LIMIT 20`, 
+                [`%${q}%`, `%${q}%`]
+            );
             const results = dbUsers.map((user) => {
                 const onlineUser = onlineUsers.find((u) => u.username === user.username);
                 return {
                     username: user.username,
+                    display_name: user.display_name || user.username,
+                    avatar_url: user.avatar_url,
                     socketId: onlineUser ? onlineUser.socketId : null,
                     isOnline: !!onlineUser,
                 };
@@ -340,12 +384,78 @@ io.on("connection", async (socket) => {
     });
 
     socket.on("get_my_profile", async (u) => {
-        if (db) socket.emit("my_profile_data", await db.get(`SELECT * FROM user_profiles WHERE username=?`, [u]));
+        if (db) {
+             let data = await db.get(`SELECT * FROM user_profiles WHERE username=?`, [u]);
+             
+             // --- ИСПРАВЛЕНИЕ: Проверка на существование данных ---
+             if (!data) {
+                 // Если профиля нет (старый юзер или сбой), создаем заглушку
+                 data = { 
+                    username: u, 
+                    display_name: u, 
+                    bio: "", 
+                    phone: "", 
+                    avatar_url: "", 
+                    notifications_enabled: 1 
+                 };
+                 // Опционально: создаем запись в БД, чтобы в будущем ошибки не было
+                 await db.run(`INSERT OR IGNORE INTO user_profiles (username, display_name) VALUES (?, ?)`, [u, u]);
+             }
+             // -----------------------------------------------------
+
+             if(!data.display_name) data.display_name = u; // fallback
+             socket.emit("my_profile_data", data);
+        }
     });
     
+    // --- UPDATE PROFILE (Include Username/Nametag Change) ---
     socket.on("update_profile", async (d) => {
         if (!db) return;
-        await db.run(`UPDATE user_profiles SET bio=?, phone=? WHERE username=?`, [d.bio, d.phone, username]);
+        
+        // Handle Nametag (Username) Change if provided and different
+        if (d.newUsername && d.newUsername !== username) {
+            const usernameRegex = /^[a-zA-Z0-9]{3,}$/;
+            if (!usernameRegex.test(d.newUsername)) {
+                return socket.emit("error_message", { 
+                    msg: "Nametag может содержать только латинские буквы (a-Z) и цифры (0-9), минимум 3 символа." 
+                });
+            }
+            try {
+                const exists = await db.get("SELECT id FROM users WHERE username = ?", [d.newUsername]);
+                if (exists) {
+                    return socket.emit("error_message", { msg: "Это имя пользователя (@nametag) уже занято." });
+                }
+
+                // TRANSACTION for changing username (Nametag)
+                await db.run("BEGIN TRANSACTION");
+                await db.run("UPDATE users SET username = ? WHERE username = ?", [d.newUsername, username]);
+                await db.run("UPDATE messages SET author = ? WHERE author = ?", [d.newUsername, username]);
+                await db.run("UPDATE messages SET reply_to_author = ? WHERE reply_to_author = ?", [d.newUsername, username]);
+                await db.run("UPDATE friends SET user_1 = ? WHERE user_1 = ?", [d.newUsername, username]);
+                await db.run("UPDATE friends SET user_2 = ? WHERE user_2 = ?", [d.newUsername, username]);
+                await db.run("UPDATE group_members SET username = ? WHERE username = ?", [d.newUsername, username]);
+                await db.run("UPDATE user_profiles SET username = ? WHERE username = ?", [d.newUsername, username]);
+                await db.run("UPDATE blocked_users SET blocker = ? WHERE blocker = ?", [d.newUsername, username]);
+                await db.run("UPDATE blocked_users SET blocked = ? WHERE blocked = ?", [d.newUsername, username]);
+                await db.run("UPDATE user_avatars SET username = ? WHERE username = ?", [d.newUsername, username]);
+                await db.run("UPDATE notifications SET user_to = ? WHERE user_to = ?", [d.newUsername, username]);
+                await db.run("COMMIT");
+
+                // Since username changed, token is invalid. 
+                // In a real app, we might issue a new token, but for safety/simplicity, force logout.
+                socket.emit("force_logout", { msg: "Ваш @nametag изменен. Пожалуйста, войдите снова." });
+                return; 
+            } catch (err) {
+                await db.run("ROLLBACK");
+                console.error(err);
+                return socket.emit("error_message", { msg: "Ошибка при смене @nametag." });
+            }
+        }
+
+        // Standard Profile Update
+        await db.run(`UPDATE user_profiles SET bio=?, phone=?, display_name=?, notifications_enabled=? WHERE username=?`, 
+            [d.bio, d.phone, d.display_name, d.notifications_enabled ? 1 : 0, username]);
+        
         socket.emit("my_profile_data", await db.get(`SELECT * FROM user_profiles WHERE username=?`, [username]));
     });
     
@@ -353,7 +463,7 @@ io.on("connection", async (socket) => {
         if (!db) return;
         const p = await db.get(`SELECT * FROM user_profiles WHERE username=?`, [u]);
         const f = await db.get(`SELECT * FROM friends WHERE (user_1=? AND user_2=?) OR (user_1=? AND user_2=?)`, [username, u, u, username]);
-        socket.emit("user_profile_data", { ...(p || { username: u }), isFriend: !!f });
+        socket.emit("user_profile_data", { ...(p || { username: u, display_name: u }), isFriend: !!f });
     });
     
     socket.on("get_avatar_history", async (u) => {
@@ -376,13 +486,7 @@ io.on("connection", async (socket) => {
         const exists = await db.get(`SELECT * FROM notifications WHERE user_to=? AND type='friend_request' AND content=?`, [toUsername, username]);
         if (exists) return;
 
-        const res = await db.run("INSERT INTO notifications (user_to, type, content) VALUES (?, 'friend_request', ?)", [toUsername, username]);
-        const targetSocket = onlineUsers.find(u => u.username === toUsername);
-        if (targetSocket) {
-            io.to(targetSocket.socketId).emit("new_notification", {
-                id: res.lastID, user_to: toUsername, type: 'friend_request', content: username, is_read: 0, created_at: new Date()
-            });
-        }
+        await sendNotification(toUsername, 'friend_request', username);
     });
 
     socket.on("mark_notification_read", async ({ id }) => { if (db) await db.run("UPDATE notifications SET is_read = 1 WHERE id = ?", [id]); });
@@ -399,13 +503,7 @@ io.on("connection", async (socket) => {
         await pushUpdatesToUser(u1);
         await pushUpdatesToUser(u2);
         
-        const res = await db.run("INSERT INTO notifications (user_to, type, content) VALUES (?, 'info', ?)", [u1, `${u2} принял вашу заявку`]);
-        const targetSocket = onlineUsers.find(u => u.username === u1);
-        if (targetSocket) {
-            io.to(targetSocket.socketId).emit("new_notification", {
-                id: res.lastID, user_to: u1, type: 'info', content: `${u2} принял вашу заявку`, is_read: 0
-            });
-        }
+        await sendNotification(u1, 'info', `${u2} принял вашу заявку`);
     });
 
     socket.on("decline_friend_request", async ({ notifId }) => {

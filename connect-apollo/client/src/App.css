@@ -140,7 +140,7 @@ body {
   white-space: pre-wrap;
 }
 
-.mine .bubble { background: #2b95ff; color: white; border-bottom-right-radius: 4px; }
+.mine .bubble { background: #2d3744;; color: white; border-bottom-right-radius: 4px; }
 .theirs .bubble { background: #333; color: white; border-bottom-left-radius: 4px; }
 
 /* Images & Gallery */
@@ -426,6 +426,9 @@ body {
     color: #1a7bd6; /* Telegram Blue */
     text-align: center;
     font-weight: 500;
+    display: flex;
+    align-items: center;
+    justify-content: center;
 }
 
 /* --- Списки настроек (Items) --- */
@@ -1090,4 +1093,45 @@ span {
 @keyframes highlight-anim {
     0% { background-color: rgba(135, 116, 225, 0.3); }
     100% { background-color: transparent; }
+}
+
+/* --- MENTIONS --- */
+.mention-link {
+    color: #1a7bd6;
+    font-weight: 500;
+    cursor: pointer;
+    text-decoration: none;
+}
+.mention-link:hover {
+    text-decoration: underline;
+}
+
+/* --- TOGGLE SWITCH (Notification Settings) --- */
+.toggle-switch {
+    width: 40px;
+    height: 22px;
+    background: #444;
+    border-radius: 11px;
+    position: relative;
+    cursor: pointer;
+    transition: background 0.2s;
+}
+
+.toggle-switch.on {
+    background: #1a7bd6;
+}
+
+.toggle-switch .knob {
+    width: 18px;
+    height: 18px;
+    background: white;
+    border-radius: 50%;
+    position: absolute;
+    top: 2px;
+    left: 2px;
+    transition: transform 0.2s;
+}
+
+.toggle-switch.on .knob {
+    transform: translateX(18px);
 }

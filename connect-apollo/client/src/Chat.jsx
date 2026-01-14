@@ -1,3 +1,5 @@
+// --- START OF FILE Chat.jsx ---
+
 import React, { useEffect, useState, useRef, useLayoutEffect, useCallback } from "react";
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
@@ -34,9 +36,7 @@ const IconTrash = () => (
 );
 const IconBell = ({ hasUnread }) => (
     <div style={{ position: 'relative', cursor: 'pointer', display: 'flex' }}>
-        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill={hasUnread ? "#ffffff" : "#aaaaaa"}>
-            <path d="M12 22c1.1 0 2-.9 2-2h-4c0 1.1.9 2 2 2zm6-6v-5c0-3.07-1.63-5.64-4.5-6.32V4c0-.83-.67-1.5-1.5-1.5s-1.5.67-1.5 1.5v.68C7.64 5.36 6 7.92 6 11v5l-2 2v1h16v-1l-2-2zm-2 1H8v-6c0-2.48 1.51-4.5 4-4.5s4 2.02 4 4.5v6z"/>
-        </svg>
+        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"><path fill="#ffffff" d="M14 4V2h-4v2H5v2h14V4h-5zm5 12H5v-4H3v6h5v4h2v-4h4v2h-4v2h6v-4h5v-6h-2V6h-2v8h2v2zM5 6v8h2V6H5z"/></svg>
         {hasUnread && (
             <span style={{
                 position: 'absolute', top: -2, right: -2, width: 8, height: 8,
@@ -45,12 +45,36 @@ const IconBell = ({ hasUnread }) => (
         )}
     </div>
 );
+const IconShare = () => (
+    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"><path fill="#ffffff" d="M22 2h-2v2h2v12h-2v2h2v-2h2V4h-2V2ZM2 4H0v12h2v2h2v-2H2V4Zm0 0V2h2v2H2Zm4 2H4v8h2V6Zm0 0V4h2v2H6Zm4 0h4v2h-4V6Zm0 6H8V8h2v4Zm4 0h-4v2H8v4H6v4h2v-4h2v-4h4v4h2v4h2v-4h-2v-4h-2v-2Zm0 0h2V8h-2v4Zm6-6h-2V4h-2v2h2v8h2V6Z"/></svg>
+);
 
 // --- HELPER FUNCTION FOR TIMER ---
 const formatTime = (seconds) => {
     const mins = Math.floor(seconds / 60);
     const secs = seconds % 60;
     return `${mins}:${secs < 10 ? '0' : ''}${secs}`;
+};
+
+// --- HELPER: Parse Mentions in Text ---
+const renderMessageWithMentions = (text, onMentionClick) => {
+    const mentionRegex = /(@\w+)/g;
+    const parts = text.split(mentionRegex);
+    return parts.map((part, index) => {
+        if (part.match(mentionRegex)) {
+            const username = part.substring(1); // remove @
+            return (
+                <span 
+                    key={index} 
+                    className="mention-link" 
+                    onClick={(e) => { e.stopPropagation(); onMentionClick(username); }}
+                >
+                    {part}
+                </span>
+            );
+        }
+        return part;
+    });
 };
 
 // --- Context Menu Component ---
@@ -77,7 +101,7 @@ const ContextMenu = ({ x, y, msg, onClose, onReply, onCopy, onDelete, isMine }) 
 };
 
 // --- Message Item ---
-const MessageItem = React.memo(({ msg, username, setImageModalSrc, onContextMenu, onReplyTrigger, scrollToMessage }) => {
+const MessageItem = React.memo(({ msg, username, setImageModalSrc, onContextMenu, onReplyTrigger, scrollToMessage, onMentionClick }) => {
     const isMine = msg.author === username;
     const [translateX, setTranslateX] = useState(0);
     const [isLongPress, setIsLongPress] = useState(false);
@@ -99,10 +123,11 @@ const MessageItem = React.memo(({ msg, username, setImageModalSrc, onContextMenu
     } else if (msg.type === 'audio') {
         content = <audio controls src={msg.message} className="audio-player" />;
     } else {
+        // Custom render for mentions
         content = (
-            <ReactMarkdown remarkPlugins={[remarkGfm]} components={{ a: ({node, ...props}) => <a {...props} target="_blank" rel="noopener noreferrer" style={{color: isMine ? '#d1e8ff' : '#4da6ff'}} /> }}>
-                {msg.message}
-            </ReactMarkdown>
+            <div className="text-message-content">
+                {renderMessageWithMentions(msg.message, onMentionClick)}
+            </div>
         );
     }
 
@@ -185,7 +210,11 @@ const MessageItem = React.memo(({ msg, username, setImageModalSrc, onContextMenu
 function Chat({ socket, username, room, setRoom, handleLogout }) {
     const [myChats, setMyChats] = useState(() => { try { return JSON.parse(localStorage.getItem("apollo_my_chats")) || ["General"]; } catch { return ["General"]; } });
     const [friends, setFriends] = useState(() => { try { return JSON.parse(localStorage.getItem("apollo_friends")) || []; } catch { return []; } });
-    const [myProfile, setMyProfile] = useState(() => { try { return JSON.parse(localStorage.getItem("apollo_my_profile")) || { bio: "", phone: "", avatar_url: "" }; } catch { return { bio: "", phone: "", avatar_url: "" }; } });
+    const [myProfile, setMyProfile] = useState(() => { try { return JSON.parse(localStorage.getItem("apollo_my_profile")) || { bio: "", phone: "", avatar_url: "", display_name: "", notifications_enabled: 1 }; } catch { return { bio: "", phone: "", avatar_url: "", display_name: "", notifications_enabled: 1 }; } });
+
+    // --- FIX: Use Ref to track profile to break dependency loop in useEffect ---
+    const myProfileRef = useRef(myProfile);
+    useEffect(() => { myProfileRef.current = myProfile; }, [myProfile]);
 
     const [currentMessage, setCurrentMessage] = useState("");
     const [messageList, setMessageList] = useState([]);
@@ -215,7 +244,7 @@ function Chat({ socket, username, room, setRoom, handleLogout }) {
     const [searchGroupResults, setSearchGroupResults] = useState([]);
 
     const [viewProfileData, setViewProfileData] = useState(null);
-    const [profileForm, setProfileForm] = useState({ bio: "", phone: "" });
+    const [profileForm, setProfileForm] = useState({ bio: "", phone: "", display_name: "", username: "", notifications_enabled: 1 });
     const [groupMembers, setGroupMembers] = useState([]);
     const [myRole, setMyRole] = useState("member");
     const [avatarHistory, setAvatarHistory] = useState([]);
@@ -232,7 +261,18 @@ function Chat({ socket, username, room, setRoom, handleLogout }) {
     const audioChunksRef = useRef([]);
     const timerIntervalRef = useRef(null);
     
-    // --- NOTIFICATION SOUND ---
+    // --- CHECK FOR SHARED PROFILE LINK ---
+    useEffect(() => {
+        const params = new URLSearchParams(window.location.search);
+        const sharedUser = params.get('user');
+        if (sharedUser) {
+            socket.emit("get_user_profile", sharedUser);
+            // Clear params to avoid reopening on refresh
+            window.history.replaceState({}, document.title, window.location.pathname);
+        }
+    }, [socket]);
+
+    // --- NOTIFICATION SOUND & PERMISSION ---
     const playNotificationSound = useCallback(() => {
         try {
             const audio = new Audio('/notification.mp3');
@@ -241,18 +281,29 @@ function Chat({ socket, username, room, setRoom, handleLogout }) {
         } catch (e) {}
     }, []);
 
+    // --- FIX: Remove myProfile from dependencies using Ref ---
     const sendSystemNotification = useCallback((title, body) => {
         if (!("Notification" in window)) return;
+        
+        // Use Ref instead of state to avoid re-creation on profile update
+        const currentProfile = myProfileRef.current;
+        if (currentProfile.notifications_enabled === 0 || currentProfile.notifications_enabled === false) return; 
+        
         if (Notification.permission === "granted") {
             try { new Notification(title, { body, icon: '/vite.svg' }); } catch (e) {}
         }
-    }, []);
+    }, []); // Empty dependency array = stable function
 
-    useEffect(() => {
-        if ("Notification" in window && Notification.permission !== "granted") {
-            Notification.requestPermission();
+    const requestNotificationPermission = () => {
+        if ("Notification" in window) {
+            Notification.requestPermission().then(permission => {
+                if (permission === "granted") {
+                    // Automatically enable in settings if granted
+                    socket.emit("update_profile", { ...myProfile, notifications_enabled: true });
+                }
+            });
         }
-    }, []);
+    };
 
     useEffect(() => {
         const handleGlobalClick = () => setContextMenu(null);
@@ -348,7 +399,7 @@ function Chat({ socket, username, room, setRoom, handleLogout }) {
         if (isMobile) { setShowMobileChat(true); if (document.activeElement instanceof HTMLElement) document.activeElement.blur(); }
     }, [room, setRoom, username, isMobile, myChats]);
 
-    // --- FIX: SEPARATED GLOBAL SOCKET LISTENERS ---
+    // --- SOCKET LISTENERS ---
     useEffect(() => {
         const handleResize = () => setIsMobile(window.innerWidth <= 768);
         window.addEventListener('resize', handleResize);
@@ -371,13 +422,20 @@ function Chat({ socket, username, room, setRoom, handleLogout }) {
             setNotifications(prev => [notif, ...prev]);
             setHasUnreadNotifs(true);
             playNotificationSound();
-            sendSystemNotification("Новое уведомление", notif.type === 'friend_request' ? `Заявка в друзья от ${notif.content}` : notif.content);
+            
+            let title = "Новое уведомление";
+            let body = notif.content;
+            if (notif.type === 'friend_request') body = `Заявка в друзья от ${notif.content}`;
+            if (notif.type === 'mention') { title = "Вас упомянули"; body = notif.content; }
+            
+            sendSystemNotification(title, body);
         };
 
         const handleMyProfile = (data) => {
-             setMyProfile(data);
-             // FIX: DON'T OVERWRITE FORM WHILE TYPING.
-             // We only update the global store, form is updated when opening modal.
+             setMyProfile({
+                 ...data,
+                 notifications_enabled: data.notifications_enabled === 1 // Convert sqlite integer to boolean check
+             });
         };
 
         socket.on("user_groups", (groups) => { if(Array.isArray(groups)) setMyChats(groups.includes("General") ? groups : ["General", ...groups]); });
@@ -396,6 +454,11 @@ function Chat({ socket, username, room, setRoom, handleLogout }) {
         socket.on("notification_history", handleNotificationHistory);
         socket.on("new_notification", handleNewNotification);
         socket.on("error_message", (d) => alert(d.msg));
+        
+        socket.on("force_logout", (d) => {
+            alert(d.msg);
+            handleLogout();
+        });
 
         // Initial Data Fetch
         socket.emit("get_initial_data"); 
@@ -418,14 +481,13 @@ function Chat({ socket, username, room, setRoom, handleLogout }) {
             socket.off("notification_history");
             socket.off("new_notification");
             socket.off("error_message");
+            socket.off("force_logout");
         };
-    }, [socket, username, switchChat, playNotificationSound, sendSystemNotification]);
+    }, [socket, username, switchChat, playNotificationSound, sendSystemNotification, handleLogout]);
 
-    // --- FIX: SEPARATED ROOM LISTENERS (No more flooding) ---
     useEffect(() => {
         if (!room) return;
         
-        // Reset local room state
         setMessageList([]);
         setHasMore(true);
         setTypingText("");
@@ -512,7 +574,7 @@ function Chat({ socket, username, room, setRoom, handleLogout }) {
         try {
             const res = await fetch(`${BACKEND_URL}/upload-avatar`, { method: 'POST', body: formData });
             const data = await res.json();
-            if(data.profile) setMyProfile(data.profile);
+            if(data.profile) setMyProfile(prev => ({...prev, ...data.profile}));
         } catch (error) {} finally { setAvatarEditor({ isOpen: false, image: null, crop: { x: 0, y: 0 }, zoom: 1, croppedAreaPixels: null, filters: { brightness: 100, contrast: 100, saturate: 100, blur: 0 }}); }
     };
     const startRecording = async () => {
@@ -596,15 +658,56 @@ function Chat({ socket, username, room, setRoom, handleLogout }) {
         else { socket.emit("get_group_info", room); setActiveModal("groupInfo"); setShowMenu(false); }
     };
     
-    // FIX: Initialize form only when opening settings
+    // Initialize form only when opening settings
     const openSettings = () => {
         socket.emit("get_my_profile", username); 
         socket.emit("get_avatar_history", username); 
-        setProfileForm({ bio: myProfile.bio || "", phone: myProfile.phone || "" });
+        setProfileForm({ 
+            bio: myProfile.bio || "", 
+            phone: myProfile.phone || "",
+            display_name: myProfile.display_name || username,
+            username: username,
+            notifications_enabled: myProfile.notifications_enabled
+        });
         setActiveModal("settings");
     };
 
-    const saveProfile = () => { socket.emit("update_profile", { username, bio: profileForm.bio, phone: profileForm.phone }); setActiveModal(null); };
+    // --- SAVE PROFILE WITH NEW FIELDS ---
+    const saveProfile = () => { 
+        // --- НОВАЯ ВАЛИДАЦИЯ ---
+        // Проверяем, если пользователь пытается сменить username
+        if (profileForm.username !== username) {
+             const usernameRegex = /^[a-zA-Z0-9]{3,}$/;
+             if (!usernameRegex.test(profileForm.username)) {
+                 alert("Nametag должен содержать только латинские буквы и цифры, минимум 3 символа.");
+                 return; // Прерываем сохранение
+             }
+        }
+        // -----------------------
+
+        socket.emit("update_profile", { 
+            username, 
+            bio: profileForm.bio, 
+            phone: profileForm.phone,
+            display_name: profileForm.display_name,
+            notifications_enabled: profileForm.notifications_enabled,
+            newUsername: profileForm.username 
+        }); 
+        setActiveModal(null); 
+    };
+
+    // --- HANDLE MENTION CLICK ---
+    const onMentionClick = (mentionedUser) => {
+        socket.emit("get_user_profile", mentionedUser);
+    };
+
+    // --- SHARE PROFILE ---
+    const copyProfileLink = (targetUsername) => {
+        const link = `${window.location.origin}?user=${targetUsername}`;
+        navigator.clipboard.writeText(link);
+        alert("Ссылка на профиль скопирована!");
+    };
+
     const leaveGroup = () => { if (window.confirm(myRole === 'owner' ? "Удалить группу?" : "Выйти из группы?")) socket.emit("leave_group", { room }); };
     const removeFriend = (t) => { if (window.confirm(`Удалить ${t}?`)) { socket.emit("remove_friend", t); setActiveModal(null); }};
     const blockUser = (t) => { if (window.confirm(`Заблокировать ${t}?`)) { socket.emit("block_user", t); setActiveModal(null); }};
@@ -676,7 +779,7 @@ function Chat({ socket, username, room, setRoom, handleLogout }) {
 
             <div className="chat-body" ref={chatBodyRef} onScroll={handleScroll}>
               {isLoadingHistory && (<div style={{ textAlign: "center", fontSize: 12, color: "#666", padding: 10 }}>Загрузка истории...</div>)}
-              {messageList.map((msg, index) => (<MessageItem key={msg.id || index} msg={msg} username={username} setImageModalSrc={setImageModalSrc} onContextMenu={handleContextMenu} onReplyTrigger={handleReply} scrollToMessage={handleScrollToReply} />))}
+              {messageList.map((msg, index) => (<MessageItem key={msg.id || index} msg={msg} username={username} setImageModalSrc={setImageModalSrc} onContextMenu={handleContextMenu} onReplyTrigger={handleReply} scrollToMessage={handleScrollToReply} onMentionClick={onMentionClick} />))}
               <div ref={messagesEndRef} />
             </div>
 
@@ -705,10 +808,15 @@ function Chat({ socket, username, room, setRoom, handleLogout }) {
                     {notifications.map((notif) => (
                         <div key={notif.id} className="settings-item" style={{ backgroundColor: notif.is_read ? 'transparent' : 'rgba(43, 149, 255, 0.1)', borderBottom: '1px solid #333', flexDirection: 'column', alignItems: 'flex-start', gap: 5 }}>
                              <div style={{display: 'flex', width: '100%', justifyContent: 'space-between', alignItems: 'center'}}>
-                                 <span style={{fontWeight: 'bold', fontSize: 14}}>{notif.type === 'friend_request' ? "Заявка в друзья" : "Уведомление"}</span>
+                                 <span style={{fontWeight: 'bold', fontSize: 14}}>{notif.type === 'friend_request' ? "Заявка в друзья" : (notif.type === 'mention' ? "Упоминание" : "Уведомление")}</span>
                                  <button onClick={() => { socket.emit("delete_notification", {id: notif.id}); setNotifications(prev => prev.filter(n => n.id !== notif.id)); }} style={{background: 'none', border: 'none', color: '#666', cursor: 'pointer'}}>&times;</button>
                              </div>
-                             <div style={{fontSize: 14, color: '#ddd'}}>{notif.type === 'friend_request' ? `Пользователь ${notif.content} хочет добавить вас в друзья.` : notif.content}</div>
+                             <div style={{fontSize: 14, color: '#ddd'}}>
+                                 {notif.type === 'friend_request' ? `Пользователь ${notif.content} хочет добавить вас в друзья.` : notif.content}
+                             </div>
+                             {notif.type === 'mention' && (
+                                <button className="btn-accept" style={{marginTop: 5, padding: '5px 10px', fontSize: 12}} onClick={() => switchChat(notif.data)}>Перейти к чату</button>
+                             )}
                              {notif.type === 'friend_request' && (
                                  <div className="notification-actions" style={{marginTop: 5, display: 'flex', gap: 10}}>
                                       <button className="btn-accept" onClick={() => { socket.emit("accept_friend_request", { notifId: notif.id, fromUsername: notif.content }); setNotifications(prev => prev.filter(n => n.id !== notif.id)); }}>Принять</button>
@@ -748,13 +856,18 @@ function Chat({ socket, username, room, setRoom, handleLogout }) {
 
         {activeModal === "addFriend" && (
           <Modal title="Поиск людей" onClose={() => { setActiveModal(null); setSearchResults([]); setSearchQuery(""); }}>
-            <input className="modal-input" placeholder="@username" value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} />
+            <input className="modal-input" placeholder="@nametag или имя..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} />
             {isSearching && (<div style={{ textAlign: "center", color: "#888", padding: 10 }}>Поиск...</div>)}
             <div className="search-results">
               {searchResults.length === 0 && searchQuery && !isSearching && (<div style={{ textAlign: "center", color: "#666", padding: 10 }}>Ничего не найдено</div>)}
               {searchResults.map((u, i) => (
                 <div key={i} className="search-item">
-                  <div className="member-info"> <div className="friend-avatar" style={{ fontSize: 12 }}>{u.username[0]}</div> <span>{u.username}</span> </div>
+                  <div className="member-info"> <div className="friend-avatar" style={{ fontSize: 12, backgroundImage: `url(${u.avatar_url})` }}>{!u.avatar_url && u.username[0]}</div> 
+                    <div style={{display: 'flex', flexDirection: 'column'}}>
+                        <span style={{lineHeight: 1}}>{u.display_name}</span>
+                        <span style={{fontSize: 11, color: '#888'}}>@{u.username}</span>
+                    </div>
+                  </div>
                   {!friends.includes(u.username) && (<button className="add-btn-small" onClick={() => { socket.emit("send_friend_request_by_name", { toUsername: u.username }); alert("Заявка отправлена!"); }}>+</button>)}
                 </div>
               ))}
@@ -764,11 +877,54 @@ function Chat({ socket, username, room, setRoom, handleLogout }) {
 
         {activeModal === "settings" && (
           <Modal title="My Profile" onClose={() => setActiveModal(null)}>
-            <div className="profile-hero"> <div className="profile-avatar-large" style={getAvatarStyle(myProfile.avatar_url)}>{!myProfile.avatar_url && username[0].toUpperCase()}</div> <div className="profile-name">{username}</div> <div className="profile-status">online</div> <button className="change-avatar-btn" onClick={() => avatarInputRef.current.click()}>Set Profile Photo</button> </div>
+            <div className="profile-hero"> 
+                <div className="profile-avatar-large" style={getAvatarStyle(myProfile.avatar_url)}>{!myProfile.avatar_url && username[0].toUpperCase()}</div> 
+                <div className="profile-name">{myProfile.display_name || username}</div> 
+                <div className="profile-status"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="#1a7bd6"><path fill="#1a7bd6" d="M4 4h16v12H8V8h8v6h2V6H6v12h14v2H4V4zm10 10v-4h-4v4h4z"/></svg>{username}</div> 
+                <button className="change-avatar-btn" onClick={() => avatarInputRef.current.click()}>Set Profile Photo</button> 
+            </div>
+            
             <div className="settings-list">
+              {/* Display Name */}
+              <div className="settings-item"> 
+                <div className="form-container" style={{ flex: 1, padding: 0, margin: 0 }}> 
+                    <div className="input-group"> 
+                        <label>Display Name</label> 
+                        <input className="modal-input" style={{ padding: "5px 0", borderBottom: "none" }} value={profileForm.display_name} onChange={(e) => setProfileForm({ ...profileForm, display_name: e.target.value })} placeholder="Your Name" /> 
+                    </div> 
+                </div> 
+              </div>
+
+              {/* Nametag/Username Change */}
+              <div className="settings-item"> 
+                <div className="settings-icon"><svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 24 24" fill="#ffffff"><path fill="#ffffff" d="M4 4h16v12H8V8h8v6h2V6H6v12h14v2H4V4zm10 10v-4h-4v4h4z"/></svg></div> 
+                <div className="form-container" style={{ flex: 1, padding: 0, margin: 0 }}> 
+                    <div className="input-group"> 
+                        <label>Nametag</label> 
+                        <input className="modal-input" style={{ padding: "5px 0", borderBottom: "none" }} value={profileForm.username} onChange={(e) => setProfileForm({ ...profileForm, username: e.target.value })} placeholder="@username" /> 
+                    </div> 
+                </div> 
+              </div>
+
               <div className="settings-item"> <div className="settings-icon"><svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 24 24"><path fill="#ffffff" d="M1 2h8.58l1.487 6.69l-1.86 1.86a14.08 14.08 0 0 0 4.243 4.242l1.86-1.859L22 14.42V23h-1a19.91 19.91 0 0 1-10.85-3.196a20.101 20.101 0 0 1-5.954-5.954A19.91 19.91 0 0 1 1 3V2Zm2.027 2a17.893 17.893 0 0 0 2.849 8.764a18.102 18.102 0 0 0 5.36 5.36A17.892 17.892 0 0 0 20 20.973v-4.949l-4.053-.9l-2.174 2.175l-.663-.377a16.073 16.073 0 0 1-6.032-6.032l-.377-.663l2.175-2.174L7.976 4H3.027Z"/></svg></div> <div className="form-container" style={{ flex: 1, padding: 0, margin: 0 }}> <div className="input-group"> <label>Mobile</label> <input className="modal-input" style={{ padding: "5px 0", borderBottom: "none" }} value={profileForm.phone} onChange={(e) => setProfileForm({ ...profileForm, phone: e.target.value })} placeholder="Add phone number" /> </div> </div> </div>
               <div className="settings-item"> <div className="settings-icon"><svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 24 24"><path fill="#ffffff" d="M21 1v22H3V1h18Zm-8 2v6.5l-3-2.25L7 9.5V3H5v18h14V3h-6ZM9 3v2.5l1-.75l1 .75V3H9Zm-2 9h10v2H7v-2Zm0 4h8v2H7v-2Z"/></svg></div> <div className="form-container" style={{ flex: 1, padding: 0, margin: 0 }}> <div className="input-group"> <label>Bio</label> <input className="modal-input" style={{ padding: "5px 0", borderBottom: "none" }} value={profileForm.bio} onChange={(e) => setProfileForm({ ...profileForm, bio: e.target.value })} placeholder="Add a few words about yourself" /> </div> </div> </div>
-              <div className="settings-item"> <div className="settings-icon">@</div> <div className="settings-label"> <div style={{ fontSize: "16px" }}>{username}</div> <div style={{ fontSize: "12px", color: "#888" }}>Username</div> </div> </div>
+              
+              {/* Notification Settings */}
+              <div className="settings-item" onClick={requestNotificationPermission}> 
+                <div className="settings-icon"><IconBell hasUnread={false}/></div> 
+                <div style={{ flex: 1, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                     <div className="settings-label">Notifications</div>
+                     <div className={`toggle-switch ${profileForm.notifications_enabled ? 'on' : ''}`} onClick={(e) => { e.stopPropagation(); setProfileForm({...profileForm, notifications_enabled: !profileForm.notifications_enabled}); }}>
+                         <div className="knob"></div>
+                     </div>
+                </div>
+              </div>
+              
+               <div className="settings-item" onClick={() => copyProfileLink(username)}> 
+                <div className="settings-icon"><IconShare/></div> 
+                <div className="settings-label">Поделиться профилем</div>
+              </div>
+
             </div>
             <div className="avatar-history" style={{ padding: "0 20px" }}>
               <h4>История аватаров</h4>
@@ -804,11 +960,19 @@ function Chat({ socket, username, room, setRoom, handleLogout }) {
 
         {activeModal === "userProfile" && viewProfileData && (
           <Modal title="Info" onClose={() => setActiveModal(null)}>
-            <div className="profile-hero"> <div className="profile-avatar-large" style={getAvatarStyle(viewProfileData.avatar_url)}>{!viewProfileData.avatar_url && viewProfileData.username[0]?.toUpperCase()}</div> <div className="profile-name">{viewProfileData.username}</div> <div className="profile-status">{viewProfileData.isFriend ? "В контактах" : "online"}</div> </div>
+            <div className="profile-hero"> 
+                <div className="profile-avatar-large" style={getAvatarStyle(viewProfileData.avatar_url)}>{!viewProfileData.avatar_url && viewProfileData.username[0]?.toUpperCase()}</div> 
+                <div className="profile-name">{viewProfileData.display_name || viewProfileData.username}</div> 
+                <div className="profile-status">@{viewProfileData.username}</div>
+                <div style={{fontSize: 12, color: '#888', marginTop: 5}}>{viewProfileData.isFriend ? "В контактах" : ""}</div>
+            </div>
             <div className="settings-list">
               {viewProfileData.bio && (<div className="settings-item"> <div className="settings-label"> <div style={{ fontSize: "16px" }}>{viewProfileData.bio}</div> <div style={{ fontSize: "12px", color: "#888", marginTop: "4px" }}>Bio</div> </div> </div>)}
               {viewProfileData.phone && (<div className="settings-item"> <div className="settings-label"> <div style={{ fontSize: "16px" }}>{viewProfileData.phone}</div> <div style={{ fontSize: "12px", color: "#888", marginTop: "4px" }}>Mobile</div> </div> </div>)}
-              <div className="settings-item"> <div className="settings-label"> <div style={{ fontSize: "16px" }}>@{viewProfileData.username}</div> <div style={{ fontSize: "12px", color: "#888", marginTop: "4px" }}>Username</div> </div> </div>
+              <div className="settings-item" onClick={() => copyProfileLink(viewProfileData.username)}> 
+                <div className="settings-icon"><IconShare/></div> 
+                <div className="settings-label">Поделиться профилем</div>
+              </div>
             </div>
             <div className="avatar-history" style={{ padding: "0 15px" }}>
               {avatarHistory.length > 0 && <h4>Old Avatars</h4>}
