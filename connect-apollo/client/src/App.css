@@ -1140,3 +1140,31 @@ span {
 #plus-icon {
   margin-top: -3px;
 }
+
+.markdown-content {
+    word-break: break-word;
+}
+
+.markdown-content ul, .markdown-content ol {
+    padding-left: 20px;
+    margin: 8px 0;
+}
+
+.markdown-content li {
+    margin-bottom: 4px;
+}
+
+.markdown-content h1, .markdown-content h2, .markdown-content h3 {
+    margin: 12px 0 6px 0;
+    line-height: 1.2;
+}
+
+.markdown-content p:last-child {
+    margin-bottom: 0;
+}
+
+/* Фикс высоты для плавного роста */
+.chat-textarea {
+    transition: height 0.1s ease;
+    overflow-y: auto !important; /* Включаем прокрутку когда достигнут max-height */
+}

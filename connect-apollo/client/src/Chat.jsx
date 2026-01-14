@@ -123,10 +123,39 @@ const MessageItem = React.memo(({ msg, username, setImageModalSrc, onContextMenu
     } else if (msg.type === 'audio') {
         content = <audio controls src={msg.message} className="audio-player" />;
     } else {
-        // Custom render for mentions
+        // ОБРАБОТКА MARKDOWN И МЕНШЕНОВ
+        // Превращаем @username в markdown-ссылку, чтобы ReactMarkdown мог её обработать
+        const processedText = msg.message.replace(/@(\w+)/g, '[@$1]($1)');
+
         content = (
-            <div className="text-message-content">
-                {renderMessageWithMentions(msg.message, onMentionClick)}
+            <div className="markdown-content">
+                <ReactMarkdown 
+                    remarkPlugins={[remarkGfm]}
+                    components={{
+                        // Кастомный рендер для ссылок (наших меншенов)
+                        a: ({node, ...props}) => {
+                            const isMention = props.children?.[0]?.toString().startsWith('@');
+                            if (isMention) {
+                                return (
+                                    <span 
+                                        className="mention-link" 
+                                        onClick={(e) => { e.stopPropagation(); onMentionClick(props.href); }}
+                                    >
+                                        {props.children}
+                                    </span>
+                                );
+                            }
+                            return <a {...props} target="_blank" rel="noreferrer">{props.children}</a>
+                        },
+                        // Убираем лишние отступы у параграфов в баблах
+                        p: ({node, ...props}) => <p style={{margin: '0 0 8px 0'}} {...props} />,
+                        h3: ({node, ...props}) => <h3 style={{margin: '10px 0 5px 0', fontSize: '1.1em'}} {...props} />,
+                        ul: ({node, ...props}) => <ul style={{paddingLeft: '20px', margin: '5px 0'}} {...props} />,
+                        ol: ({node, ...props}) => <ol style={{paddingLeft: '20px', margin: '5px 0'}} {...props} />
+                    }}
+                >
+                    {processedText}
+                </ReactMarkdown>
             </div>
         );
     }
@@ -141,21 +170,18 @@ const MessageItem = React.memo(({ msg, username, setImageModalSrc, onContextMenu
             if (window.navigator.vibrate) window.navigator.vibrate(20);
         }, 500);
     };
-
     const handleTouchMove = (e) => {
         touchCurrentRef.current = e.touches[0].clientX;
         const diff = touchCurrentRef.current - touchStartRef.current;
         if (Math.abs(diff) > 10) { clearTimeout(longPressTimerRef.current); longPressTimerRef.current = null; }
         if (diff > 0 && diff < 150) setTranslateX(diff);
     };
-
     const handleTouchEnd = () => {
         clearTimeout(longPressTimerRef.current);
         if (isLongPress) { setIsLongPress(false); return; }
         if (translateX > 80) { if (window.navigator.vibrate) window.navigator.vibrate(10); onReplyTrigger(msg); }
         setTranslateX(0);
     };
-    
     const handleRightClick = (e) => { e.preventDefault(); onContextMenu(e, msg, e.clientX, e.clientY); };
 
     return (
@@ -175,20 +201,14 @@ const MessageItem = React.memo(({ msg, username, setImageModalSrc, onContextMenu
                 <IconReply />
             </div>
 
-            <div 
-                className={`bubble-container ${isLongPress ? 'long-press-active' : ''}`}
-                style={{ 
-                    transform: `translateX(${translateX}px)`, 
-                    transition: translateX === 0 ? 'transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275)' : 'none'
-                }}
-            >
+            <div className={`bubble-container ${isLongPress ? 'long-press-active' : ''}`} style={{ transform: `translateX(${translateX}px)`, transition: translateX === 0 ? 'transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275)' : 'none' }}>
                 <div className="bubble">
                     {msg.reply_to_id && (
                         <div className="reply-preview-bubble" onClick={() => scrollToMessage(msg.reply_to_id)}>
                             <div className="reply-content">
                                 <span className="reply-author">{msg.reply_to_author}</span>
                                 <span className="reply-text-preview">
-                                    {msg.reply_to_message?.includes('uploads/') ? (msg.reply_to_message.includes('.webm') ? '🎤 Voice Message' : '📷 Photo') : msg.reply_to_message}
+                                    {msg.reply_to_message?.includes('uploads/') ? '📷 Вложение' : msg.reply_to_message}
                                 </span>
                             </div>
                         </div>
@@ -196,10 +216,7 @@ const MessageItem = React.memo(({ msg, username, setImageModalSrc, onContextMenu
                     {content}
                 </div>
                 <div className="message-footer">
-                    <span className="meta" style={{display: 'flex', alignItems: 'center'}}>
-                        {msg.time} • {msg.author}
-                        {isMine && (<>{msg.status === 'pending' && <IconClock />}{msg.status === 'sent' && <IconCheck />}</>)}
-                    </span>
+                    <span className="meta">{msg.time} • {msg.author} {isMine && msg.status === 'sent' && <IconCheck />}</span>
                 </div>
             </div>
         </div>
@@ -268,6 +285,15 @@ function Chat({ socket, username, room, setRoom, handleLogout }) {
             window.history.replaceState({}, document.title, window.location.pathname);
         }
     }, [socket]);
+
+    useEffect(() => {
+        const textarea = textareaRef.current;
+        if (textarea) {
+            textarea.style.height = 'auto';
+            const nextHeight = Math.min(textarea.scrollHeight, 150);
+            textarea.style.height = `${nextHeight}px`;
+        }
+    }, [currentMessage]);
 
     const playNotificationSound = useCallback(() => {
         try {
