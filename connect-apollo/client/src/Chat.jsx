@@ -737,7 +737,7 @@ function Chat({ socket, username, room, setRoom, handleLogout }) {
             </div>
             <div className="actMenu" style={{display: 'flex', gap: 15, alignItems: 'center'}}>
                  <div onClick={() => setActiveModal("notifications")} title="notifications"><IconBell hasUnread={hasUnreadNotifs} /></div>
-                 <button className="fab-btn" onClick={() => setActiveModal("actionMenu")}><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="#ffffff"><path fill="#ffffff" d="M11 4h2v7h7v2h-7v7h-2v-7H4v-2h7V4z"/></svg></button>
+                 <button className="fab-btn" onClick={() => setActiveModal("actionMenu")}><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="#ffffff" style="margin-top: -3px;"><path fill="#ffffff" d="M11 4h2v7h7v2h-7v7h-2v-7H4v-2h7V4z"/></svg></button>
             </div>
           </div>
 
