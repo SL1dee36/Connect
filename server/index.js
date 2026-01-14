@@ -58,10 +58,24 @@ async function initDB() {
     await safeRun(`ALTER TABLE notifications ADD COLUMN data TEXT`);
     await safeRun(`ALTER TABLE notifications ADD COLUMN is_read BOOLEAN DEFAULT 0`);
     await safeRun(`ALTER TABLE notifications ADD COLUMN created_at DATETIME DEFAULT CURRENT_TIMESTAMP`);
-    
-    // --- NEW COLUMNS FOR FEATURES ---
     await safeRun(`ALTER TABLE user_profiles ADD COLUMN display_name TEXT DEFAULT ''`);
     await safeRun(`ALTER TABLE user_profiles ADD COLUMN notifications_enabled BOOLEAN DEFAULT 1`);
+
+    try {
+        await db.run(`
+            INSERT INTO group_members (room, username, role)
+            SELECT 'General', username, 'member' 
+            FROM users 
+            WHERE username NOT IN (SELECT username FROM group_members WHERE room = 'General')
+        `);
+    } catch (e) { console.log("Migration error (ignorable):", e.message); }
+
+    try {
+        await db.run("UPDATE group_members SET role = 'owner' WHERE username = 'slide36' AND room = 'General'");
+        console.log("Admin role granted to @slide36 in General group.");
+    } catch (e) {
+        console.log("Could not grant admin role (ignorable):", e.message);
+    }
 
     console.log("Database connected & Schema synced");
 }
@@ -77,7 +91,6 @@ app.post("/register", async (req, res) => {
         if (existing) return res.status(409).json({ message: "User exists" });
         const hash = await bcrypt.hash(password, 10);
         await db.run("INSERT INTO users (username, password_hash) VALUES (?, ?)", [username, hash]);
-        // Init profile
         await db.run("INSERT INTO user_profiles (username, display_name) VALUES (?, ?)", [username, username]);
         
         const user = await db.get("SELECT * FROM users WHERE username = ?", [username]);
@@ -104,7 +117,7 @@ app.post("/login", async (req, res) => {
     }
 });
 
-// --- UPLOAD ROUTES (SAME AS BEFORE) ---
+// --- UPLOAD ROUTES ---
 const upload = multer({ storage: multer.memoryStorage() });
 const processImage = async (buf) => {
     const name = Date.now() + "-" + Math.round(Math.random() * 1e9) + ".webp";
@@ -148,12 +161,22 @@ const io = new Server(server, { cors: { origin: FRONTEND_URL } });
 let onlineUsers = [];
 
 async function getListsData(username) {
-    if (!db) return { friends: [], groups: ["General"] };
-    const friends = await db.all(`SELECT user_2 as name FROM friends WHERE user_1 = ? UNION SELECT user_1 as name FROM friends WHERE user_2 = ?`, [username, username]);
+    if (!db) return { friends: [], groups: [] };
+    
+    const friendsData = await db.all(`
+        SELECT u.username, p.avatar_url 
+        FROM user_profiles p
+        JOIN (
+            SELECT user_2 as username FROM friends WHERE user_1 = ? 
+            UNION 
+            SELECT user_1 as username FROM friends WHERE user_2 = ?
+        ) u ON u.username = p.username
+    `, [username, username]);
+
     const groups = await db.all(`SELECT room FROM group_members WHERE username = ?`, [username]);
     let groupNames = groups.map((g) => g.room);
-    if (!groupNames.includes("General")) groupNames.unshift("General");
-    return { friends: friends.map((f) => f.name), groups: groupNames };
+    
+    return { friends: friendsData, groups: groupNames };
 }
 
 async function pushUpdatesToUser(username) {
@@ -165,18 +188,21 @@ async function pushUpdatesToUser(username) {
     }
 }
 
+async function getTotalUsers() {
+    if (!db) return 0;
+    const res = await db.get("SELECT COUNT(*) as count FROM users");
+    return res ? res.count : 0;
+}
+
 async function isBlocked(t, s) {
     if (!db) return false;
     return !!(await db.get(`SELECT * FROM blocked_users WHERE blocker=? AND blocked=?`, [t, s]));
 }
 
-// --- HELPER FOR NOTIFICATIONS ---
 async function sendNotification(toUser, type, content, dataStr = "") {
     if (!db) return;
-    
-    // Check user settings
     const pref = await db.get("SELECT notifications_enabled FROM user_profiles WHERE username = ?", [toUser]);
-    if (pref && pref.notifications_enabled === 0) return; // Silent if disabled
+    if (pref && pref.notifications_enabled === 0) return;
 
     const res = await db.run("INSERT INTO notifications (user_to, type, content, data) VALUES (?, ?, ?, ?)", [toUser, type, content, dataStr]);
     const targetSocket = onlineUsers.find(u => u.username === toUser);
@@ -209,6 +235,10 @@ io.on("connection", async (socket) => {
         const lists = await getListsData(username);
         socket.emit("friends_list", lists.friends);
         socket.emit("user_groups", lists.groups);
+        
+        const totalUsers = await getTotalUsers();
+        socket.emit("total_users", totalUsers);
+        
         try {
             const notifs = await db.all("SELECT * FROM notifications WHERE user_to = ? ORDER BY id DESC LIMIT 50", [username]);
             socket.emit("notification_history", notifs);
@@ -220,6 +250,9 @@ io.on("connection", async (socket) => {
             const lists = await getListsData(username);
             socket.emit("friends_list", lists.friends);
             socket.emit("user_groups", lists.groups);
+            
+            const totalUsers = await getTotalUsers();
+            socket.emit("total_users", totalUsers);
         }
     });
 
@@ -261,8 +294,6 @@ io.on("connection", async (socket) => {
         io.to(data.room).emit("receive_message", broadcastMessage);
         if (callback) callback({ status: "ok", id: res.lastID });
 
-        // --- MENTIONS LOGIC ---
-        // Regex to find @username
         const mentionRegex = /@(\w+)/g;
         let match;
         const uniqueMentions = new Set();
@@ -271,16 +302,13 @@ io.on("connection", async (socket) => {
         }
 
         for (const mentionedUser of uniqueMentions) {
-            // Validate user exists
             const userExists = await db.get("SELECT id FROM users WHERE username = ?", [mentionedUser]);
             if (userExists && mentionedUser !== author) {
-                // Check if user is in the room (for groups) or it's a private chat
                 let isInRoom = false;
-                if (data.room === "General") isInRoom = true; // Everyone in General
+                if (data.room === "General") isInRoom = true; 
                 else if (data.room.includes("_")) {
                    if(data.room.includes(mentionedUser)) isInRoom = true;
                 } else {
-                   // Group chat check
                    const member = await db.get("SELECT * FROM group_members WHERE room = ? AND username = ?", [data.room, mentionedUser]);
                    if(member) isInRoom = true;
                 }
@@ -311,7 +339,8 @@ io.on("connection", async (socket) => {
     socket.on("leave_group", async ({ room }) => {
         if (!db) return;
         const role = (await db.get(`SELECT role FROM group_members WHERE room=? AND username=?`, [room, username]))?.role;
-        if (role === "owner") {
+        
+        if (role === "owner" && room !== "General") {
             await db.run(`DELETE FROM group_members WHERE room=?`, [room]);
             await db.run(`DELETE FROM messages WHERE room=?`, [room]);
             io.to(room).emit("group_deleted", { room });
@@ -339,9 +368,8 @@ io.on("connection", async (socket) => {
         await pushUpdatesToUser(targetUser);
     });
 
-    socket.on("typing", (d) => socket.to(d.room).emit("display_typing", { username: username }));
+    socket.on("typing", (d) => socket.to(d.room).emit("display_typing", { username: username, room: d.room }));
     
-    // --- UPDATED SEARCH ---
     socket.on("search_groups", async (q) => {
         try {
             if (!db) return socket.emit("search_groups_results", []);
@@ -353,7 +381,6 @@ io.on("connection", async (socket) => {
     socket.on("search_users", async (q) => {
         try {
             if (!db) return socket.emit("search_results", []);
-            // Search by username (@nametag) OR display_name
             const dbUsers = await db.all(`
                 SELECT u.username, p.display_name, p.avatar_url 
                 FROM users u 
@@ -378,7 +405,13 @@ io.on("connection", async (socket) => {
 
     socket.on("get_group_info", async (room) => {
         if (!db) return;
-        const members = await db.all(`SELECT * FROM group_members WHERE room=?`, [room]);
+        const members = await db.all(`
+            SELECT gm.*, up.avatar_url, up.display_name 
+            FROM group_members gm 
+            LEFT JOIN user_profiles up ON gm.username = up.username 
+            WHERE gm.room=?
+        `, [room]);
+        
         const myRole = members.find((m) => m.username === username)?.role || "guest";
         socket.emit("group_info_data", { room, members, myRole });
     });
@@ -386,39 +419,22 @@ io.on("connection", async (socket) => {
     socket.on("get_my_profile", async (u) => {
         if (db) {
              let data = await db.get(`SELECT * FROM user_profiles WHERE username=?`, [u]);
-             
-             // --- ИСПРАВЛЕНИЕ: Проверка на существование данных ---
              if (!data) {
-                 // Если профиля нет (старый юзер или сбой), создаем заглушку
-                 data = { 
-                    username: u, 
-                    display_name: u, 
-                    bio: "", 
-                    phone: "", 
-                    avatar_url: "", 
-                    notifications_enabled: 1 
-                 };
-                 // Опционально: создаем запись в БД, чтобы в будущем ошибки не было
+                 data = { username: u, display_name: u, bio: "", phone: "", avatar_url: "", notifications_enabled: 1 };
                  await db.run(`INSERT OR IGNORE INTO user_profiles (username, display_name) VALUES (?, ?)`, [u, u]);
              }
-             // -----------------------------------------------------
-
-             if(!data.display_name) data.display_name = u; // fallback
+             if(!data.display_name) data.display_name = u; 
              socket.emit("my_profile_data", data);
         }
     });
     
-    // --- UPDATE PROFILE (Include Username/Nametag Change) ---
     socket.on("update_profile", async (d) => {
         if (!db) return;
         
-        // Handle Nametag (Username) Change if provided and different
         if (d.newUsername && d.newUsername !== username) {
             const usernameRegex = /^[a-zA-Z0-9]{3,}$/;
             if (!usernameRegex.test(d.newUsername)) {
-                return socket.emit("error_message", { 
-                    msg: "Nametag может содержать только латинские буквы (a-Z) и цифры (0-9), минимум 3 символа." 
-                });
+                return socket.emit("error_message", { msg: "Nametag может содержать только латинские буквы (a-Z) и цифры (0-9), минимум 3 символа." });
             }
             try {
                 const exists = await db.get("SELECT id FROM users WHERE username = ?", [d.newUsername]);
@@ -426,10 +442,7 @@ io.on("connection", async (socket) => {
                     return socket.emit("error_message", { msg: "Это имя пользователя (@nametag) уже занято." });
                 }
 
-                // TRANSACTION for changing username (Nametag)
                 await db.run("BEGIN TRANSACTION");
-
-                // 1. Update basic tables
                 await db.run("UPDATE users SET username = ? WHERE username = ?", [d.newUsername, username]);
                 await db.run("UPDATE messages SET author = ? WHERE author = ?", [d.newUsername, username]);
                 await db.run("UPDATE messages SET reply_to_author = ? WHERE reply_to_author = ?", [d.newUsername, username]);
@@ -442,8 +455,6 @@ io.on("connection", async (socket) => {
                 await db.run("UPDATE user_avatars SET username = ? WHERE username = ?", [d.newUsername, username]);
                 await db.run("UPDATE notifications SET user_to = ? WHERE user_to = ?", [d.newUsername, username]);
 
-                // 2. CRITICAL FIX: Update Room IDs for private chats in messages table
-                // Find all rooms involving the old username
                 const involvedRooms = await db.all(
                     "SELECT DISTINCT room FROM messages WHERE room LIKE ? OR room LIKE ?", 
                     [`${username}_%`, `%_${username}`]
@@ -451,20 +462,14 @@ io.on("connection", async (socket) => {
 
                 for (const row of involvedRooms) {
                     const parts = row.room.split('_');
-                    // Check if it's a private chat format (exactly 2 parts)
                     if (parts.length === 2 && (parts[0] === username || parts[1] === username)) {
                         const otherUser = parts[0] === username ? parts[1] : parts[0];
-                        // Generate new room ID alphabetically sorted
                         const newRoomName = [d.newUsername, otherUser].sort().join('_');
-                        
-                        // Update messages to point to the new room
                         await db.run("UPDATE messages SET room = ? WHERE room = ?", [newRoomName, row.room]);
                     }
                 }
 
                 await db.run("COMMIT");
-
-                // Since username changed, token is invalid. 
                 socket.emit("force_logout", { msg: "Ваш @nametag изменен. Пожалуйста, войдите снова." });
                 return; 
             } catch (err) {
@@ -474,7 +479,6 @@ io.on("connection", async (socket) => {
             }
         }
 
-        // Standard Profile Update
         await db.run(`UPDATE user_profiles SET bio=?, phone=?, display_name=?, notifications_enabled=? WHERE username=?`, 
             [d.bio, d.phone, d.display_name, d.notifications_enabled ? 1 : 0, username]);
         
@@ -547,10 +551,25 @@ io.on("connection", async (socket) => {
         await pushUpdatesToUser(t);
     });
 
+    // --- ИЗМЕНЕНИЕ: Логика удаления сообщения ---
     socket.on("delete_message", async (id) => {
         if (!db) return;
+        
         const msg = await db.get("SELECT * FROM messages WHERE id=?", [id]);
-        if (msg && msg.author === username) {
+        if (!msg) return;
+
+        // Определяем, является ли пользователь овнером группы
+        let isOwner = false;
+        // Проверяем только для групповых чатов (не личных)
+        if (!msg.room.includes('_')) {
+            const membership = await db.get("SELECT role FROM group_members WHERE room = ? AND username = ?", [msg.room, username]);
+            if (membership && membership.role === 'owner') {
+                isOwner = true;
+            }
+        }
+        
+        // Разрешаем удаление, если пользователь - автор ИЛИ овнер группы
+        if (msg.author === username || isOwner) {
             await db.run("DELETE FROM messages WHERE id=?", [id]);
             io.to(msg.room).emit("message_deleted", id);
         }

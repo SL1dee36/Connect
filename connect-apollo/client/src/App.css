@@ -763,10 +763,11 @@ body {
       
       /* Фон с легким паттерном, чтобы было видно блюр */
       background-image: 
-        radial-gradient(circle at 50% 50%, #111 0%, #000 100%);
+        radial-gradient(circle at 50% 50%, #000000 0%, #000000 100%);
 
       padding-inline: 10px;
       overflow-x: hidden;
+      scrollbar-width: none;
   }
 
   /* Исправление для сообщений, чтобы они читались на темном фоне */

@@ -1,5 +1,3 @@
-// --- START OF FILE Chat.jsx ---
-
 import React, { useEffect, useState, useRef, useLayoutEffect, useCallback } from "react";
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
@@ -78,7 +76,8 @@ const renderMessageWithMentions = (text, onMentionClick) => {
 };
 
 // --- Context Menu Component ---
-const ContextMenu = ({ x, y, msg, onClose, onReply, onCopy, onDelete, isMine }) => {
+// --- ИЗМЕНЕНИЕ: canDelete заменил isMine для большей ясности ---
+const ContextMenu = ({ x, y, msg, onClose, onReply, onCopy, onDelete, canDelete }) => {
     return (
         <div style={{
             position: 'fixed', top: y, left: x, zIndex: 9999,
@@ -91,7 +90,8 @@ const ContextMenu = ({ x, y, msg, onClose, onReply, onCopy, onDelete, isMine }) 
             <div className="menu-item" onClick={onCopy} style={{padding: '10px 15px', display: 'flex', alignItems: 'center', gap: 10, cursor: 'pointer', color: 'white'}}>
                 <IconCopy/> Копировать
             </div>
-            {isMine && (
+            {/* --- ИЗМЕНЕНИЕ: Проверяем canDelete --- */}
+            {canDelete && (
                 <div className="menu-item" onClick={onDelete} style={{padding: '10px 15px', display: 'flex', alignItems: 'center', gap: 10, cursor: 'pointer', color: '#ff4d4d'}}>
                     <IconTrash/> Удалить
                 </div>
@@ -208,11 +208,10 @@ const MessageItem = React.memo(({ msg, username, setImageModalSrc, onContextMenu
 
 
 function Chat({ socket, username, room, setRoom, handleLogout }) {
-    const [myChats, setMyChats] = useState(() => { try { return JSON.parse(localStorage.getItem("apollo_my_chats")) || ["General"]; } catch { return ["General"]; } });
+    const [myChats, setMyChats] = useState(() => { try { return JSON.parse(localStorage.getItem("apollo_my_chats")) || []; } catch { return []; } });
     const [friends, setFriends] = useState(() => { try { return JSON.parse(localStorage.getItem("apollo_friends")) || []; } catch { return []; } });
     const [myProfile, setMyProfile] = useState(() => { try { return JSON.parse(localStorage.getItem("apollo_my_profile")) || { bio: "", phone: "", avatar_url: "", display_name: "", notifications_enabled: 1 }; } catch { return { bio: "", phone: "", avatar_url: "", display_name: "", notifications_enabled: 1 }; } });
 
-    // --- FIX: Use Ref to track profile to break dependency loop in useEffect ---
     const myProfileRef = useRef(myProfile);
     useEffect(() => { myProfileRef.current = myProfile; }, [myProfile]);
 
@@ -221,7 +220,6 @@ function Chat({ socket, username, room, setRoom, handleLogout }) {
     const [hasMore, setHasMore] = useState(true);
     const [isLoadingHistory, setIsLoadingHistory] = useState(false);
     
-    // UI
     const [activeModal, setActiveModal] = useState(null);
     const [notifications, setNotifications] = useState([]);
     const [hasUnreadNotifs, setHasUnreadNotifs] = useState(false);
@@ -236,6 +234,7 @@ function Chat({ socket, username, room, setRoom, handleLogout }) {
     const [attachedFiles, setAttachedFiles] = useState([]); 
     const [isRecording, setIsRecording] = useState(false);
     const [recordingTime, setRecordingTime] = useState(0);
+    const [totalNetworkUsers, setTotalNetworkUsers] = useState(0);
 
     const [newChatName, setNewChatName] = useState("");
     const [searchQuery, setSearchQuery] = useState("");
@@ -261,18 +260,15 @@ function Chat({ socket, username, room, setRoom, handleLogout }) {
     const audioChunksRef = useRef([]);
     const timerIntervalRef = useRef(null);
     
-    // --- CHECK FOR SHARED PROFILE LINK ---
     useEffect(() => {
         const params = new URLSearchParams(window.location.search);
         const sharedUser = params.get('user');
         if (sharedUser) {
             socket.emit("get_user_profile", sharedUser);
-            // Clear params to avoid reopening on refresh
             window.history.replaceState({}, document.title, window.location.pathname);
         }
     }, [socket]);
 
-    // --- NOTIFICATION SOUND & PERMISSION ---
     const playNotificationSound = useCallback(() => {
         try {
             const audio = new Audio('/notification.mp3');
@@ -281,24 +277,19 @@ function Chat({ socket, username, room, setRoom, handleLogout }) {
         } catch (e) {}
     }, []);
 
-    // --- FIX: Remove myProfile from dependencies using Ref ---
     const sendSystemNotification = useCallback((title, body) => {
         if (!("Notification" in window)) return;
-        
-        // Use Ref instead of state to avoid re-creation on profile update
         const currentProfile = myProfileRef.current;
         if (currentProfile.notifications_enabled === 0 || currentProfile.notifications_enabled === false) return; 
-        
         if (Notification.permission === "granted") {
             try { new Notification(title, { body, icon: '/vite.svg' }); } catch (e) {}
         }
-    }, []); // Empty dependency array = stable function
+    }, []);
 
     const requestNotificationPermission = () => {
         if ("Notification" in window) {
             Notification.requestPermission().then(permission => {
                 if (permission === "granted") {
-                    // Automatically enable in settings if granted
                     socket.emit("update_profile", { ...myProfile, notifications_enabled: true });
                 }
             });
@@ -399,7 +390,6 @@ function Chat({ socket, username, room, setRoom, handleLogout }) {
         if (isMobile) { setShowMobileChat(true); if (document.activeElement instanceof HTMLElement) document.activeElement.blur(); }
     }, [room, setRoom, username, isMobile, myChats]);
 
-    // --- SOCKET LISTENERS ---
     useEffect(() => {
         const handleResize = () => setIsMobile(window.innerWidth <= 768);
         window.addEventListener('resize', handleResize);
@@ -434,34 +424,45 @@ function Chat({ socket, username, room, setRoom, handleLogout }) {
         const handleMyProfile = (data) => {
              setMyProfile({
                  ...data,
-                 notifications_enabled: data.notifications_enabled === 1 // Convert sqlite integer to boolean check
+                 notifications_enabled: data.notifications_enabled === 1
              });
         };
         
         socket.on("avatar_history_data", (data) => setAvatarHistory(data)); 
-        socket.on("user_groups", (groups) => { if(Array.isArray(groups)) setMyChats(groups.includes("General") ? groups : ["General", ...groups]); });
+        socket.on("user_groups", (groups) => { if(Array.isArray(groups)) setMyChats(groups); });
         socket.on("friends_list", (list) => { if(Array.isArray(list)) setFriends(list); });
         socket.on("search_results", handleSearchResults);
         socket.on("search_groups_results", handleSearchGroupResults);
         socket.on("group_created", (data) => { setMyChats(prev => !prev.includes(data.room) ? [...prev, data.room] : prev); switchChat(data.room); setActiveModal(null); });
         socket.on("group_joined", (data) => { setMyChats(prev => !prev.includes(data.room) ? [...prev, data.room] : prev); switchChat(data.room); setActiveModal(null); });
-        socket.on("left_group_success", (data) => { setMyChats(prev => prev.filter(c => c !== data.room)); switchChat("General"); setActiveModal(null); });
-        socket.on("group_deleted", (data) => { setMyChats(prev => prev.filter(c => c !== data.room)); if(localStorage.getItem("apollo_room") === data.room) switchChat("General"); alert("Group Deleted"); });
+        
+        socket.on("left_group_success", (data) => { 
+            setMyChats(prev => prev.filter(c => c !== data.room)); 
+            if(room === data.room) setRoom(""); 
+            setActiveModal(null); 
+        });
+
+        socket.on("group_deleted", (data) => { setMyChats(prev => prev.filter(c => c !== data.room)); if(localStorage.getItem("apollo_room") === data.room) switchChat(""); alert("Group Deleted"); });
         socket.on("friend_added", (data) => { setFriends(prev => [...prev, data.username]); alert(`${data.username} добавлен!`); });
-        socket.on("friend_removed", (data) => { setFriends(prev => prev.filter(f => f !== data.username)); if(localStorage.getItem("apollo_room") === [username, data.username].sort().join("_")) switchChat("General"); });
+        socket.on("friend_removed", (data) => { setFriends(prev => prev.filter(f => f !== data.username)); if(localStorage.getItem("apollo_room") === [username, data.username].sort().join("_")) switchChat(""); });
         socket.on("my_profile_data", handleMyProfile);
-        socket.on("user_profile_data", (data) => { setViewProfileData(data); setActiveModal("userProfile"); socket.emit("get_avatar_history", data.username); });
+        
+        socket.on("user_profile_data", (data) => { 
+            setViewProfileData(data); 
+            setActiveModal("userProfile"); 
+            socket.emit("get_avatar_history", data.username); 
+        });
         
         socket.on("notification_history", handleNotificationHistory);
         socket.on("new_notification", handleNewNotification);
         socket.on("error_message", (d) => alert(d.msg));
+        socket.on("total_users", (count) => setTotalNetworkUsers(count));
         
         socket.on("force_logout", (d) => {
             alert(d.msg);
             handleLogout();
         });
 
-        // Initial Data Fetch
         socket.emit("get_initial_data"); 
         socket.emit("get_my_profile", username);
 
@@ -483,8 +484,9 @@ function Chat({ socket, username, room, setRoom, handleLogout }) {
             socket.off("new_notification");
             socket.off("error_message");
             socket.off("force_logout");
+            socket.off("total_users");
         };
-    }, [socket, username, switchChat, playNotificationSound, sendSystemNotification, handleLogout]);
+    }, [socket, username, switchChat, playNotificationSound, sendSystemNotification, handleLogout, room]);
 
     useEffect(() => {
         if (!room) return;
@@ -498,6 +500,10 @@ function Chat({ socket, username, room, setRoom, handleLogout }) {
         setIsLoadingHistory(true);
         
         socket.emit("join_room", { username, room });
+        
+        if (!room.includes("_")) {
+            socket.emit("get_group_info", room);
+        }
 
         const handleReceiveMessage = (data) => {
              if (data.room === room) {
@@ -518,7 +524,15 @@ function Chat({ socket, username, room, setRoom, handleLogout }) {
         socket.on("chat_history", (h) => { setMessageList(h.map(m => ({...m, status: 'sent'}))); setHasMore(h.length >= 30); setIsLoadingHistory(false); setTimeout(() => messagesEndRef.current?.scrollIntoView({ behavior: "auto" }), 50); });
         socket.on("more_messages_loaded", (h) => { setMessageList(p => [...h.map(m => ({...m, status: 'sent'})), ...p]); setHasMore(h.length >= 30); setIsLoadingHistory(false); });
         socket.on("no_more_messages", () => { setHasMore(false); setIsLoadingHistory(false); });
-        socket.on("display_typing", (d) => { if(d.room === room) { setTypingText(`${d.username} печатает...`); clearTimeout(typingTimeoutRef.current); typingTimeoutRef.current = setTimeout(() => setTypingText(""), 3000); } });
+        
+        socket.on("display_typing", (d) => { 
+            if(d.room === room) { 
+                setTypingText(`${d.username} печатает...`); 
+                clearTimeout(typingTimeoutRef.current); 
+                typingTimeoutRef.current = setTimeout(() => setTypingText(""), 3000); 
+            } 
+        });
+        
         socket.on("group_info_data", (d) => { if(d.room === room) { setGroupMembers(d.members); setMyRole(d.myRole); } });
         socket.on("group_info_updated", (data) => { if(room === data.members?.[0]?.room) setGroupMembers(data.members); });
         socket.on("message_deleted", (id) => setMessageList((prev) => prev.filter((msg) => msg.id !== id)));
@@ -577,7 +591,6 @@ function Chat({ socket, username, room, setRoom, handleLogout }) {
             const data = await res.json();
             if(data.profile) {
                 setMyProfile(prev => ({...prev, ...data.profile}));
-                // FIX: Обновляем историю аватарок сразу после загрузки
                 socket.emit("get_avatar_history", username);
             }
         } catch (error) {
@@ -670,7 +683,6 @@ function Chat({ socket, username, room, setRoom, handleLogout }) {
         else { socket.emit("get_group_info", room); setActiveModal("groupInfo"); setShowMenu(false); }
     };
     
-    // Initialize form only when opening settings
     const openSettings = () => {
         socket.emit("get_my_profile", username); 
         socket.emit("get_avatar_history", username); 
@@ -684,18 +696,14 @@ function Chat({ socket, username, room, setRoom, handleLogout }) {
         setActiveModal("settings");
     };
 
-    // --- SAVE PROFILE WITH NEW FIELDS ---
     const saveProfile = () => { 
-        // --- НОВАЯ ВАЛИДАЦИЯ ---
-        // Проверяем, если пользователь пытается сменить username
         if (profileForm.username !== username) {
              const usernameRegex = /^[a-zA-Z0-9]{3,}$/;
              if (!usernameRegex.test(profileForm.username)) {
                  alert("Nametag должен содержать только латинские буквы и цифры, минимум 3 символа.");
-                 return; // Прерываем сохранение
+                 return;
              }
         }
-        // -----------------------
 
         socket.emit("update_profile", { 
             username, 
@@ -708,29 +716,55 @@ function Chat({ socket, username, room, setRoom, handleLogout }) {
         setActiveModal(null); 
     };
 
-    // --- HANDLE MENTION CLICK ---
     const onMentionClick = (mentionedUser) => {
         socket.emit("get_user_profile", mentionedUser);
     };
 
-    // --- SHARE PROFILE ---
     const copyProfileLink = (targetUsername) => {
         const link = `${window.location.origin}?user=${targetUsername}`;
         navigator.clipboard.writeText(link);
         alert("Ссылка на профиль скопирована!");
     };
 
-    const leaveGroup = () => { if (window.confirm(myRole === 'owner' ? "Удалить группу?" : "Выйти из группы?")) socket.emit("leave_group", { room }); };
+    const leaveGroup = () => { if (window.confirm(myRole === 'owner' && room !== "General" ? "Удалить группу?" : "Выйти из группы?")) socket.emit("leave_group", { room }); };
     const removeFriend = (t) => { if (window.confirm(`Удалить ${t}?`)) { socket.emit("remove_friend", t); setActiveModal(null); }};
     const blockUser = (t) => { if (window.confirm(`Заблокировать ${t}?`)) { socket.emit("block_user", t); setActiveModal(null); }};
-    const displayRoomName = (myChats.includes(room)) ? room : room.replace(username, "").replace("_", "");
+    
+    const displayRoomName = (room === "General") ? "Community Bot" : ((myChats.includes(room)) ? room : room.replace(username, "").replace("_", ""));
     const isPrivateChat = !myChats.includes(room);
     const getAvatarStyle = (imgUrl) => imgUrl ? { backgroundImage: `url(${imgUrl})`, backgroundSize: 'cover', backgroundPosition: 'center', color: 'transparent', border: '2px solid #333' } : {};
+
+    let headerSubtitle = "";
+    if (room === "General") {
+        headerSubtitle = `${totalNetworkUsers} пользователей в сети`;
+    } else if (typingText) {
+        headerSubtitle = typingText;
+    } else if (!isPrivateChat) {
+        headerSubtitle = `${groupMembers.length} участников`;
+    }
+
+    // --- ИЗМЕНЕНИЕ: Условие для возможности удаления ---
+    const canDeleteMessage = (msg) => {
+        const isAuthor = msg.author === username;
+        // Можно удалить, если ты автор ИЛИ если ты админ группы (и это не личный чат)
+        const isGroupOwner = myRole === 'owner' && !room.includes('_');
+        return isAuthor || isGroupOwner;
+    }
 
     return (
       <div className={`main-layout ${isMobile ? "mobile-mode" : ""}`} style={{ touchAction: "pan-y" }}>
         {contextMenu && (
-          <ContextMenu x={contextMenu.x} y={contextMenu.y} msg={contextMenu.msg} onClose={() => setContextMenu(null)} onReply={() => handleReply(contextMenu.msg)} onCopy={() => handleCopy(contextMenu.msg.message)} onDelete={() => { handleDeleteMessage(contextMenu.msg.id); setContextMenu(null); }} isMine={contextMenu.msg.author === username} />
+          <ContextMenu 
+            x={contextMenu.x} 
+            y={contextMenu.y} 
+            msg={contextMenu.msg} 
+            onClose={() => setContextMenu(null)} 
+            onReply={() => handleReply(contextMenu.msg)} 
+            onCopy={() => handleCopy(contextMenu.msg.message)} 
+            onDelete={() => { handleDeleteMessage(contextMenu.msg.id); setContextMenu(null); }} 
+            // --- ИЗМЕНЕНИЕ: Передаем новое условие в компонент ---
+            canDelete={canDeleteMessage(contextMenu.msg)}
+          />
         )}
 
         {imageModalSrc && (
@@ -756,17 +790,37 @@ function Chat({ socket, username, room, setRoom, handleLogout }) {
           <div className="friends-list">
             {myChats.filter((chat) => chat && typeof chat === "string").map((chat, idx) => (
                 <div key={idx} className="chat-list-item" onClick={() => switchChat(chat)}>
-                  <div className="friend-avatar" style={{ background: chat === room ? "#2b95ff" : "#333", color: "white" }}>{chat.substring(0, 2)}</div>
-                  <div className="chat-info-mobile"><div className="chat-name">{chat}</div><div className="chat-preview">Нажмите, чтобы открыть</div></div>
+                  <div className="friend-avatar" style={{ background: chat === room ? "#2b95ff" : "#333", color: "white" }}>
+                      {chat === "General" ? <svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 24 24"><path fill="#ffffff" d="M2 5h2v2H2V5zm4 4H4V7h2v2zm2 0H6v2H4v2H2v6h20v-6h-2v-2h-2V9h2V7h2V5h-2v2h-2v2h-2V7H8v2zm0 0h8v2h2v2h2v4H4v-4h2v-2h2V9zm2 4H8v2h2v-2zm4 0h2v2h-2v-2z"/></svg> : chat.substring(0, 2)}
+                  </div>
+                  <div className="chat-info-mobile">
+                      <div className="chat-name">{chat === "General" ? "Community Bot" : chat}</div>
+                      <div className="chat-preview">
+                          {chat === "General" ? "Новости и обновления" : "Групповой чат"}
+                      </div>
+                  </div>
                 </div>
             ))}
-            {friends.length > 0 && <div className="divider">Контакты</div>}
-            {friends.filter((f) => f && typeof f === "string").map((friend, idx) => {
-                const isActive = [username, friend].sort().join("_") === room;
+            {friends.map((friend, idx) => {
+                const fName = friend.username || friend;
+                const fAvatar = friend.avatar_url;
+                const isActive = [username, fName].sort().join("_") === room;
+                const avatarStyle = { 
+                    background: isActive ? "#2b95ff" : "#444",
+                    backgroundImage: fAvatar ? `url(${fAvatar})` : 'none',
+                    backgroundSize: 'cover',
+                    backgroundPosition: 'center'
+                };
+
                 return (
-                  <div key={idx} className="chat-list-item" onClick={() => switchChat(friend)}>
-                    <div className="friend-avatar" style={{ background: isActive ? "#2b95ff" : "#444" }}>{friend[0] ? friend[0].toUpperCase() : "?"}</div>
-                    <div className="chat-info-mobile"><div className="chat-name">{friend}</div><div className="chat-preview">Личное сообщение</div></div>
+                  <div key={idx} className="chat-list-item" onClick={() => switchChat(fName)}>
+                    <div className="friend-avatar" style={avatarStyle}>
+                        {!fAvatar && (fName[0] ? fName[0].toUpperCase() : "?")}
+                    </div>
+                    <div className="chat-info-mobile">
+                        <div className="chat-name">{fName}</div>
+                        <div className="chat-preview">Личное сообщение</div>
+                    </div>
                   </div>
                 );
             })}
@@ -778,13 +832,15 @@ function Chat({ socket, username, room, setRoom, handleLogout }) {
             <div className="chat-header">
               <div className="header-left">
                 {isMobile && (<button className="back-btn" onClick={() => setShowMobileChat(false)}><svg xmlns="http://www.w3.org/2000/svg" width="32" height="26" viewBox="0 0 24 24"><path fill="#ffffff" d="M16 5v2h-2V5h2zm-4 4V7h2v2h-2zm-2 2V9h2v2h-2zm0 2H8v-2h2v2zm2 2v-2h-2v2h2zm0 0h2v2h-2v-2zm4 4v-2h-2v2h2z"/></svg></button>)}
-                <div onClick={openGroupInfo} style={{ cursor: "pointer", display: "flex", flexDirection: "column" }}>
+                <div onClick={openGroupInfo} style={{ cursor: "pointer", display: "flex", flexDirection: "column", whiteSpace: "nowrap"}}>
                   <h3 style={{ margin: 0 }}>{displayRoomName}</h3>
-                  <span style={{ fontSize: 12, color: "#777" }}>{typingText || (!isPrivateChat && groupMembers.length > 0 ? `${groupMembers.length} участников` : "")}</span>
+                  <span style={{ fontSize: 12, color: "#777", paddingLeft: 0 }}>
+                      {headerSubtitle}
+                  </span>
                 </div>
               </div>
               <div style={{ position: "relative" }}>
-                <button className="menu-btn" onClick={() => setShowMenu(!showMenu)}><svg xmlns="http://www.w3.org/2000/svg" width="32" height="18" viewBox="0 0 24 24" fill="#ffffff"><path fill="#ffffff" d="M3 3h3v3H3V3Zm7.5 0h3v3h-3V3ZM18 3h3v3h-3V3ZM3 10.5h3v3H3v-3Zm7.5 0h3v3h-3v-3Zm7.5 0h3v3h-3v-3ZM3 18h3v3H3v-3Zm7.5 0h3v3h-3v-3Zm7.5 0h3v3h-3v-3Z"/></svg></button>
+                <button className="menu-btn" onClick={() => setShowMenu(!showMenu)}><svg xmlns="http://www.w3.org/2000/svg" width="32" height="24" viewBox="0 0 24 24"><path fill="#ffffff" d="M4 6h16v2H4V6zm0 5h16v2H4v-2zm16 5H4v2h16v-2z"/></svg></button>
                 {showMenu && (<div className="dropdown-menu"> <div className="menu-item" onClick={openGroupInfo}><svg xmlns="http://www.w3.org/2000/svg" width="32" height="24" viewBox="0 0 24 24"><path fill="#ffffff" d="M6 3h14v2h2v6h-2v8h-2V5H6V3zm8 14v-2H6V5H4v10H2v4h2v2h14v-2h-2v-2h-2zm0 0v2H4v-2h10zM8 7h8v2H8V7zm8 4H8v2h8v-2z"/></svg> Информация</div> {!isPrivateChat && (<div className="menu-item" onClick={() => setActiveModal("groupInfo")}><svg xmlns="http://www.w3.org/2000/svg" width="32" height="24" viewBox="0 0 24 24"><path fill="#ffffff" d="M18 2h-6v2h-2v6h2V4h6V2zm0 8h-6v2h6v-2zm0-6h2v6h-2V4zM7 16h2v-2h12v2H9v4h12v-4h2v6H7v-6zM3 8h2v2h2v2H5v2H3v-2H1v-2h2V8z"/></svg> Добавить в группу</div>)} </div>)}
               </div>
             </div>
@@ -795,20 +851,27 @@ function Chat({ socket, username, room, setRoom, handleLogout }) {
               <div ref={messagesEndRef} />
             </div>
 
-            <div className="chat-input-wrapper">
-              {replyingTo && (<div className="reply-bar"><div><div style={{ color: "#8774e1", fontSize: 13, fontWeight: "bold" }}>В ответ {replyingTo.author}</div><div style={{ fontSize: 14, color: "#ccc", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", maxWidth: "250px" }}>{replyingTo.message}</div></div><button onClick={() => setReplyingTo(null)} style={{ background: "none", border: "none", color: "#888", cursor: "pointer", fontSize: 24 }}>&times;</button></div>)}
-              {attachedFiles.length > 0 && (<div className="attachments-preview"> {attachedFiles.map((f, i) => (<div key={i} className="attachment-thumb"> <img src={URL.createObjectURL(f)} alt="preview" /> <button onClick={() => removeAttachment(i)}>&times;</button> </div>))} </div>)}
-              <textarea ref={textareaRef} value={currentMessage} placeholder="Написать сообщение..." className="chat-textarea" onChange={(e) => { setCurrentMessage(e.target.value); socket.emit("typing", { room, username }); }} onKeyDown={handleKeyDown} rows={1} />
-              <div className="input-toolbar">
-                <div className="toolbar-left">
-                  <input type="file" style={{ display: "none" }} multiple ref={fileInputRef} onChange={handleFileSelect} accept="image/*" />
-                  <button className="tool-btn" onClick={() => fileInputRef.current.click()} title="Прикрепить фото"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path fill="currentColor" d="M16.5 6v11.5c0 2.21-1.79 4-4 4s-4-1.79-4-4V5a2.5 2.5 0 0 1 5 0v10.5c0 .55-.45 1-1 1s-1-.45-1-1V6H10v9.5a2.5 2.5 0 0 0 5 0V5c0-2.21-1.79-4-4-4S7 2.79 7 5v12.5c0 3.04 2.46 5.5 5.5 5.5s5.5-2.46 5.5-5.5V6h-1.5z"/></svg></button>
+            {/* --- ИЗМЕНЕНИЕ: Условие для отображения поля ввода --- */}
+            {(room !== "General" || myRole === 'owner') ? (
+                <div className="chat-input-wrapper">
+                {replyingTo && (<div className="reply-bar"><div><div style={{ color: "#8774e1", fontSize: 13, fontWeight: "bold" }}>В ответ {replyingTo.author}</div><div style={{ fontSize: 14, color: "#ccc", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", maxWidth: "250px" }}>{replyingTo.message}</div></div><button onClick={() => setReplyingTo(null)} style={{ background: "none", border: "none", color: "#888", cursor: "pointer", fontSize: 24 }}>&times;</button></div>)}
+                {attachedFiles.length > 0 && (<div className="attachments-preview"> {attachedFiles.map((f, i) => (<div key={i} className="attachment-thumb"> <img src={URL.createObjectURL(f)} alt="preview" /> <button onClick={() => removeAttachment(i)}>&times;</button> </div>))} </div>)}
+                <textarea ref={textareaRef} value={currentMessage} placeholder="Написать сообщение..." className="chat-textarea" onChange={(e) => { setCurrentMessage(e.target.value); socket.emit("typing", { room, username }); }} onKeyDown={handleKeyDown} rows={1} />
+                <div className="input-toolbar">
+                    <div className="toolbar-left">
+                    <input type="file" style={{ display: "none" }} multiple ref={fileInputRef} onChange={handleFileSelect} accept="image/*" />
+                    <button className="tool-btn" onClick={() => fileInputRef.current.click()} title="Прикрепить фото"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path fill="currentColor" d="M16.5 6v11.5c0 2.21-1.79 4-4 4s-4-1.79-4-4V5a2.5 2.5 0 0 1 5 0v10.5c0 .55-.45 1-1 1s-1-.45-1-1V6H10v9.5a2.5 2.5 0 0 0 5 0V5c0-2.21-1.79-4-4-4S7 2.79 7 5v12.5c0 3.04 2.46 5.5 5.5 5.5s5.5-2.46 5.5-5.5V6h-1.5z"/></svg></button>
+                    </div>
+                    <div className="toolbar-right">
+                    {currentMessage.trim() || attachedFiles.length > 0 ? (<button className="send-pill-btn" onClick={sendMessage}> Отправить ↵ </button>) : (<button className={`mic-btn ${isRecording ? "recording" : ""}`} onClick={isRecording ? stopRecording : startRecording}>{isRecording ? formatTime(recordingTime) : (<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path fill="currentColor" d="M12 14c1.66 0 2.99-1.34 2.99-3L15 5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3zm5.3-3c0 3-2.54 5.1-5.3 5.1S6.7 14 6.7 11H5c0 3.41 2.72 6.23 6 6.72V21h2v-3.28c3.28-.48 6-3.3 6-6.72h-1.7z"/></svg>)}</button>)}
+                    </div>
                 </div>
-                <div className="toolbar-right">
-                  {currentMessage.trim() || attachedFiles.length > 0 ? (<button className="send-pill-btn" onClick={sendMessage}> Отправить ↵ </button>) : (<button className={`mic-btn ${isRecording ? "recording" : ""}`} onClick={isRecording ? stopRecording : startRecording}>{isRecording ? formatTime(recordingTime) : (<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path fill="currentColor" d="M12 14c1.66 0 2.99-1.34 2.99-3L15 5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3zm5.3-3c0 3-2.54 5.1-5.3 5.1S6.7 14 6.7 11H5c0 3.41 2.72 6.23 6 6.72V21h2v-3.28c3.28-.48 6-3.3 6-6.72h-1.7z"/></svg>)}</button>)}
                 </div>
-              </div>
-            </div>
+            ) : (
+                <div style={{ padding: 20, textAlign: 'center', color: '#666', fontSize: 13 }}>
+                    Только администраторы могут писать в этот канал.
+                </div>
+            )}
           </div>
         </div>
 
@@ -897,7 +960,6 @@ function Chat({ socket, username, room, setRoom, handleLogout }) {
             </div>
             
             <div className="settings-list">
-              {/* Display Name */}
               <div className="settings-item"> 
                 <div className="form-container" style={{ flex: 1, padding: 0, margin: 0 }}> 
                     <div className="input-group"> 
@@ -907,7 +969,6 @@ function Chat({ socket, username, room, setRoom, handleLogout }) {
                 </div> 
               </div>
 
-              {/* Nametag/Username Change */}
               <div className="settings-item"> 
                 <div className="settings-icon"><svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 24 24" fill="#ffffff"><path fill="#ffffff" d="M4 4h16v12H8V8h8v6h2V6H6v12h14v2H4V4zm10 10v-4h-4v4h4z"/></svg></div> 
                 <div className="form-container" style={{ flex: 1, padding: 0, margin: 0 }}> 
@@ -921,7 +982,6 @@ function Chat({ socket, username, room, setRoom, handleLogout }) {
               <div className="settings-item"> <div className="settings-icon"><svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 24 24"><path fill="#ffffff" d="M1 2h8.58l1.487 6.69l-1.86 1.86a14.08 14.08 0 0 0 4.243 4.242l1.86-1.859L22 14.42V23h-1a19.91 19.91 0 0 1-10.85-3.196a20.101 20.101 0 0 1-5.954-5.954A19.91 19.91 0 0 1 1 3V2Zm2.027 2a17.893 17.893 0 0 0 2.849 8.764a18.102 18.102 0 0 0 5.36 5.36A17.892 17.892 0 0 0 20 20.973v-4.949l-4.053-.9l-2.174 2.175l-.663-.377a16.073 16.073 0 0 1-6.032-6.032l-.377-.663l2.175-2.174L7.976 4H3.027Z"/></svg></div> <div className="form-container" style={{ flex: 1, padding: 0, margin: 0 }}> <div className="input-group"> <label>Mobile</label> <input className="modal-input" style={{ padding: "5px 0", borderBottom: "none" }} value={profileForm.phone} onChange={(e) => setProfileForm({ ...profileForm, phone: e.target.value })} placeholder="Add phone number" /> </div> </div> </div>
               <div className="settings-item"> <div className="settings-icon"><svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 24 24"><path fill="#ffffff" d="M21 1v22H3V1h18Zm-8 2v6.5l-3-2.25L7 9.5V3H5v18h14V3h-6ZM9 3v2.5l1-.75l1 .75V3H9Zm-2 9h10v2H7v-2Zm0 4h8v2H7v-2Z"/></svg></div> <div className="form-container" style={{ flex: 1, padding: 0, margin: 0 }}> <div className="input-group"> <label>Bio</label> <input className="modal-input" style={{ padding: "5px 0", borderBottom: "none" }} value={profileForm.bio} onChange={(e) => setProfileForm({ ...profileForm, bio: e.target.value })} placeholder="Add a few words about yourself" /> </div> </div> </div>
               
-              {/* Notification Settings */}
               <div className="settings-item" onClick={requestNotificationPermission}> 
                 <div className="settings-icon"><IconBell hasUnread={false}/></div> 
                 <div style={{ flex: 1, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
@@ -958,14 +1018,58 @@ function Chat({ socket, username, room, setRoom, handleLogout }) {
 
         {activeModal === "groupInfo" && (
           <Modal title="Group Info" onClose={() => setActiveModal(null)}>
-            <div className="profile-hero"> <div className="profile-avatar-large">{room.substring(0, 2)}</div> <div className="profile-name">{room}</div> <div className="profile-status">{groupMembers.length} members</div> </div>
+            <div className="profile-hero"> <div className="profile-avatar-large">{room.substring(0, 2)}</div> 
+            <div className="profile-name">{room}</div> <div className="profile-status">{groupMembers.length} members</div></div>
             <div className="settings-list" style={{ padding: "0 15px" }}>
               <div style={{ color: "#8774e1", padding: "10px 0", fontSize: "14px", fontWeight: "bold" }}>Members</div>
-              {groupMembers.map((m, i) => ( <div key={i} className="settings-item"> <div className="friend-avatar" style={{ fontSize: 12, marginRight: 15 }}>{m.username[0]}</div> <div className="settings-label"> <div style={{ fontSize: "16px" }}>{m.username}</div> <div style={{ fontSize: "12px", color: "#888" }}>{m.role === "owner" ? "owner" : "member"}</div> </div> {myRole === "owner" && m.role !== "owner" && m.username !== username && (<button style={{ color: "#ff5959", background: "none", border: "none", cursor: "pointer", fontSize: "18px" }} onClick={() => socket.emit("remove_group_member", { room, username: m.username })}>&times;</button>)} </div> ))}
+              
+              {groupMembers.map((m, i) => ( 
+                  <div 
+                    key={i} 
+                    className="settings-item" 
+                    onClick={(e) => {
+                        e.stopPropagation();
+                        if(m.username !== username) {
+                            socket.emit("get_user_profile", m.username);
+                        }
+                    }}
+                  > 
+                    <div className="friend-avatar" style={{ 
+                        fontSize: 12, 
+                        marginRight: 15,
+                        backgroundImage: m.avatar_url ? `url(${m.avatar_url})` : 'none',
+                        backgroundSize: 'cover',
+                        backgroundPosition: 'center',
+                        color: m.avatar_url ? 'transparent' : 'white'
+                    }}>
+                        {m.username[0].toUpperCase()}
+                    </div> 
+                    
+                    <div className="settings-label"> 
+                        <div style={{ fontSize: "16px" }}>{m.username}</div> 
+                        <div style={{ fontSize: "12px", color: "#888" }}>
+                            {m.role === "owner" ? "owner" : "member"}
+                            {m.username !== username && <span style={{marginLeft: 5, color: '#1a7bd6'}}>• Профиль</span>}
+                        </div> 
+                    </div> 
+                    
+                    {myRole === "owner" && m.role !== "owner" && m.username !== username && (
+                        <button 
+                            style={{ color: "#ff5959", background: "none", border: "none", cursor: "pointer", fontSize: "18px", padding: 10 }} 
+                            onClick={(e) => {
+                                e.stopPropagation();
+                                socket.emit("remove_group_member", { room, username: m.username });
+                            }}
+                        >
+                        &times;
+                        </button>
+                    )} 
+                  </div> 
+              ))}
             </div>
             <div style={{ padding: "20px" }}>
               <div className="action-card" onClick={() => { const n = prompt("Ник:"); if (n) socket.emit("add_group_member", { room, username: n }); }} style={{ marginBottom: 10, height: "auto", display: "flex", alignItems: "center", justifyContent: "center", flexDirection: "row" }}><svg xmlns="http://www.w3.org/2000/svg" width="32" height="24" viewBox="0 0 24 24"><path fill="#ffffff" d="M18 2h-6v2h-2v6h2V4h6V2zm0 8h-6v2h6v-2zm0-6h2v6h-2V4zM7 16h2v-2h12v2H9v4h12v-4h2v6H7v-6zM3 8h2v2h2v2H5v2H3v-2H1v-2h2V8z"/></svg> Добавить участника</div>
-              <button className="btn-danger" style={{ textAlign: "center" }} onClick={leaveGroup}>{myRole === "owner" ? "Delete Group" : "Leave Group"}</button>
+              <button className="btn-danger" style={{ textAlign: "center" }} onClick={leaveGroup}>{myRole === "owner" && room !== "General" ? "Delete Group" : "Leave Group"}</button>
             </div>
           </Modal>
         )}
