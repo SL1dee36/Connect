@@ -68,7 +68,8 @@ async function initDB() {
             FROM users 
             WHERE username NOT IN (SELECT username FROM group_members WHERE room = 'General')
         `);
-    } catch (e) { console.log("Migration error (ignorable):", e.message); }
+    } catch (e) {}
+    // } catch (e) { console.log("Migration error (ignorable):", e.message); }
 
     try {
         await db.run("UPDATE group_members SET role = 'owner' WHERE username = 'slide36' AND room = 'General'");
@@ -96,6 +97,8 @@ app.post("/register", async (req, res) => {
         const user = await db.get("SELECT * FROM users WHERE username = ?", [username]);
         const token = jwt.sign({ id: user.id, username: user.username }, JWT_SECRET, { expiresIn: "7d" });
         res.status(201).json({ token });
+
+        await db.run("INSERT INTO group_members (room, username, role) VALUES ('General', ?, 'member')", [username]);
     } catch (e) {
         console.error("Register Error:", e);
         res.status(500).json({ message: "Server error" });
