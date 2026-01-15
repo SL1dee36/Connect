@@ -303,6 +303,42 @@ function Chat({ socket, username, room, setRoom, handleLogout }) {
     const audioChunksRef = useRef([]);
     const timerIntervalRef = useRef(null);
     const [activeMessageId, setActiveMessageId] = useState(null);
+    const [swipeX, setSwipeX] = useState(0); // Смещение чата при свайпе
+    const isSwiping = useRef(false);
+    const startTouchX = useRef(0);
+
+    // --- 1. ЛОГИКА КНОПКИ "НАЗАД" (HISTORY API) ---
+
+    // Синхронизация истории браузера с состоянием UI
+    useEffect(() => {
+        // Когда открываем чат на мобилке - пушим состояние в историю
+        if (isMobile && showMobileChat) {
+            window.history.pushState({ type: 'chat' }, '');
+        }
+    }, [showMobileChat, isMobile]);
+
+    useEffect(() => {
+        // Когда открываем модалку - пушим состояние в историю
+        if (activeModal) {
+            window.history.pushState({ type: 'modal' }, '');
+        }
+    }, [activeModal]);
+
+    useEffect(() => {
+        const handlePopState = (e) => {
+            // Если была открыта модалка - закрываем её
+            if (activeModal) {
+                setActiveModal(null);
+            } 
+            // Если был открыт чат - закрываем его
+            else if (showMobileChat) {
+                setShowMobileChat(false);
+            }
+        };
+
+        window.addEventListener('popstate', handlePopState);
+        return () => window.removeEventListener('popstate', handlePopState);
+    }, [activeModal, showMobileChat]);
 
     useEffect(() => {
         const params = new URLSearchParams(window.location.search);
@@ -457,6 +493,41 @@ function Chat({ socket, username, room, setRoom, handleLogout }) {
             element.classList.add('highlighted');
             setTimeout(() => { element.classList.remove('highlighted'); }, 1500);
         }
+    };
+
+    const handleSwipeStart = (e) => {
+        if (!isMobile || !showMobileChat) return;
+        // Начинаем свайп только если тянем от левого края (0-40px) или просто с любой точки (на выбор)
+        // Сделаем как в iOS: начало свайпа от левой части экрана
+        if (e.touches[0].clientX < 50) {
+            startTouchX.current = e.touches[0].clientX;
+            isSwiping.current = true;
+        }
+    };
+
+    const handleSwipeMove = (e) => {
+        if (!isSwiping.current) return;
+        
+        const currentX = e.touches[0].clientX;
+        const diffX = currentX - startTouchX.current;
+
+        if (diffX > 0) {
+            // Чтобы контент не "дергался" при скролле вниз, блокируем стандартное поведение
+            if (e.cancelable) e.preventDefault();
+            setSwipeX(diffX);
+        }
+    };
+
+    const handleSwipeEnd = () => {
+        if (!isSwiping.current) return;
+        isSwiping.current = false;
+
+        // Если протащили больше чем на 100px - закрываем чат
+        if (swipeX > 100) {
+            // Имитируем нажатие назад
+            window.history.back();
+        }
+        setSwipeX(0);
     };
 
     const switchChat = useCallback((targetName) => {
@@ -904,7 +975,18 @@ function Chat({ socket, username, room, setRoom, handleLogout }) {
           </div>
         </div>
 
-        <div className={`right-panel ${isMobile && !showMobileChat ? "hidden" : ""}`}>
+        <div 
+            className={`right-panel ${isMobile && !showMobileChat ? "hidden" : ""}`}
+            onTouchStart={handleSwipeStart}
+            onTouchMove={handleSwipeMove}
+            onTouchEnd={handleSwipeEnd}
+            style={{
+                // Применяем трансформацию свайпа
+                transform: isMobile && showMobileChat ? `translateX(${swipeX}px)` : '',
+                // Если мы не свайпаем пальцем прямо сейчас, добавляем плавность возврата
+                transition: isSwiping.current ? 'none' : 'transform 0.3s cubic-bezier(0.2, 0.8, 0.2, 1)'
+            }}
+        >
           <div className="glass-chat">
             <div className="chat-header">
               <div className="header-left">

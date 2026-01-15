@@ -1267,3 +1267,53 @@ span {
 p {
   margin: 0px;
 }
+
+@media (max-width: 768px) {
+  /* Контейнер для панелей */
+  .main-layout {
+    position: relative;
+    overflow: hidden;
+    width: 100vw;
+    height: 100dvh;
+  }
+
+  /* Левая панель (список чатов) теперь всегда под чатом */
+  .left-panel {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    z-index: 10; /* Ниже чата */
+    background: #000;
+    display: flex !important; /* Убеждаемся, что она не скроется */
+    transition: transform 0.3s ease-out, opacity 0.3s ease-out;
+  }
+
+  /* Правая панель (окно чата) поверх списка */
+  .right-panel {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    z-index: 20; /* Выше списка чатов */
+    background: #000;
+    will-change: transform;
+    /* Не используем display: none */
+  }
+
+  /* Если чат закрыт, он просто улетает за правую границу экрана */
+  .right-panel.hidden {
+    transform: translateX(100%) !important;
+    display: flex !important; /* Он должен существовать, но быть за экраном */
+    pointer-events: none;
+  }
+  
+  /* Эффект для левой панели, когда чат открыт (опционально, для глубины) */
+  .left-panel.under-chat {
+    transform: scale(0.95);
+    opacity: 0.7;
+    filter: blur(2px);
+  }
+}
