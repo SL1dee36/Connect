@@ -495,12 +495,14 @@ function Chat({ socket, username, room, setRoom, handleLogout }) {
         }
     };
 
+    const startTouchY = useRef(0); // Добавьте этот ref в начало компонента Chat
+
     const handleSwipeStart = (e) => {
         if (!isMobile || !showMobileChat) return;
-        // Начинаем свайп только если тянем от левого края (0-40px) или просто с любой точки (на выбор)
-        // Сделаем как в iOS: начало свайпа от левой части экрана
+        // Начинаем свайп только от левого края (0-40px)
         if (e.touches[0].clientX < 50) {
             startTouchX.current = e.touches[0].clientX;
+            startTouchY.current = e.touches[0].clientY;
             isSwiping.current = true;
         }
     };
@@ -509,10 +511,19 @@ function Chat({ socket, username, room, setRoom, handleLogout }) {
         if (!isSwiping.current) return;
         
         const currentX = e.touches[0].clientX;
+        const currentY = e.touches[0].clientY;
         const diffX = currentX - startTouchX.current;
+        const diffY = Math.abs(currentY - startTouchY.current);
+
+        // Если пользователь тянет больше вниз/вверх, чем вправо — это скролл, отменяем свайп
+        if (diffY > Math.abs(diffX) && diffX < 10) {
+            isSwiping.current = false;
+            setSwipeX(0);
+            return;
+        }
 
         if (diffX > 0) {
-            // Чтобы контент не "дергался" при скролле вниз, блокируем стандартное поведение
+            // Блокируем стандартный свайп браузера "назад", чтобы использовать наш
             if (e.cancelable) e.preventDefault();
             setSwipeX(diffX);
         }
@@ -522,21 +533,42 @@ function Chat({ socket, username, room, setRoom, handleLogout }) {
         if (!isSwiping.current) return;
         isSwiping.current = false;
 
-        // Если протащили больше чем на 100px - закрываем чат
-        if (swipeX > 100) {
-            // Имитируем нажатие назад
-            window.history.back();
+        // Если протащили больше чем на 25% экрана или быстрее определенной скорости
+        if (swipeX > window.innerWidth * 0.25) {
+            // Плавный уход панели за экран перед вызовом back
+            setSwipeX(window.innerWidth);
+            setTimeout(() => {
+                window.history.back();
+            }, 100);
+        } else {
+            // Возвращаем на место
+            setSwipeX(0);
         }
-        setSwipeX(0);
     };
 
     const switchChat = useCallback((targetName) => {
         if (!targetName || typeof targetName !== 'string') return;
         const isGroupChat = targetName === "General" || myChats.includes(targetName);
         const roomId = isGroupChat ? targetName : [username, targetName].sort().join("_");
-        if (roomId !== room) { setRoom(roomId); localStorage.setItem("apollo_room", roomId); }
-        if (isMobile) { setShowMobileChat(true); if (document.activeElement instanceof HTMLElement) document.activeElement.blur(); }
+        
+        if (roomId !== room) { 
+            setRoom(roomId); 
+            localStorage.setItem("apollo_room", roomId); 
+        }
+
+        if (isMobile) { 
+            setSwipeX(0); // Сбрасываем сдвиг перед открытием
+            setShowMobileChat(true); 
+            if (document.activeElement instanceof HTMLElement) document.activeElement.blur(); 
+        }
     }, [room, setRoom, username, isMobile, myChats]);
+
+    useEffect(() => {
+        if (!showMobileChat) {
+            setSwipeX(0);
+            isSwiping.current = false;
+        }
+    }, [showMobileChat]);
 
     useEffect(() => {
         const handleResize = () => setIsMobile(window.innerWidth <= 768);
@@ -981,10 +1013,20 @@ function Chat({ socket, username, room, setRoom, handleLogout }) {
             onTouchMove={handleSwipeMove}
             onTouchEnd={handleSwipeEnd}
             style={{
-                // Применяем трансформацию свайпа
-                transform: isMobile && showMobileChat ? `translateX(${swipeX}px)` : '',
-                // Если мы не свайпаем пальцем прямо сейчас, добавляем плавность возврата
-                transition: isSwiping.current ? 'none' : 'transform 0.3s cubic-bezier(0.2, 0.8, 0.2, 1)'
+                // Если чат закрыт на мобилке, уводим его вправо на 100%
+                // Если открыт — используем swipeX для сдвига
+                transform: isMobile 
+                    ? (showMobileChat ? `translateX(${swipeX}px)` : `translateX(100%)`) 
+                    : 'none',
+                // Отключаем транзишн во время активного свайпа пальцем
+                transition: isSwiping.current ? 'none' : 'transform 0.3s cubic-bezier(0.2, 0.8, 0.2, 1)',
+                // Важно для мобилок:
+                position: isMobile ? 'fixed' : 'relative',
+                top: 0,
+                left: 0,
+                width: '100%',
+                height: '100%',
+                zIndex: 100
             }}
         >
           <div className="glass-chat">
