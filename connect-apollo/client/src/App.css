@@ -154,7 +154,7 @@ body {
 .gallery-image {
     width: 100px; height: 100px; object-fit: cover; border-radius: 8px; cursor: pointer;
 }
-.audio-player { max-width: 250px; border-radius: 20px; }
+.audio-player { max-width: 90%; border-radius: 20px; }
 
 .meta { 
   font-size: 10px;
@@ -1190,4 +1190,80 @@ span {
 
 .message.mine .meta-name {
     display: none;
+}
+
+.tg-audio-player {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 8px 6px;
+    min-width: 200px;
+}
+
+.tg-play-btn {
+    /* width: 38px;
+    height: 38px; */
+    border-radius: 8px;
+    border: none;
+    background-color: #80beff;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    flex-shrink: 0;
+}
+
+.tg-audio-info {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    flex-grow: 1;
+}
+
+.tg-waveform {
+    display: flex;
+    align-items: center; /* Центрируем волну по вертикали как в ТГ */
+    gap: 2px;
+    height: 24px;
+    cursor: pointer;
+}
+
+.tg-bar {
+    width: 2px;
+    background-color: rgba(255, 255, 255, 0.2);
+    border-radius: 1px;
+    transition: background-color 0.1s;
+}
+
+.tg-bar.active {
+    background-color: #7898ba;
+}
+
+.tg-meta {
+    font-size: 11px;
+    color: #8199b0;
+    margin-top: 2px;
+    display: flex;
+    justify-content: space-between;
+}
+
+.tg-loading-wave {
+    font-size: 10px;
+    color: #555;
+    letter-spacing: 1px;
+}
+
+/* Стили для ваших сообщений */
+.mine .tg-bar.active {
+    background-color: #ffffff;
+}
+.mine .tg-play-btn {
+    background-color: #ffffff;
+}
+.mine .tg-play-btn svg {
+    fill: #2b95ff;
+}
+
+p {
+  margin: 0px;
 }

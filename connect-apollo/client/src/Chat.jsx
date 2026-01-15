@@ -2,6 +2,7 @@ import React, { useEffect, useState, useRef, useLayoutEffect, useCallback } from
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import Modal from "./Modal";
+import CustomAudioPlayer from "./CustomAudioPlayer";
 import Cropper from 'react-easy-crop';
 
 const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || "http://localhost:3001";
@@ -126,7 +127,7 @@ const MessageItem = React.memo(({ msg, username, display_name, setImageModalSrc,
             </div>
         );
     } else if (msg.type === 'audio') {
-        content = <audio controls src={msg.message} className="audio-player" />;
+        content = <CustomAudioPlayer src={msg.message} />;
     } else {
         // ОБРАБОТКА MARKDOWN И МЕНШЕНОВ
         // Превращаем @username в markdown-ссылку, чтобы ReactMarkdown мог её обработать
@@ -167,24 +168,42 @@ const MessageItem = React.memo(({ msg, username, display_name, setImageModalSrc,
 
     const handleTouchStart = (e) => {
         touchStartRef.current = e.touches[0].clientX;
+        const startY = e.touches[0].clientY;
         touchCurrentRef.current = e.touches[0].clientX;
+
+        // Очищаем старый таймер если он был
+        if (longPressTimerRef.current) clearTimeout(longPressTimerRef.current);
+
         longPressTimerRef.current = setTimeout(() => {
             setIsLongPress(true);
             const touch = e.touches[0];
             onContextMenu(e, msg, touch.clientX, touch.clientY);
-            if (window.navigator.vibrate) window.navigator.vibrate(20);
-        }, 500);
+            if (window.navigator.vibrate) window.navigator.vibrate(30);
+        }, 2500); // 2 секунды удержания
     };
+
     const handleTouchMove = (e) => {
-        touchCurrentRef.current = e.touches[0].clientX;
-        const diff = touchCurrentRef.current - touchStartRef.current;
-        if (Math.abs(diff) > 10) { clearTimeout(longPressTimerRef.current); longPressTimerRef.current = null; }
-        if (diff > 0 && diff < 150) setTranslateX(diff);
-    };
+        const currentX = e.touches[0].clientX;
+        const currentY = e.touches[0].clientY;
+        const diffX = currentX - touchStartRef.current;
+
+        // Если палец двинулся (больше чем на 8 пикселей в любую сторону) - отменяем Long Press
+        if (Math.abs(diffX) > 8) {
+            if (longPressTimerRef.current) {
+                clearTimeout(longPressTimerRef.current);
+                longPressTimerRef.current = null;
+            }
+        }
+
+        // Логика свайпа для ответа работает только если мы не в режиме долгого нажатия
+        if (!isLongPress && diffX < 0 && diffX > -150 && !longPressTimerRef.current) {
+            setTranslateX(diffX);
+        }
+    }; 
     const handleTouchEnd = () => {
         clearTimeout(longPressTimerRef.current);
         if (isLongPress) { setIsLongPress(false); return; }
-        if (translateX > 80) { if (window.navigator.vibrate) window.navigator.vibrate(10); onReplyTrigger(msg); }
+        if (translateX < -80) { if (window.navigator.vibrate) window.navigator.vibrate(10); onReplyTrigger(msg); }
         setTranslateX(0);
     };
     const handleRightClick = (e) => { e.preventDefault(); onContextMenu(e, msg, e.clientX, e.clientY); };
@@ -283,7 +302,8 @@ function Chat({ socket, username, room, setRoom, handleLogout }) {
     const mediaRecorderRef = useRef(null);
     const audioChunksRef = useRef([]);
     const timerIntervalRef = useRef(null);
-    
+    const [activeMessageId, setActiveMessageId] = useState(null);
+
     useEffect(() => {
         const params = new URLSearchParams(window.location.search);
         const sharedUser = params.get('user');
@@ -301,6 +321,29 @@ function Chat({ socket, username, room, setRoom, handleLogout }) {
             textarea.style.height = `${nextHeight}px`;
         }
     }, [currentMessage]);
+
+    // Обновляем функцию закрытия меню и сброса состояния
+    useEffect(() => {
+        const handleGlobalClose = (e) => {
+            // Если нажатие вне контекстного меню
+            const menuElement = document.querySelector('.context-menu-container');
+            if (menuElement && !menuElement.contains(e.target)) {
+                setContextMenu(null);
+                setActiveMessageId(null); // Сбрасываем ID активного сообщения (убирает затемнение)
+            } else if (!menuElement) {
+                setContextMenu(null);
+                setActiveMessageId(null);
+            }
+        };
+
+        window.addEventListener('mousedown', handleGlobalClose);
+        window.addEventListener('touchstart', handleGlobalClose);
+
+        return () => {
+            window.removeEventListener('mousedown', handleGlobalClose);
+            window.removeEventListener('touchstart', handleGlobalClose);
+        };
+    }, []); // Убрали зависимость от contextMenu для стабильности
 
     const playNotificationSound = useCallback(() => {
         try {
@@ -397,6 +440,7 @@ function Chat({ socket, username, room, setRoom, handleLogout }) {
     const handleDeleteMessage = useCallback((id) => { if (window.confirm("Удалить это сообщение?")) socket.emit("delete_message", id); }, [socket]);
 
     const handleContextMenu = useCallback((e, msg, x, y) => {
+        setActiveMessageId(msg.id); // Устанавливаем активное сообщение для затемнения
         let menuX = x; let menuY = y;
         if (x + 150 > window.innerWidth) menuX = window.innerWidth - 160;
         if (y + 120 > window.innerHeight) menuY = window.innerHeight - 130;
