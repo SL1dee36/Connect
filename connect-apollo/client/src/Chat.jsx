@@ -82,21 +82,25 @@ const renderMessageWithMentions = (text, onMentionClick) => {
 };
 
 // --- Context Menu Component ---
-// --- ИЗМЕНЕНИЕ: canDelete заменил isMine для большей ясности ---
 const ContextMenu = ({ x, y, msg, onClose, onReply, onCopy, onDelete, canDelete }) => {
     return (
-        <div style={{
-            position: 'fixed', top: y, left: x, zIndex: 9999,
-            background: '#252525', borderRadius: 8, border: '1px solid #333',
-            boxShadow: '0 4px 12px rgba(0,0,0,0.5)', overflow: 'hidden', minWidth: 150
-        }} onClick={(e) => e.stopPropagation()}>
+        <div 
+            className="context-menu-container" // 1. Добавлен класс для поиска через querySelector
+            style={{
+                position: 'fixed', top: y, left: x, zIndex: 9999,
+                background: '#252525', borderRadius: 8, border: '1px solid #333',
+                boxShadow: '0 4px 12px rgba(0,0,0,0.5)', overflow: 'hidden', minWidth: 150
+            }} 
+            // 2. Останавливаем всплытие событий, чтобы глобальный клик не закрыл меню сразу же
+            onClick={(e) => e.stopPropagation()}
+            onTouchStart={(e) => e.stopPropagation()} 
+        >
             <div className="menu-item" onClick={onReply} style={{padding: '10px 15px', display: 'flex', alignItems: 'center', gap: 10, cursor: 'pointer', color: 'white'}}>
                 <IconReply/> Ответить
             </div>
             <div className="menu-item" onClick={onCopy} style={{padding: '10px 15px', display: 'flex', alignItems: 'center', gap: 10, cursor: 'pointer', color: 'white'}}>
                 <IconCopy/> Копировать
             </div>
-            {/* --- ИЗМЕНЕНИЕ: Проверяем canDelete --- */}
             {canDelete && (
                 <div className="menu-item" onClick={onDelete} style={{padding: '10px 15px', display: 'flex', alignItems: 'center', gap: 10, cursor: 'pointer', color: '#ff4d4d'}}>
                     <IconTrash/> Удалить
@@ -361,17 +365,20 @@ function Chat({ socket, username, room, setRoom, handleLogout }) {
     // Обновляем функцию закрытия меню и сброса состояния
     useEffect(() => {
         const handleGlobalClose = (e) => {
-            // Если нажатие вне контекстного меню
+            // Ищем наше меню по классу
             const menuElement = document.querySelector('.context-menu-container');
-            if (menuElement && !menuElement.contains(e.target)) {
-                setContextMenu(null);
-                setActiveMessageId(null); // Сбрасываем ID активного сообщения (убирает затемнение)
-            } else if (!menuElement) {
-                setContextMenu(null);
-                setActiveMessageId(null);
+            
+            // Если клик был внутри меню - ничего не делаем (хотя stopPropagation в компоненте уже это решает)
+            if (menuElement && menuElement.contains(e.target)) {
+                return;
             }
+
+            // Если клик снаружи - закрываем
+            setContextMenu(null);
+            setActiveMessageId(null);
         };
 
+        // Используем capture: true не нужно, обычного всплытия достаточно
         window.addEventListener('mousedown', handleGlobalClose);
         window.addEventListener('touchstart', handleGlobalClose);
 
@@ -379,7 +386,7 @@ function Chat({ socket, username, room, setRoom, handleLogout }) {
             window.removeEventListener('mousedown', handleGlobalClose);
             window.removeEventListener('touchstart', handleGlobalClose);
         };
-    }, []); // Убрали зависимость от contextMenu для стабильности
+    }, []);
 
     const playNotificationSound = useCallback(() => {
         try {
@@ -941,8 +948,11 @@ function Chat({ socket, username, room, setRoom, handleLogout }) {
             onClose={() => setContextMenu(null)} 
             onReply={() => handleReply(contextMenu.msg)} 
             onCopy={() => handleCopy(contextMenu.msg.message)} 
-            onDelete={() => { handleDeleteMessage(contextMenu.msg.id); setContextMenu(null); }} 
-            // --- ИЗМЕНЕНИЕ: Передаем новое условие в компонент ---
+            // Исправлено: Сначала вызываем удаление, потом закрываем меню
+            onDelete={() => { 
+                handleDeleteMessage(contextMenu.msg.id); 
+                setContextMenu(null); 
+            }} 
             canDelete={canDeleteMessage(contextMenu.msg)}
           />
         )}
