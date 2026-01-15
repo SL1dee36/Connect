@@ -19,12 +19,17 @@ const IconCheck = () => (
 );
 const IconReply = () => (
     <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
-         <path fill="currentColor" d="M10 9V5l-7 7l7 7v-4.1c5 0 8.5 1.6 11 5.1c-1-5-4-10-11-11z"/>
+         <path fill="#ffffff" d="M18 8H8V6H6v2H4v2h2v2h2v-2h10v10h2V8h-2zM8 12v2h2v-2H8zm0-6V4h2v2H8z"/>
+    </svg>
+);
+const IconForward = () => (
+    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+         <path fill="#ffffff" d="M6 8h10V6h2v2h2v2h-2v2h-2v-2H6v10H4V8h2zm10 4v2h-2v-2h2zm0-6V4h-2v2h2z"/>
     </svg>
 );
 const IconCopy = () => (
     <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
-        <path fill="currentColor" d="M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z"/>
+        <path fill="#ffffff" d="M4 2h11v2H6v13H4V2zm4 4h12v16H8V6zm2 2v12h8V8h-8z"/>
     </svg>
 );
 const IconTrash = () => (
@@ -101,7 +106,7 @@ const ContextMenu = ({ x, y, msg, onClose, onReply, onCopy, onDelete, canDelete 
 };
 
 // --- Message Item ---
-const MessageItem = React.memo(({ msg, username, setImageModalSrc, onContextMenu, onReplyTrigger, scrollToMessage, onMentionClick }) => {
+const MessageItem = React.memo(({ msg, username, display_name, setImageModalSrc, onContextMenu, onReplyTrigger, scrollToMessage, onMentionClick }) => {
     const isMine = msg.author === username;
     const [translateX, setTranslateX] = useState(0);
     const [isLongPress, setIsLongPress] = useState(false);
@@ -203,6 +208,7 @@ const MessageItem = React.memo(({ msg, username, setImageModalSrc, onContextMenu
 
             <div className={`bubble-container ${isLongPress ? 'long-press-active' : ''}`} style={{ transform: `translateX(${translateX}px)`, transition: translateX === 0 ? 'transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275)' : 'none' }}>
                 <div className="bubble">
+                    <span className="meta-name">{msg.author}</span>
                     {msg.reply_to_id && (
                         <div className="reply-preview-bubble" onClick={() => scrollToMessage(msg.reply_to_id)}>
                             <div className="reply-content">
@@ -214,10 +220,11 @@ const MessageItem = React.memo(({ msg, username, setImageModalSrc, onContextMenu
                         </div>
                     )}
                     {content}
+                    <span className="meta">{msg.time}{isMine && msg.status === 'sent' && <IconCheck />}</span>
                 </div>
-                <div className="message-footer">
+                {/* <div className="message-footer">
                     <span className="meta">{msg.time} • {msg.author} {isMine && msg.status === 'sent' && <IconCheck />}</span>
-                </div>
+                </div> */}
             </div>
         </div>
     );
