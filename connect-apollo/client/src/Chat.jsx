@@ -175,39 +175,57 @@ const MessageItem = React.memo(({ msg, username, display_name, setImageModalSrc,
         const startY = e.touches[0].clientY;
         touchCurrentRef.current = e.touches[0].clientX;
 
-        // Очищаем старый таймер если он был
+        // Очищаем старый таймер
         if (longPressTimerRef.current) clearTimeout(longPressTimerRef.current);
 
+        // Устанавливаем таймер на 800мс (оптимально для Long Press)
         longPressTimerRef.current = setTimeout(() => {
-            setIsLongPress(true);
+            setIsLongPress(true); // Включаем визуальный эффект
+            
             const touch = e.touches[0];
+            // ВАЖНО: Вызываем меню СРАЗУ, пока палец еще на экране
             onContextMenu(e, msg, touch.clientX, touch.clientY);
-            if (window.navigator.vibrate) window.navigator.vibrate(30);
-        }, 2500); // 2 секунды удержания
+            
+            if (window.navigator.vibrate) window.navigator.vibrate(50); // Чуть мощнее вибрация для отклика
+        }, 800); 
     };
 
     const handleTouchMove = (e) => {
         const currentX = e.touches[0].clientX;
         const currentY = e.touches[0].clientY;
         const diffX = currentX - touchStartRef.current;
-
-        // Если палец двинулся (больше чем на 8 пикселей в любую сторону) - отменяем Long Press
-        if (Math.abs(diffX) > 8) {
+        
+        // Если палец сдвинулся больше чем на 10px — отменяем таймер
+        // (увеличили до 10px, чтобы микродрожания пальца не сбивали таймер)
+        if (Math.abs(diffX) > 10 || Math.abs(currentY - touchStartRef.current) > 10) {
             if (longPressTimerRef.current) {
                 clearTimeout(longPressTimerRef.current);
                 longPressTimerRef.current = null;
             }
         }
 
-        // Логика свайпа для ответа работает только если мы не в режиме долгого нажатия
+        // Логика свайпа
         if (!isLongPress && diffX < 0 && diffX > -150 && !longPressTimerRef.current) {
             setTranslateX(diffX);
         }
     }; 
-    const handleTouchEnd = () => {
-        clearTimeout(longPressTimerRef.current);
-        if (isLongPress) { setIsLongPress(false); return; }
-        if (translateX < -80) { if (window.navigator.vibrate) window.navigator.vibrate(10); onReplyTrigger(msg); }
+
+    const handleTouchEnd = (e) => {
+        clearTimeout(longPressTimerRef.current); // Останавливаем таймер, если отпустили раньше времени
+        
+        if (isLongPress) { 
+            // ВАЖНО: Предотвращаем "клик" при отпускании пальца.
+            // Иначе, если под пальцем появилась кнопка меню, она нажмется автоматически.
+            if (e.cancelable) e.preventDefault(); 
+            
+            setIsLongPress(false); 
+            return; 
+        }
+
+        if (translateX < -80) { 
+            if (window.navigator.vibrate) window.navigator.vibrate(10); 
+            onReplyTrigger(msg); 
+        }
         setTranslateX(0);
     };
     const handleRightClick = (e) => { e.preventDefault(); onContextMenu(e, msg, e.clientX, e.clientY); };
@@ -483,10 +501,18 @@ function Chat({ socket, username, room, setRoom, handleLogout }) {
     const handleDeleteMessage = useCallback((id) => { if (window.confirm("Удалить это сообщение?")) socket.emit("delete_message", id); }, [socket]);
 
     const handleContextMenu = useCallback((e, msg, x, y) => {
-        setActiveMessageId(msg.id); // Устанавливаем активное сообщение для затемнения
-        let menuX = x; let menuY = y;
-        if (x + 150 > window.innerWidth) menuX = window.innerWidth - 160;
-        if (y + 120 > window.innerHeight) menuY = window.innerHeight - 130;
+        // e.preventDefault(); // Можно раскомментировать, если мешает нативное меню
+        setActiveMessageId(msg.id);
+        
+        let menuX = x;
+        // Смещаем меню на 70 пикселей ВВЕРХ, чтобы палец не перекрывал его
+        let menuY = y - 70; 
+
+        // Проверки, чтобы меню не улетело за границы экрана
+        if (menuX + 150 > window.innerWidth) menuX = window.innerWidth - 160;
+        if (menuY < 50) menuY = y + 20; // Если слишком близко к верху, показываем ПОД пальцем
+        if (menuY + 150 > window.innerHeight) menuY = window.innerHeight - 160;
+
         setContextMenu({ x: menuX, y: menuY, msg: msg });
     }, []);
 
