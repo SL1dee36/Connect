@@ -11,51 +11,70 @@ const fs = require("fs");
 const sharp = require("sharp");
 const bcrypt = require("bcrypt");
 const jwt = require("jsonwebtoken");
-const webpush = require("web-push"); // <-- БИБЛИОТЕКА ДЛЯ УВЕДОМЛЕНИЙ
+const webpush = require("web-push");
 
 const PORT = process.env.PORT || 3001;
-const FRONTEND_URL = process.env.FRONTEND_URL || "http://localhost:5173";
-const BACKEND_URL = process.env.BACKEND_URL || `http://localhost:${PORT}`;
 const JWT_SECRET = process.env.JWT_SECRET || "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9";
+
+// --- НАСТРОЙКА БЕЗОПАСНОСТИ (CORS) ---
+// Список доменов, которым разрешен доступ к бэкенду
+const allowedOrigins = [
+    "http://localhost:5173",            // Локальная разработка
+    "http://localhost:3000",            // Альтернативный порт локалки
+    "https://connect-apollo.vercel.app", // Ваш продакшн на Vercel
+    "https://www.connect-apollo.vercel.app"
+];
+
+const corsOptions = {
+    origin: function (origin, callback) {
+        // Разрешаем запросы без origin (например, мобильные приложения или curl)
+        if (!origin) return callback(null, true);
+        
+        if (allowedOrigins.indexOf(origin) !== -1) {
+            callback(null, true);
+        } else {
+            console.log("Blocked by CORS:", origin);
+            callback(new Error('Not allowed by CORS'));
+        }
+    },
+    methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+    credentials: true, // Разрешаем куки и заголовки авторизации
+    allowedHeaders: ["Content-Type", "Authorization"]
+};
+
+// Применяем настройки CORS к Express
+app.use(cors(corsOptions));
 
 const dataDir = path.join(__dirname, "data");
 if (!fs.existsSync(dataDir)) fs.mkdirSync(dataDir);
 const uploadDir = path.join(dataDir, "uploads");
 if (!fs.existsSync(uploadDir)) fs.mkdirSync(uploadDir);
 
-// --- НАСТРОЙКА VAPID KEYS (ДЛЯ PUSH) ---
-// Эти ключи нужны, чтобы Google знал, что уведомления шлете именно вы
+// --- VAPID KEYS ---
 const vapidKeysPath = path.join(dataDir, "vapid.json");
 let vapidKeys = {
     publicKey: process.env.VAPID_PUBLIC_KEY,
     privateKey: process.env.VAPID_PRIVATE_KEY
 };
 
-// Если ключей нет, генерируем их один раз и сохраняем в файл
 if (!vapidKeys.publicKey || !vapidKeys.privateKey) {
     if (fs.existsSync(vapidKeysPath)) {
         try {
             vapidKeys = JSON.parse(fs.readFileSync(vapidKeysPath, "utf-8"));
-            console.log("VAPID keys loaded from file.");
-        } catch (err) {
-            console.error("Error reading VAPID keys, generating new ones...");
-        }
+        } catch (err) {}
     }
-    
     if (!vapidKeys.publicKey || !vapidKeys.privateKey) {
         vapidKeys = webpush.generateVAPIDKeys();
         fs.writeFileSync(vapidKeysPath, JSON.stringify(vapidKeys, null, 2));
-        console.log("New VAPID keys generated and saved to data/vapid.json");
     }
 }
 
 webpush.setVapidDetails(
-    "mailto:admin@connect.local", // Служебный email (формальность)
+    "mailto:admin@connect.local",
     vapidKeys.publicKey,
     vapidKeys.privateKey
 );
 
-app.use(cors());
 app.use(express.json());
 app.use("/uploads", express.static(uploadDir));
 
@@ -92,8 +111,6 @@ async function initDB() {
     await safeRun(`ALTER TABLE notifications ADD COLUMN created_at DATETIME DEFAULT CURRENT_TIMESTAMP`);
     await safeRun(`ALTER TABLE user_profiles ADD COLUMN display_name TEXT DEFAULT ''`);
     await safeRun(`ALTER TABLE user_profiles ADD COLUMN notifications_enabled BOOLEAN DEFAULT 1`);
-    
-    // Создаем таблицу для подписок, если её нет
     await safeRun(`CREATE TABLE IF NOT EXISTS push_subscriptions (id INTEGER PRIMARY KEY AUTOINCREMENT, username TEXT, subscription TEXT)`);
 
     try { await db.run(`INSERT INTO group_members (room, username, role) SELECT 'General', username, 'member' FROM users WHERE username NOT IN (SELECT username FROM group_members WHERE room = 'General')`); } catch (e) {}
@@ -102,6 +119,9 @@ async function initDB() {
     console.log("Database connected & Schema synced");
 }
 initDB();
+
+const FRONTEND_URL = process.env.FRONTEND_URL || "http://localhost:5173";
+const BACKEND_URL = process.env.BACKEND_URL || `http://localhost:${PORT}`;
 
 // --- ROUTES ---
 app.post("/register", async (req, res) => {
@@ -182,14 +202,11 @@ app.post("/resolve-bug", async (req, res) => {
     try { const { id } = req.body; await db.run("UPDATE bug_reports SET status = 'resolved' WHERE id = ?", [id]); res.json({ status: "ok" }); } catch (e) { res.status(500).json({ error: "Error" }); }
 });
 
-// --- PUSH УВЕДОМЛЕНИЯ: НОВЫЕ МАРШРУТЫ ---
-
-// 1. Клиент запрашивает ключ, чтобы начать процесс подписки
+// --- PUSH ROUTES ---
 app.get("/vapid-key", (req, res) => {
     res.json({ publicKey: vapidKeys.publicKey });
 });
 
-// 2. Клиент отправляет свою "подписку" (endpoint от Google/Browser)
 app.post("/subscribe", async (req, res) => {
     const authHeader = req.headers.authorization;
     if (!authHeader) return res.status(401).json({ message: "No token" });
@@ -203,13 +220,10 @@ app.post("/subscribe", async (req, res) => {
         if (!db || !subscription || !subscription.endpoint) return res.status(400).json({ message: "Bad request" });
 
         const subStr = JSON.stringify(subscription);
-        
-        // Избегаем дубликатов
         const existing = await db.get("SELECT id FROM push_subscriptions WHERE username=? AND subscription=?", [username, subStr]);
         if (!existing) {
             await db.run("INSERT INTO push_subscriptions (username, subscription) VALUES (?, ?)", [username, subStr]);
         }
-        
         res.json({ status: "ok" });
     } catch (e) {
         console.error(e);
@@ -217,24 +231,17 @@ app.post("/subscribe", async (req, res) => {
     }
 });
 
-// --- PUSH: ВСПОМОГАТЕЛЬНАЯ ФУНКЦИЯ ---
 async function sendWebPush(username, payload) {
     if (!db) return;
-    
-    // Проверяем настройки уведомлений
     const pref = await db.get("SELECT notifications_enabled FROM user_profiles WHERE username = ?", [username]);
     if (pref && pref.notifications_enabled === 0) return;
 
-    // Берем все устройства юзера
     const subs = await db.all("SELECT * FROM push_subscriptions WHERE username = ?", [username]);
-    
     for (const subRecord of subs) {
         try {
             const sub = JSON.parse(subRecord.subscription);
-            // Отправляем реально уведомление через Web-Push
             await webpush.sendNotification(sub, JSON.stringify(payload));
         } catch (error) {
-            // Если устройство более недоступно (410 Gone), удаляем из базы
             if (error.statusCode === 410 || error.statusCode === 404) {
                 await db.run("DELETE FROM push_subscriptions WHERE id = ?", [subRecord.id]);
             } else {
@@ -246,7 +253,16 @@ async function sendWebPush(username, payload) {
 
 // --- SOCKET.IO ---
 const server = http.createServer(app);
-const io = new Server(server, { cors: { origin: FRONTEND_URL } });
+
+// Применяем те же настройки CORS для Socket.io
+const io = new Server(server, { 
+    cors: { 
+        origin: allowedOrigins,
+        methods: ["GET", "POST"],
+        credentials: true
+    } 
+});
+
 let onlineUsers = [];
 
 async function getListsData(username) {
@@ -276,41 +292,31 @@ async function isBlocked(t, s) {
     return !!(await db.get(`SELECT * FROM blocked_users WHERE blocker=? AND blocked=?`, [t, s]));
 }
 
-// --- УНИВЕРСАЛЬНАЯ ФУНКЦИЯ УВЕДОМЛЕНИЙ ---
-// Она решает, как отправить: через сокет (если онлайн) или через Push (если офлайн)
 async function sendNotification(toUser, type, content, dataStr = "") {
     if (!db) return;
-    
-    // Проверка настроек
     const pref = await db.get("SELECT notifications_enabled FROM user_profiles WHERE username = ?", [toUser]);
     if (pref && pref.notifications_enabled === 0) return;
     
-    // Сохраняем в историю в любом случае
     const res = await db.run("INSERT INTO notifications (user_to, type, content, data) VALUES (?, ?, ?, ?)", [toUser, type, content, dataStr]);
-    
     const targetSocket = onlineUsers.find(u => u.username === toUser);
     
     if (targetSocket) {
-        // Юзер ОНЛАЙН: Шлем через сокет (всплывет внутри приложения)
         io.to(targetSocket.socketId).emit("new_notification", { id: res.lastID, user_to: toUser, type, content, data: dataStr, is_read: 0, created_at: new Date() });
     } else {
-        // Юзер ОФЛАЙН: Шлем Push на телефон
         let title = "Connect";
         if (type === 'friend_request') title = "Заявка в друзья";
         if (type === 'mention') title = "Вас упомянули";
-        if (type === 'dm') title = "Новое сообщение"; // fallback
+        if (type === 'dm') title = "Новое сообщение";
 
-        // Определяем комнату для перехода при клике
         let room = null;
         if (type === 'mention') room = dataStr;
-        // Для других типов room передается иначе, см. ниже
 
         await sendWebPush(toUser, {
             title: title,
             body: content,
             tag: type,
             room: room, 
-            data: { room: room } // Для совместимости с sw.js
+            data: { room: room }
         });
     }
 }
@@ -373,23 +379,18 @@ io.on("connection", async (socket) => {
         const res = await db.run("INSERT INTO messages (room, author, message, type, time, reply_to_id, reply_to_author, reply_to_message) VALUES (?,?,?,?,?,?,?,?)", [data.room, author, data.message, data.type || "text", data.time, data.replyTo?.id, data.replyTo?.author, data.replyTo?.message]);
         const broadcastMessage = { id: res.lastID, room: data.room, author: author, message: data.message, type: data.type || "text", time: data.time, reply_to_id: data.replyTo?.id || null, reply_to_author: data.replyTo?.author || null, reply_to_message: data.replyTo?.message || null, tempId: data.tempId };
         
-        // 1. Шлем в комнату (для тех кто онлайн и смотрит этот чат)
         io.to(data.room).emit("receive_message", broadcastMessage);
         if (callback) callback({ status: "ok", id: res.lastID });
 
-        // 2. ЛОГИКА PUSH ДЛЯ ЛИЧНЫХ СООБЩЕНИЙ
         if (data.room.includes("_")) {
             const parts = data.room.split("_");
             const recipient = parts.find(u => u !== author);
             if (recipient) {
                 const authorProfile = await db.get("SELECT avatar_url FROM user_profiles WHERE username=?", [author]);
                 const recipientSocket = onlineUsers.find(u => u.username === recipient);
-                
-                // Формируем текст уведомления
                 const bodyText = data.type === 'text' ? data.message : '📎 Вложение';
 
                 if (recipientSocket) {
-                    // Если получатель онлайн, шлем сокет (он обработает его для In-App уведомления)
                     io.to(recipientSocket.socketId).emit("dm_notification", {
                         author: author,
                         message: bodyText,
@@ -397,7 +398,6 @@ io.on("connection", async (socket) => {
                         avatar: authorProfile?.avatar_url
                     });
                 } else {
-                    // Если получатель ОФФЛАЙН - шлем PUSH
                     await sendWebPush(recipient, {
                         title: author,
                         body: bodyText,
@@ -409,7 +409,6 @@ io.on("connection", async (socket) => {
             }
         }
 
-        // 3. УПОМИНАНИЯ
         const mentionRegex = /@(\w+)/g;
         let match;
         const uniqueMentions = new Set();
@@ -420,11 +419,7 @@ io.on("connection", async (socket) => {
                 let isInRoom = data.room === "General"; 
                 if (!isInRoom && data.room.includes("_") && data.room.includes(mentionedUser)) isInRoom = true;
                 else if (!isInRoom) { const member = await db.get("SELECT * FROM group_members WHERE room = ? AND username = ?", [data.room, mentionedUser]); if(member) isInRoom = true; }
-                
-                if (isInRoom) {
-                    // Функция sendNotification сама выберет (Socket или Push)
-                    await sendNotification(mentionedUser, 'mention', `${author} упомянул вас в ${data.room}`, data.room);
-                }
+                if (isInRoom) await sendNotification(mentionedUser, 'mention', `${author} упомянул вас в ${data.room}`, data.room);
             }
         }
     });
