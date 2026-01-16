@@ -9,5 +9,8 @@
     "not ios_saf <= 18.2",
     "not safari <= 18.2",
     "not samsung <= 27"
-  ]
+  ],
+  "hints": {
+    "apple-touch-icons": "off"
+  }
 }

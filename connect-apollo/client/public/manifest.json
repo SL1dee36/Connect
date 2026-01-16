@@ -1,0 +1,20 @@
+{
+  "short_name": "Connect",
+  "name": "Connect Apollo",
+  "icons": [
+    {
+      "src": "connect48.svg",
+      "sizes": "48x48",
+      "type": "image/svg"
+    },
+    {
+      "src": "connect.svg",
+      "sizes": "512x512",
+      "type": "image/svg"
+    }
+  ],
+  "start_url": ".",
+  "display": "standalone",
+  "theme_color": "#000000",
+  "background_color": "#000000"
+}

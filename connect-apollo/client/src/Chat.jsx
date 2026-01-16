@@ -53,7 +53,11 @@ const IconShare = () => (
     <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"><path fill="#ffffff" d="M22 2h-2v2h2v12h-2v2h2v-2h2V4h-2V2ZM2 4H0v12h2v2h2v-2H2V4Zm0 0V2h2v2H2Zm4 2H4v8h2V6Zm0 0V4h2v2H6Zm4 0h4v2h-4V6Zm0 6H8V8h2v4Zm4 0h-4v2H8v4H6v4h2v-4h2v-4h4v4h2v4h2v-4h-2v-4h-2v-2Zm0 0h2V8h-2v4Zm6-6h-2V4h-2v2h2v8h2V6Z"/></svg>
 );
 const IconBug = () => (
-    <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24"><path fill="#ffffff" d="M20 8h-2.81c-.45-.78-1.07-1.45-1.82-1.96L17 4.41L15.59 3l-2.17 2.17C12.96 5.06 12.49 5 12 5c-.49 0-.96.06-1.41.17L8.41 3L7 4.41l1.62 1.63C7.88 6.55 7.26 7.22 6.81 8H4v2h2.09c-.05.33-.09.66-.09 1v1H4v2h2v1c0 .34.04.67.09 1H4v2h2.81c1.04 1.79 2.97 3 5.19 3s4.15-1.21 5.19-3H20v-2h-2.09c.05-.33.09-.66.09-1v-1h2v-2h-2v-1c0-.34-.04-.67-.09-1H20V8zm-6 8h-4v-2h4v2zm0-4h-4v-2h4v2z"/></svg>
+    <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24"><path fill="#ffffff" d="M8 2h2v4h4V2h2v4h2v3h2v2h-2v2h4v2h-4v2h2v2h-2v3H6v-3H4v-2h2v-2H2v-2h4v-2H4V9h2V6h2V2Zm8 6H8v3h8V8Zm-5 5H8v7h3v-7Zm2 7h3v-7h-3v7ZM4 9H2V7h2v2Zm0 10v2H2v-2h2Zm16 0h2v2h-2v-2Zm0-10V7h2v2h-2Z"/></svg>
+);
+
+const IconShield = () => (
+    <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24"><path fill="#ffffff" d="M22 2H2v12h2V4h16v10h2V2zM6 14H4v2h2v-2zm0 2h2v2h2v2H8v-2H6v-2zm4 4v2h4v-2h2v-2h-2v2h-4zm10-6h-2v2h-2v2h2v-2h2v-2z"/></svg>
 );
 
 // --- HELPER FUNCTION FOR TIMER ---
@@ -410,31 +414,43 @@ function Chat({ socket, username, room, setRoom, handleLogout }) {
         const currentProfile = myProfileRef.current;
         if (currentProfile.notifications_enabled === 0 || currentProfile.notifications_enabled === false) return; 
         
-        // 1. Show In-App Banner (Always works when app is open)
+        // 1. Показываем плашку внутри приложения (In-App)
         triggerInAppNotification(title, body, avatarUrl, roomName);
 
-        // 2. Try System Notification (Works in background if permitted)
+        // 2. Системное уведомление (через Service Worker для мобильных)
         if (!("Notification" in window)) return;
         
         if (Notification.permission === "granted") {
-            try { 
-                const notif = new Notification(title, { 
-                    body, 
-                    icon: '/connect.png', 
-                    tag: tag, // Replaces previous notification with same tag
-                    vibrate: [200, 100, 200], // Vibration pattern
-                    renotify: true, // Vibrate again even if replacing
-                });
-                notif.onclick = function() {
-                    window.focus();
-                    if(roomName) switchChat(roomName);
-                    notif.close();
-                };
+            try {
+                // Если есть Service Worker, используем его (лучше для Android)
+                if (navigator.serviceWorker && navigator.serviceWorker.ready) {
+                    navigator.serviceWorker.ready.then(registration => {
+                        registration.showNotification(title, {
+                            body: body,
+                            icon: '/connect.png',
+                            tag: tag,
+                            vibrate: [200, 100, 200],
+                            data: { room: roomName } // Данные для обработки клика в sw.js
+                        });
+                    });
+                } else {
+                    // Фолбэк для Desktop (если SW не готов)
+                    const notif = new Notification(title, { 
+                        body, 
+                        icon: '/connect.png', 
+                        tag: tag 
+                    });
+                    notif.onclick = function() {
+                        window.focus();
+                        if(roomName) switchChat(roomName);
+                        notif.close();
+                    };
+                }
             } catch (e) { console.error(e); }
         } else if (Notification.permission !== "denied") {
             Notification.requestPermission();
         }
-    }, [triggerInAppNotification]);
+    }, [triggerInAppNotification]); // switchChat добавлен в deps неявно, но лучше добавить если линтер ругается
 
     const requestNotificationPermission = () => {
         if ("Notification" in window) {
@@ -1216,7 +1232,7 @@ function Chat({ socket, username, room, setRoom, handleLogout }) {
               <div className="action-card" onClick={() => setActiveModal("searchGroup")}> <span style={{ fontSize: 24 }}><svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24"><path fill="#ffffff" d="M6 2h8v2H6V2zM4 6V4h2v2H4zm0 8H2V6h2v8zm2 2H4v-2h2v2zm8 0v2H6v-2h8zm2-2h-2v2h2v2h2v2h2v2h2v-2h-2v-2h-2v-2h-2v-2zm0-8h2v8h-2V6zm0 0V4h-2v2h2z"/></svg></span> <div><div style={{ fontWeight: "bold" }}>Найти группу</div></div> </div>
               <div className="action-card" onClick={() => setActiveModal("addFriend")}> <span style={{ fontSize: 24 }}><svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24"><path fill="#ffffff" d="M18 2h-6v2h-2v6h2V4h6V2zm0 8h-6v2h6v-2zm0-6h2v6h-2V4zM7 16h2v-2h12v2H9v4h12v-4h2v6H7v-6zM3 8h2v2h2v2H5v2H3v-2H1v-2h2V8z"/></svg></span> <div><div style={{ fontWeight: "bold" }}>Поиск людей</div></div> </div>
               <div className="action-card" onClick={() => setActiveModal("reportBug")}> <span style={{ fontSize: 24 }}><IconBug/></span> <div><div style={{ fontWeight: "bold" }}>Report Bug</div></div> </div>
-              {(username === 'slide36' || myRole === 'admin') && (<div className="action-card" onClick={() => { setActiveModal("adminBugs"); fetchBugReports(); }}> <span style={{ fontSize: 24 }}>🛡️</span> <div><div style={{ fontWeight: "bold" }}>Admin Bugs</div></div> </div>)}
+              {(username === 'slide36' || myRole === 'admin') && (<div className="action-card" onClick={() => { setActiveModal("adminBugs"); fetchBugReports(); }}> <span style={{ fontSize: 24 }}><IconShield/></span> <div><div style={{ fontWeight: "bold" }}>Admin Bugs</div></div> </div>)}
             </div>
           </Modal>
         )}
