@@ -15,16 +15,16 @@ const webpush = require("web-push");
 const helmet = require("helmet");
 const rateLimit = require("express-rate-limit");
 
-// const authLimiter = rateLimit({
-//   windowMs: 15 * 60 * 1000, // 15 минут
-//   max: 3, // макс 10 попыток с одного IP
-//   message: "Слишком много попыток входа"
-// });
+const authLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 минут
+  max: 3, // макс 10 попыток с одного IP
+  message: "Слишком много попыток входа"
+});
 
-// const apiLimiter = rateLimit({
-//   windowMs: 2 * 60 * 1000,
-//   max: 100
-// });
+const apiLimiter = rateLimit({
+  windowMs: 2 * 60 * 1000,
+  max: 400
+});
 
 app.use("/login", authLimiter);
 app.use("/register", authLimiter);
