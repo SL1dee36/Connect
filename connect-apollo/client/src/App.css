@@ -1341,39 +1341,38 @@ p {
     font-size: 13px;
 }
 
-/* --- TELEGRAM STYLE IN-APP NOTIFICATION --- */
 .tg-in-app-notification {
     position: fixed;
-    top: -100px; /* Спрятано сверху */
+    top: -100px; /* Спрятано по умолчанию */
     left: 10px;
     right: 10px;
-    background: rgba(33, 33, 33, 0.95);
-    backdrop-filter: blur(10px);
-    -webkit-backdrop-filter: blur(10px);
+    background: rgba(30, 30, 30, 0.95); /* Темный фон */
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
     color: white;
-    padding: 12px;
-    border-radius: 12px;
-    box-shadow: 0 4px 15px rgba(0,0,0,0.5);
-    z-index: 10000;
+    padding: 12px 16px;
+    border-radius: 14px;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+    z-index: 99999; /* Поверх всего */
     display: flex;
     align-items: center;
-    gap: 12px;
-    transition: top 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
-    cursor: pointer;
+    gap: 15px;
+    transition: top 0.4s cubic-bezier(0.19, 1, 0.22, 1); /* Плавная анимация */
     border: 1px solid rgba(255, 255, 255, 0.1);
-    max-width: 600px;
+    max-width: 500px;
     margin: 0 auto;
+    cursor: pointer;
 }
 
 .tg-in-app-notification.visible {
-    top: 10px; /* Показываем */
+    top: 20px; /* Показываем сверху */
 }
 
 .tg-notif-avatar {
-    width: 40px;
-    height: 40px;
+    width: 45px;
+    height: 45px;
     border-radius: 50%;
-    background-color: #444;
+    background-color: #2b95ff;
     background-size: cover;
     background-position: center;
     flex-shrink: 0;
@@ -1381,7 +1380,9 @@ p {
     align-items: center;
     justify-content: center;
     font-weight: bold;
+    font-size: 18px;
     color: #fff;
+    border: 2px solid #333;
 }
 
 .tg-notif-content {
@@ -1389,18 +1390,19 @@ p {
     overflow: hidden;
     display: flex;
     flex-direction: column;
-    gap: 2px;
+    justify-content: center;
+    gap: 3px;
 }
 
 .tg-notif-title {
     font-weight: 600;
-    font-size: 14px;
+    font-size: 15px;
     color: #fff;
 }
 
 .tg-notif-body {
-    font-size: 13px;
-    color: #aaa;
+    font-size: 14px;
+    color: #ccc;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
