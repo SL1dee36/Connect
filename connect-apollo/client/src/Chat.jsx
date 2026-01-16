@@ -4,6 +4,7 @@ import remarkGfm from 'remark-gfm';
 import Modal from "./Modal";
 import CustomAudioPlayer from "./CustomAudioPlayer";
 import Cropper from 'react-easy-crop';
+import { registerPushNotifications } from "./pushSubscription"; // <-- НОВЫЙ ИМПОРТ
 
 const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || "http://localhost:3001";
 
@@ -436,10 +437,10 @@ function Chat({ socket, username, room, setRoom, handleLogout }) {
                     navigator.serviceWorker.ready.then(registration => {
                         registration.showNotification(title, {
                             body: body,
-                            icon: '/connect.png',
-                            badge: '/connect.png', // Добавлено для Android
+                            icon: '/icon-192.png', // Обновили путь к иконке
+                            badge: '/icon-192.png',
                             tag: tag,
-                            vibrate: [200, 100, 200], // Важно для вибро
+                            vibrate: [200, 100, 200], 
                             data: { room: roomName, url: window.location.href } 
                         });
                     });
@@ -447,7 +448,7 @@ function Chat({ socket, username, room, setRoom, handleLogout }) {
                     // Фолбэк для Desktop (если SW не готов)
                     const notif = new Notification(title, { 
                         body, 
-                        icon: '/connect.png', 
+                        icon: '/icon-192.png', 
                         tag: tag 
                     });
                     notif.onclick = function() {
@@ -457,28 +458,29 @@ function Chat({ socket, username, room, setRoom, handleLogout }) {
                     };
                 }
             } catch (e) { console.error(e); }
-        } else if (Notification.permission !== "denied") {
-            Notification.requestPermission();
         }
     }, [triggerInAppNotification]); 
 
-    const requestNotificationPermission = () => {
-        if ("Notification" in window) {
-            Notification.requestPermission().then(permission => {
-                if (permission === "granted") {
-                    socket.emit("update_profile", { ...myProfile, notifications_enabled: true });
-                    // Test notification
-                    if (navigator.serviceWorker && navigator.serviceWorker.ready) {
-                        navigator.serviceWorker.ready.then(reg => {
-                            reg.showNotification("Notifications Enabled", {
-                                body: "Теперь вы будете получать уведомления",
-                                icon: '/connect.png',
-                                vibrate: [200]
-                            });
-                        });
-                    }
-                }
-            });
+    // --- ОБНОВЛЕННАЯ ФУНКЦИЯ ДЛЯ PUSH ---
+    const requestNotificationPermission = async () => {
+        // Вызываем нашу функцию подписки, которая отправит ключи на бэкенд
+        const token = localStorage.getItem("apollo_token");
+        await registerPushNotifications(token);
+
+        // И на всякий случай обновляем профиль в БД через сокет (визуальная часть)
+        socket.emit("update_profile", { ...myProfile, notifications_enabled: true });
+        
+        // Проверочное уведомление
+        if ("Notification" in window && Notification.permission === "granted") {
+             if (navigator.serviceWorker && navigator.serviceWorker.ready) {
+                navigator.serviceWorker.ready.then(reg => {
+                    reg.showNotification("Notifications Enabled", {
+                        body: "Теперь вы будете получать уведомления даже если закроете приложение",
+                        icon: '/icon-192.png',
+                        vibrate: [200]
+                    });
+                });
+            }
         }
     };
 
@@ -1384,7 +1386,7 @@ function Chat({ socket, username, room, setRoom, handleLogout }) {
                 <div className="settings-icon"><IconBell hasUnread={false}/></div> 
                 <div style={{ flex: 1, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                      <div className="settings-label">Notifications</div>
-                     <div className={`toggle-switch ${profileForm.notifications_enabled ? 'on' : ''}`} onClick={(e) => { e.stopPropagation(); setProfileForm({...profileForm, notifications_enabled: !profileForm.notifications_enabled}); }}>
+                     <div className={`toggle-switch ${profileForm.notifications_enabled ? 'on' : ''}`} onClick={(e) => { e.stopPropagation(); requestNotificationPermission(); }}>
                          <div className="knob"></div>
                      </div>
                 </div>
