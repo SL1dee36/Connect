@@ -4,17 +4,29 @@ import { useState, useEffect } from "react";
 import "./App.css";
 import io from "socket.io-client";
 import Chat from "./Chat";
-import Auth from "./Auth"; // <-- НОВОЕ
-import { jwtDecode } from "jwt-decode"; // <-- НОВОЕ
+import Auth from "./Auth";
+import { jwtDecode } from "jwt-decode";
+import { registerPushNotifications } from "./pushSubscription"; // Импорт функции подписки
 
 const socket = io.connect(import.meta.env.VITE_BACKEND_URL || "http://localhost:3001", {
-  autoConnect: false // <-- ВАЖНО: не подключаемся автоматически
+  autoConnect: false
 });
 
 function App() {
-  const [user, setUser] = useState(null); // <-- Теперь храним объект user, а не просто имя
+  const [user, setUser] = useState(null);
   const [room, setRoom] = useState("General");
   const [isLoading, setIsLoading] = useState(true);
+
+  // Слушаем сообщения от SW (клик по уведомлению)
+  useEffect(() => {
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.addEventListener('message', (event) => {
+        if (event.data && event.data.type === 'NAVIGATE' && event.data.room) {
+          setRoom(event.data.room);
+        }
+      });
+    }
+  }, []);
 
   useEffect(() => {
     const token = localStorage.getItem("apollo_token");
@@ -23,16 +35,16 @@ function App() {
     if (token) {
       try {
         const decodedUser = jwtDecode(token);
-        // Проверяем, не истек ли срок действия токена
         if (decodedUser.exp * 1000 > Date.now()) {
           setUser(decodedUser);
           setRoom(storedRoom || "General");
-          socket.auth = { token }; // <-- Добавляем токен для аутентификации при подключении
+          socket.auth = { token };
           socket.connect();
-          // Отправляем токен для аутентификации после подключения
           socket.emit("authenticate", { token });
+          
+          // Пробуем подписаться на Push тихо (если уже разрешено)
+          registerPushNotifications(token);
         } else {
-          // Токен истек, чистим
           localStorage.removeItem("apollo_token");
         }
       } catch (e) {
@@ -48,24 +60,25 @@ function App() {
     const decodedUser = jwtDecode(token);
     setUser(decodedUser);
     
-    // Подключаемся с токеном
     socket.auth = { token };
     socket.connect();
     socket.emit("authenticate", { token });
+
+    // Запрашиваем разрешение на Push после входа
+    registerPushNotifications(token);
   };
 
   const handleLogout = () => {
     localStorage.removeItem("apollo_token");
     setUser(null);
     socket.disconnect();
-    window.location.reload(); // Перезагружаем для чистого состояния
+    window.location.reload();
   };
   
   if (isLoading) {
       return <div className="App">Загрузка...</div>;
   }
 
-  // Обновляем логику выхода в компоненте Chat
   const ChatWithLogout = () => <Chat socket={socket} username={user.username} room={room} setRoom={setRoom} handleLogout={handleLogout} />;
 
   return (

@@ -9,10 +9,15 @@ createRoot(document.getElementById('root')).render(
   </StrictMode>,
 )
 
+// Регистрация Service Worker для PWA и Push
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {
     navigator.serviceWorker.register('/sw.js')
-      .then(reg => console.log('SW registered: ', reg))
-      .catch(err => console.log('SW registration failed: ', err));
+      .then(reg => {
+        console.log('SW registered successfully:', reg.scope);
+      })
+      .catch(err => {
+        console.log('SW registration failed:', err);
+      });
   });
 }
