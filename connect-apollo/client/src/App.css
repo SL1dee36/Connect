@@ -706,15 +706,20 @@ body {
 
   /* Список чатов */
   .friends-list { 
-    width: 100%; background: transparent; padding: 10px 15px 80px 15px; 
-    box-sizing: border-box; gap: 8px; align-items: stretch; overflow-y: auto;
+    width: 100%; background: transparent; 
+    padding: 0px !important;
+    box-sizing: border-box; 
+    gap: 0px !important; 
+    align-items: 
+    stretch; overflow-y: auto;
+    border-radius: 0px !important;
   }
   .divider { margin: 15px 0 5px 10px; color: #666; font-size: 11px; letter-spacing: 1px; }
 
   /* Карточка чата */
   .chat-list-item {
       display: flex; align-items: center; gap: 15px; padding: 12px;
-      background: #111; border: 1px solid #222; border-radius: 16px;
+      background: #111; border-bottom: 1px solid #000; border-radius: 0px;
       transition: 0.2s; width: 100%; box-sizing: border-box;
   }
   .chat-list-item:active { background: #1a1a1a; transform: scale(0.98); }
