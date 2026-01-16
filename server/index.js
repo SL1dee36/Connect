@@ -533,6 +533,29 @@ io.on("connection", async (socket) => {
 
   socket.on("join_room", async ({ room }) => {
     if (!db) return;
+
+    // 1. Проверка прав доступа к приватным чатам (user1_user2)
+    if (room.includes("_")) {
+        const users = room.split("_");
+        // Если имя текущего пользователя не входит в название комнаты — блокируем
+        if (!users.includes(username)) {
+            socket.emit("error_message", { msg: "Доступ запрещен" });
+            return;
+        }
+    } 
+    // 2. Проверка прав доступа к группам
+    else if (room !== "General") {
+        const member = await db.get(
+            "SELECT * FROM group_members WHERE room = ? AND username = ?",
+            [room, username]
+        );
+        if (!member) {
+             socket.emit("error_message", { msg: "Вы не состоите в этой группе" });
+             return;
+        }
+    }
+
+    // Очистка старых комнат и вход в новую
     Array.from(socket.rooms).forEach((r) => {
       if (r !== socket.id && r !== username) socket.leave(r);
     });

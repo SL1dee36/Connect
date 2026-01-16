@@ -5,6 +5,7 @@ import Modal from "./Modal";
 import CustomAudioPlayer from "./CustomAudioPlayer";
 import Cropper from 'react-easy-crop';
 import { registerPushNotifications } from "./pushSubscription"; // <-- НОВЫЙ ИМПОРТ
+import rehypeSanitize from 'rehype-sanitize';
 
 const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || "http://localhost:3001";
 
@@ -146,6 +147,7 @@ const MessageItem = React.memo(({ msg, username, display_name, setImageModalSrc,
             <div className="markdown-content">
                 <ReactMarkdown 
                     remarkPlugins={[remarkGfm]}
+                    rehypePlugins={[rehypeSanitize]}
                     components={{
                         a: ({node, ...props}) => {
                             const isMention = props.children?.[0]?.toString().startsWith('@');
