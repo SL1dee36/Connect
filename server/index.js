@@ -22,7 +22,7 @@ const allowedOrigins = [
     "http://localhost:5173",            // Локальная разработка
     "http://localhost:3000",            // Альтернативный порт локалки
     "https://connect-apollo.vercel.app", // Ваш продакшн на Vercel
-    "https://www.connect-apollo.vercel.app"
+    // "https://www.connect-apollo.vercel.app"
 ];
 
 const corsOptions = {
