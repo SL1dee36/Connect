@@ -52,6 +52,9 @@ const IconBell = ({ hasUnread }) => (
 const IconShare = () => (
     <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"><path fill="#ffffff" d="M22 2h-2v2h2v12h-2v2h2v-2h2V4h-2V2ZM2 4H0v12h2v2h2v-2H2V4Zm0 0V2h2v2H2Zm4 2H4v8h2V6Zm0 0V4h2v2H6Zm4 0h4v2h-4V6Zm0 6H8V8h2v4Zm4 0h-4v2H8v4H6v4h2v-4h2v-4h4v4h2v4h2v-4h-2v-4h-2v-2Zm0 0h2V8h-2v4Zm6-6h-2V4h-2v2h2v8h2V6Z"/></svg>
 );
+const IconBug = () => (
+    <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24"><path fill="#ffffff" d="M20 8h-2.81c-.45-.78-1.07-1.45-1.82-1.96L17 4.41L15.59 3l-2.17 2.17C12.96 5.06 12.49 5 12 5c-.49 0-.96.06-1.41.17L8.41 3L7 4.41l1.62 1.63C7.88 6.55 7.26 7.22 6.81 8H4v2h2.09c-.05.33-.09.66-.09 1v1H4v2h2v1c0 .34.04.67.09 1H4v2h2.81c1.04 1.79 2.97 3 5.19 3s4.15-1.21 5.19-3H20v-2h-2.09c.05-.33.09-.66.09-1v-1h2v-2h-2v-1c0-.34-.04-.67-.09-1H20V8zm-6 8h-4v-2h4v2zm0-4h-4v-2h4v2z"/></svg>
+);
 
 // --- HELPER FUNCTION FOR TIMER ---
 const formatTime = (seconds) => {
@@ -85,13 +88,12 @@ const renderMessageWithMentions = (text, onMentionClick) => {
 const ContextMenu = ({ x, y, msg, onClose, onReply, onCopy, onDelete, canDelete }) => {
     return (
         <div 
-            className="context-menu-container" // 1. Добавлен класс для поиска через querySelector
+            className="context-menu-container"
             style={{
                 position: 'fixed', top: y, left: x, zIndex: 9999,
                 background: '#252525', borderRadius: 8, border: '1px solid #333',
                 boxShadow: '0 4px 12px rgba(0,0,0,0.5)', overflow: 'hidden', minWidth: 150
             }} 
-            // 2. Останавливаем всплытие событий, чтобы глобальный клик не закрыл меню сразу же
             onClick={(e) => e.stopPropagation()}
             onTouchStart={(e) => e.stopPropagation()} 
         >
@@ -133,8 +135,6 @@ const MessageItem = React.memo(({ msg, username, display_name, setImageModalSrc,
     } else if (msg.type === 'audio') {
         content = <CustomAudioPlayer src={msg.message} />;
     } else {
-        // ОБРАБОТКА MARKDOWN И МЕНШЕНОВ
-        // Превращаем @username в markdown-ссылку, чтобы ReactMarkdown мог её обработать
         const processedText = msg.message.replace(/@(\w+)/g, '[@$1]($1)');
 
         content = (
@@ -142,7 +142,6 @@ const MessageItem = React.memo(({ msg, username, display_name, setImageModalSrc,
                 <ReactMarkdown 
                     remarkPlugins={[remarkGfm]}
                     components={{
-                        // Кастомный рендер для ссылок (наших меншенов)
                         a: ({node, ...props}) => {
                             const isMention = props.children?.[0]?.toString().startsWith('@');
                             if (isMention) {
@@ -157,7 +156,6 @@ const MessageItem = React.memo(({ msg, username, display_name, setImageModalSrc,
                             }
                             return <a {...props} target="_blank" rel="noreferrer">{props.children}</a>
                         },
-                        // Убираем лишние отступы у параграфов в баблах
                         p: ({node, ...props}) => <p style={{margin: '0 0 8px 0'}} {...props} />,
                         h3: ({node, ...props}) => <h3 style={{margin: '10px 0 5px 0', fontSize: '1.1em'}} {...props} />,
                         ul: ({node, ...props}) => <ul style={{paddingLeft: '20px', margin: '5px 0'}} {...props} />,
@@ -175,18 +173,13 @@ const MessageItem = React.memo(({ msg, username, display_name, setImageModalSrc,
         const startY = e.touches[0].clientY;
         touchCurrentRef.current = e.touches[0].clientX;
 
-        // Очищаем старый таймер
         if (longPressTimerRef.current) clearTimeout(longPressTimerRef.current);
 
-        // Устанавливаем таймер на 800мс (оптимально для Long Press)
         longPressTimerRef.current = setTimeout(() => {
-            setIsLongPress(true); // Включаем визуальный эффект
-            
+            setIsLongPress(true); 
             const touch = e.touches[0];
-            // ВАЖНО: Вызываем меню СРАЗУ, пока палец еще на экране
             onContextMenu(e, msg, touch.clientX, touch.clientY);
-            
-            if (window.navigator.vibrate) window.navigator.vibrate(50); // Чуть мощнее вибрация для отклика
+            if (window.navigator.vibrate) window.navigator.vibrate(50); 
         }, 800); 
     };
 
@@ -195,8 +188,6 @@ const MessageItem = React.memo(({ msg, username, display_name, setImageModalSrc,
         const currentY = e.touches[0].clientY;
         const diffX = currentX - touchStartRef.current;
         
-        // Если палец сдвинулся больше чем на 10px — отменяем таймер
-        // (увеличили до 10px, чтобы микродрожания пальца не сбивали таймер)
         if (Math.abs(diffX) > 10 || Math.abs(currentY - touchStartRef.current) > 10) {
             if (longPressTimerRef.current) {
                 clearTimeout(longPressTimerRef.current);
@@ -204,20 +195,16 @@ const MessageItem = React.memo(({ msg, username, display_name, setImageModalSrc,
             }
         }
 
-        // Логика свайпа
         if (!isLongPress && diffX < 0 && diffX > -150 && !longPressTimerRef.current) {
             setTranslateX(diffX);
         }
     }; 
 
     const handleTouchEnd = (e) => {
-        clearTimeout(longPressTimerRef.current); // Останавливаем таймер, если отпустили раньше времени
+        clearTimeout(longPressTimerRef.current);
         
         if (isLongPress) { 
-            // ВАЖНО: Предотвращаем "клик" при отпускании пальца.
-            // Иначе, если под пальцем появилась кнопка меню, она нажмется автоматически.
             if (e.cancelable) e.preventDefault(); 
-            
             setIsLongPress(false); 
             return; 
         }
@@ -263,9 +250,6 @@ const MessageItem = React.memo(({ msg, username, display_name, setImageModalSrc,
                     {content}
                     <span className="meta">{msg.time}{isMine && msg.status === 'sent' && <IconCheck />}</span>
                 </div>
-                {/* <div className="message-footer">
-                    <span className="meta">{msg.time} • {msg.author} {isMine && msg.status === 'sent' && <IconCheck />}</span>
-                </div> */}
             </div>
         </div>
     );
@@ -314,6 +298,14 @@ function Chat({ socket, username, room, setRoom, handleLogout }) {
     const [avatarHistory, setAvatarHistory] = useState([]);
     const [avatarEditor, setAvatarEditor] = useState({ isOpen: false, image: null, crop: { x: 0, y: 0 }, zoom: 1, croppedAreaPixels: null, filters: { brightness: 100, contrast: 100, saturate: 100, blur: 0 } });
 
+    const [bugDescription, setBugDescription] = useState("");
+    const [bugFiles, setBugFiles] = useState([]);
+    const [adminBugList, setAdminBugList] = useState([]);
+
+    // --- State for In-App Notification ---
+    const [inAppNotif, setInAppNotif] = useState({ visible: false, title: '', body: '', avatar: null, room: '' });
+    const inAppNotifTimeoutRef = useRef(null);
+
     const messagesEndRef = useRef(null);
     const chatBodyRef = useRef(null);
     const typingTimeoutRef = useRef(null);
@@ -325,22 +317,18 @@ function Chat({ socket, username, room, setRoom, handleLogout }) {
     const audioChunksRef = useRef([]);
     const timerIntervalRef = useRef(null);
     const [activeMessageId, setActiveMessageId] = useState(null);
-    const [swipeX, setSwipeX] = useState(0); // Смещение чата при свайпе
+    const [swipeX, setSwipeX] = useState(0);
     const isSwiping = useRef(false);
     const startTouchX = useRef(0);
 
     // --- 1. ЛОГИКА КНОПКИ "НАЗАД" (HISTORY API) ---
-
-    // Синхронизация истории браузера с состоянием UI
     useEffect(() => {
-        // Когда открываем чат на мобилке - пушим состояние в историю
         if (isMobile && showMobileChat) {
             window.history.pushState({ type: 'chat' }, '');
         }
     }, [showMobileChat, isMobile]);
 
     useEffect(() => {
-        // Когда открываем модалку - пушим состояние в историю
         if (activeModal) {
             window.history.pushState({ type: 'modal' }, '');
         }
@@ -348,11 +336,9 @@ function Chat({ socket, username, room, setRoom, handleLogout }) {
 
     useEffect(() => {
         const handlePopState = (e) => {
-            // Если была открыта модалка - закрываем её
             if (activeModal) {
                 setActiveModal(null);
             } 
-            // Если был открыт чат - закрываем его
             else if (showMobileChat) {
                 setShowMobileChat(false);
             }
@@ -380,26 +366,15 @@ function Chat({ socket, username, room, setRoom, handleLogout }) {
         }
     }, [currentMessage]);
 
-    // Обновляем функцию закрытия меню и сброса состояния
     useEffect(() => {
         const handleGlobalClose = (e) => {
-            // Ищем наше меню по классу
             const menuElement = document.querySelector('.context-menu-container');
-            
-            // Если клик был внутри меню - ничего не делаем (хотя stopPropagation в компоненте уже это решает)
-            if (menuElement && menuElement.contains(e.target)) {
-                return;
-            }
-
-            // Если клик снаружи - закрываем
+            if (menuElement && menuElement.contains(e.target)) return;
             setContextMenu(null);
             setActiveMessageId(null);
         };
-
-        // Используем capture: true не нужно, обычного всплытия достаточно
         window.addEventListener('mousedown', handleGlobalClose);
         window.addEventListener('touchstart', handleGlobalClose);
-
         return () => {
             window.removeEventListener('mousedown', handleGlobalClose);
             window.removeEventListener('touchstart', handleGlobalClose);
@@ -414,14 +389,52 @@ function Chat({ socket, username, room, setRoom, handleLogout }) {
         } catch (e) {}
     }, []);
 
-    const sendSystemNotification = useCallback((title, body) => {
-        if (!("Notification" in window)) return;
+    // --- TRIGGER TELEGRAM-STYLE IN-APP NOTIFICATION ---
+    const triggerInAppNotification = useCallback((title, body, avatar, roomName) => {
+        if (inAppNotifTimeoutRef.current) clearTimeout(inAppNotifTimeoutRef.current);
+        
+        setInAppNotif({ visible: true, title, body, avatar, room: roomName });
+        
+        inAppNotifTimeoutRef.current = setTimeout(() => {
+            setInAppNotif(prev => ({ ...prev, visible: false }));
+        }, 3500); // Hide after 3.5s
+    }, []);
+
+    const handleInAppNotifClick = () => {
+        if (inAppNotif.room) switchChat(inAppNotif.room);
+        setInAppNotif(prev => ({ ...prev, visible: false }));
+    };
+
+    // --- ENHANCED SYSTEM NOTIFICATION (Like Telegram) ---
+    const sendSystemNotification = useCallback((title, body, tag, roomName, avatarUrl) => {
         const currentProfile = myProfileRef.current;
         if (currentProfile.notifications_enabled === 0 || currentProfile.notifications_enabled === false) return; 
+        
+        // 1. Show In-App Banner (Always works when app is open)
+        triggerInAppNotification(title, body, avatarUrl, roomName);
+
+        // 2. Try System Notification (Works in background if permitted)
+        if (!("Notification" in window)) return;
+        
         if (Notification.permission === "granted") {
-            try { new Notification(title, { body, icon: '/vite.svg' }); } catch (e) {}
+            try { 
+                const notif = new Notification(title, { 
+                    body, 
+                    icon: '/connect.png', 
+                    tag: tag, // Replaces previous notification with same tag
+                    vibrate: [200, 100, 200], // Vibration pattern
+                    renotify: true, // Vibrate again even if replacing
+                });
+                notif.onclick = function() {
+                    window.focus();
+                    if(roomName) switchChat(roomName);
+                    notif.close();
+                };
+            } catch (e) { console.error(e); }
+        } else if (Notification.permission !== "denied") {
+            Notification.requestPermission();
         }
-    }, []);
+    }, [triggerInAppNotification]);
 
     const requestNotificationPermission = () => {
         if ("Notification" in window) {
@@ -451,6 +464,22 @@ function Chat({ socket, username, room, setRoom, handleLogout }) {
     useEffect(() => localStorage.setItem("apollo_my_chats", JSON.stringify(myChats)), [myChats]);
     useEffect(() => localStorage.setItem("apollo_friends", JSON.stringify(friends)), [friends]);
     useEffect(() => localStorage.setItem("apollo_my_profile", JSON.stringify(myProfile)), [myProfile]);
+
+    // Global listener for DM notifications (when not in the room)
+    useEffect(() => {
+        const handleDMNotification = (data) => {
+            if (room === data.room) return;
+            playNotificationSound();
+            // Try to find avatar of sender from friends list or cache
+            // For now passing null, but could be improved
+            sendSystemNotification(data.author, data.message, 'dm', data.room, null);
+        };
+
+        socket.on("dm_notification", handleDMNotification);
+        return () => {
+            socket.off("dm_notification", handleDMNotification);
+        };
+    }, [socket, room, playNotificationSound, sendSystemNotification]);
 
     useEffect(() => {
         if (activeModal === 'notifications') {
@@ -501,16 +530,13 @@ function Chat({ socket, username, room, setRoom, handleLogout }) {
     const handleDeleteMessage = useCallback((id) => { if (window.confirm("Удалить это сообщение?")) socket.emit("delete_message", id); }, [socket]);
 
     const handleContextMenu = useCallback((e, msg, x, y) => {
-        // e.preventDefault(); // Можно раскомментировать, если мешает нативное меню
         setActiveMessageId(msg.id);
         
         let menuX = x;
-        // Смещаем меню на 70 пикселей ВВЕРХ, чтобы палец не перекрывал его
         let menuY = y - 70; 
 
-        // Проверки, чтобы меню не улетело за границы экрана
         if (menuX + 150 > window.innerWidth) menuX = window.innerWidth - 160;
-        if (menuY < 50) menuY = y + 20; // Если слишком близко к верху, показываем ПОД пальцем
+        if (menuY < 50) menuY = y + 20; 
         if (menuY + 150 > window.innerHeight) menuY = window.innerHeight - 160;
 
         setContextMenu({ x: menuX, y: menuY, msg: msg });
@@ -528,11 +554,10 @@ function Chat({ socket, username, room, setRoom, handleLogout }) {
         }
     };
 
-    const startTouchY = useRef(0); // Добавьте этот ref в начало компонента Chat
+    const startTouchY = useRef(0);
 
     const handleSwipeStart = (e) => {
         if (!isMobile || !showMobileChat) return;
-        // Начинаем свайп только от левого края (0-40px)
         if (e.touches[0].clientX < 50) {
             startTouchX.current = e.touches[0].clientX;
             startTouchY.current = e.touches[0].clientY;
@@ -548,7 +573,6 @@ function Chat({ socket, username, room, setRoom, handleLogout }) {
         const diffX = currentX - startTouchX.current;
         const diffY = Math.abs(currentY - startTouchY.current);
 
-        // Если пользователь тянет больше вниз/вверх, чем вправо — это скролл, отменяем свайп
         if (diffY > Math.abs(diffX) && diffX < 10) {
             isSwiping.current = false;
             setSwipeX(0);
@@ -556,7 +580,6 @@ function Chat({ socket, username, room, setRoom, handleLogout }) {
         }
 
         if (diffX > 0) {
-            // Блокируем стандартный свайп браузера "назад", чтобы использовать наш
             if (e.cancelable) e.preventDefault();
             setSwipeX(diffX);
         }
@@ -566,15 +589,12 @@ function Chat({ socket, username, room, setRoom, handleLogout }) {
         if (!isSwiping.current) return;
         isSwiping.current = false;
 
-        // Если протащили больше чем на 25% экрана или быстрее определенной скорости
         if (swipeX > window.innerWidth * 0.25) {
-            // Плавный уход панели за экран перед вызовом back
             setSwipeX(window.innerWidth);
             setTimeout(() => {
                 window.history.back();
             }, 100);
         } else {
-            // Возвращаем на место
             setSwipeX(0);
         }
     };
@@ -590,7 +610,7 @@ function Chat({ socket, username, room, setRoom, handleLogout }) {
         }
 
         if (isMobile) { 
-            setSwipeX(0); // Сбрасываем сдвиг перед открытием
+            setSwipeX(0); 
             setShowMobileChat(true); 
             if (document.activeElement instanceof HTMLElement) document.activeElement.blur(); 
         }
@@ -631,7 +651,7 @@ function Chat({ socket, username, room, setRoom, handleLogout }) {
             if (notif.type === 'friend_request') body = `Заявка в друзья от ${notif.content}`;
             if (notif.type === 'mention') { title = "Вас упомянули"; body = notif.content; }
             
-            sendSystemNotification(title, body);
+            sendSystemNotification(title, body, 'system', notif.data, null);
         };
 
         const handleMyProfile = (data) => {
@@ -727,9 +747,15 @@ function Chat({ socket, username, room, setRoom, handleLogout }) {
                     }
                     return [...list, data];
                 });
-                if (data.author !== username && document.hidden) { playNotificationSound(); sendSystemNotification(data.author, data.message); }
+                if (data.author !== username && document.hidden) { 
+                    playNotificationSound(); 
+                    sendSystemNotification(data.author, data.message, 'dm', data.room, null); 
+                }
              } else {
-                if (data.author !== username) { playNotificationSound(); sendSystemNotification(data.author, data.message); }
+                if (data.author !== username) { 
+                    playNotificationSound(); 
+                    sendSystemNotification(data.author, data.message, 'dm', data.room, null); 
+                }
              }
         };
 
@@ -891,6 +917,42 @@ function Chat({ socket, username, room, setRoom, handleLogout }) {
         setReplyingTo(null);
     };
 
+    // --- Bug Reporting Functions ---
+    const handleBugSubmit = async () => {
+        if (!bugDescription) return alert("Опишите проблему");
+        const formData = new FormData();
+        formData.append("reporter", username);
+        formData.append("description", bugDescription);
+        bugFiles.forEach(f => formData.append("files", f));
+
+        try {
+            await fetch(`${BACKEND_URL}/report-bug`, { method: "POST", body: formData });
+            alert("Баг отправлен! Спасибо.");
+            setActiveModal(null);
+            setBugDescription("");
+            setBugFiles([]);
+        } catch (e) {
+            alert("Ошибка отправки");
+        }
+    };
+
+    const fetchBugReports = async () => {
+        try {
+            const res = await fetch(`${BACKEND_URL}/bug-reports`);
+            const data = await res.json();
+            setAdminBugList(data);
+        } catch (e) { console.error(e); }
+    };
+    
+    const resolveBug = async (id) => {
+        await fetch(`${BACKEND_URL}/resolve-bug`, {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({id})
+        });
+        fetchBugReports(); // Refresh
+    }
+
     const openGroupInfo = () => {
         if (!myChats.includes(room)) { socket.emit("get_user_profile", room.replace(username, "").replace("_", "") || room); setShowMenu(false); }
         else { socket.emit("get_group_info", room); setActiveModal("groupInfo"); setShowMenu(false); }
@@ -956,16 +1018,29 @@ function Chat({ socket, username, room, setRoom, handleLogout }) {
         headerSubtitle = `${groupMembers.length} участников`;
     }
 
-    // --- ИЗМЕНЕНИЕ: Условие для возможности удаления ---
     const canDeleteMessage = (msg) => {
         const isAuthor = msg.author === username;
-        // Можно удалить, если ты автор ИЛИ если ты админ группы (и это не личный чат)
         const isGroupOwner = myRole === 'owner' && !room.includes('_');
         return isAuthor || isGroupOwner;
     }
 
     return (
       <div className={`main-layout ${isMobile ? "mobile-mode" : ""}`} style={{ touchAction: "pan-y" }}>
+        
+        {/* --- TELEGRAM STYLE IN-APP NOTIFICATION --- */}
+        <div 
+            className={`tg-in-app-notification ${inAppNotif.visible ? 'visible' : ''}`}
+            onClick={handleInAppNotifClick}
+        >
+            <div className="tg-notif-avatar" style={inAppNotif.avatar ? {backgroundImage: `url(${inAppNotif.avatar})`} : {}}>
+                {!inAppNotif.avatar && inAppNotif.title[0]?.toUpperCase()}
+            </div>
+            <div className="tg-notif-content">
+                <div className="tg-notif-title">{inAppNotif.title}</div>
+                <div className="tg-notif-body">{inAppNotif.body}</div>
+            </div>
+        </div>
+
         {contextMenu && (
           <ContextMenu 
             x={contextMenu.x} 
@@ -974,7 +1049,6 @@ function Chat({ socket, username, room, setRoom, handleLogout }) {
             onClose={() => setContextMenu(null)} 
             onReply={() => handleReply(contextMenu.msg)} 
             onCopy={() => handleCopy(contextMenu.msg.message)} 
-            // Исправлено: Сначала вызываем удаление, потом закрываем меню
             onDelete={() => { 
                 handleDeleteMessage(contextMenu.msg.id); 
                 setContextMenu(null); 
@@ -1049,14 +1123,10 @@ function Chat({ socket, username, room, setRoom, handleLogout }) {
             onTouchMove={handleSwipeMove}
             onTouchEnd={handleSwipeEnd}
             style={{
-                // Если чат закрыт на мобилке, уводим его вправо на 100%
-                // Если открыт — используем swipeX для сдвига
                 transform: isMobile 
                     ? (showMobileChat ? `translateX(${swipeX}px)` : `translateX(100%)`) 
                     : 'none',
-                // Отключаем транзишн во время активного свайпа пальцем
                 transition: isSwiping.current ? 'none' : 'transform 0.3s cubic-bezier(0.2, 0.8, 0.2, 1)',
-                // Важно для мобилок:
                 position: isMobile ? 'fixed' : 'relative',
                 top: 0,
                 left: 0,
@@ -1088,7 +1158,6 @@ function Chat({ socket, username, room, setRoom, handleLogout }) {
               <div ref={messagesEndRef} />
             </div>
 
-            {/* --- ИЗМЕНЕНИЕ: Условие для отображения поля ввода --- */}
             {(room !== "General" || myRole === 'owner') ? (
                 <div className="chat-input-wrapper">
                 {replyingTo && (<div className="reply-bar"><div><div style={{ color: "#8774e1", fontSize: 13, fontWeight: "bold" }}>В ответ {replyingTo.author}</div><div style={{ fontSize: 14, color: "#ccc", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", maxWidth: "250px" }}>{replyingTo.message}</div></div><button onClick={() => setReplyingTo(null)} style={{ background: "none", border: "none", color: "#888", cursor: "pointer", fontSize: 24 }}>&times;</button></div>)}
@@ -1112,7 +1181,6 @@ function Chat({ socket, username, room, setRoom, handleLogout }) {
           </div>
         </div>
 
-        {/* MODALS */}
         {activeModal === "notifications" && (
             <Modal title="Уведомления" onClose={() => { setActiveModal(null); setHasUnreadNotifs(false); }}>
                  <div className="settings-list" style={{padding: 0}}>
@@ -1144,9 +1212,11 @@ function Chat({ socket, username, room, setRoom, handleLogout }) {
         {activeModal === "actionMenu" && (
           <Modal title="CONNECT" onClose={() => setActiveModal(null)}>
             <div className="action-grid">
-              <div className="action-card" onClick={() => setActiveModal("createGroup")}> <span style={{ fontSize: 12}}><svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24"><path fill="#ffffff" d="M11 0H5v2H3v6h2v2h6V8H5V2h6V0zm0 2h2v6h-2V2zM0 14h2v4h12v2H0v-6zm2 0h12v-2H2v2zm14 0h-2v6h2v-6zM15 0h4v2h-4V0zm4 8h-4v2h4V8zm0-6h2v6h-2V2zm5 12h-2v4h-4v2h6v-6zm-6-2h4v2h-4v-2z"/></svg></span> <div><div style={{ fontWeight: "bold" }}>Новая группа</div></div> </div>
+              <div className="action-card" onClick={() => setActiveModal("createGroup")}> <span style={{ fontSize: 12}}><svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24"><path fill="#ffffff" d="M11 4h2v7h7v2h-7v7h-2v-7H4v-2h7V4z"/></svg></span> <div><div style={{ fontWeight: "bold" }}>Новая группа</div></div> </div>
               <div className="action-card" onClick={() => setActiveModal("searchGroup")}> <span style={{ fontSize: 24 }}><svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24"><path fill="#ffffff" d="M6 2h8v2H6V2zM4 6V4h2v2H4zm0 8H2V6h2v8zm2 2H4v-2h2v2zm8 0v2H6v-2h8zm2-2h-2v2h2v2h2v2h2v2h2v-2h-2v-2h-2v-2h-2v-2zm0-8h2v8h-2V6zm0 0V4h-2v2h2z"/></svg></span> <div><div style={{ fontWeight: "bold" }}>Найти группу</div></div> </div>
               <div className="action-card" onClick={() => setActiveModal("addFriend")}> <span style={{ fontSize: 24 }}><svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24"><path fill="#ffffff" d="M18 2h-6v2h-2v6h2V4h6V2zm0 8h-6v2h6v-2zm0-6h2v6h-2V4zM7 16h2v-2h12v2H9v4h12v-4h2v6H7v-6zM3 8h2v2h2v2H5v2H3v-2H1v-2h2V8z"/></svg></span> <div><div style={{ fontWeight: "bold" }}>Поиск людей</div></div> </div>
+              <div className="action-card" onClick={() => setActiveModal("reportBug")}> <span style={{ fontSize: 24 }}><IconBug/></span> <div><div style={{ fontWeight: "bold" }}>Report Bug</div></div> </div>
+              {(username === 'slide36' || myRole === 'admin') && (<div className="action-card" onClick={() => { setActiveModal("adminBugs"); fetchBugReports(); }}> <span style={{ fontSize: 24 }}>🛡️</span> <div><div style={{ fontWeight: "bold" }}>Admin Bugs</div></div> </div>)}
             </div>
           </Modal>
         )}
@@ -1185,6 +1255,56 @@ function Chat({ socket, username, room, setRoom, handleLogout }) {
               ))}
             </div>
           </Modal>
+        )}
+
+        {activeModal === "reportBug" && (
+            <Modal title="Сообщить о баге" onClose={() => setActiveModal(null)}>
+                <div style={{padding: 20, display: 'flex', flexDirection: 'column', gap: 15}}>
+                    <textarea 
+                        className="modal-input" 
+                        rows={5} 
+                        placeholder="Опишите проблему, шаги воспроизведения..." 
+                        value={bugDescription}
+                        onChange={(e) => setBugDescription(e.target.value)}
+                        style={{border: '1px solid #444', borderRadius: 8, padding: 10, resize: 'none'}}
+                    />
+                    <input 
+                        type="file" 
+                        multiple 
+                        onChange={(e) => setBugFiles(Array.from(e.target.files))}
+                        style={{color: '#aaa'}}
+                    />
+                    <button className="btn-primary" onClick={handleBugSubmit}>Отправить отчет</button>
+                </div>
+            </Modal>
+        )}
+
+        {activeModal === "adminBugs" && (
+            <Modal title="Bug Reports" onClose={() => setActiveModal(null)}>
+                <div className="settings-list">
+                    {adminBugList.length === 0 && <div style={{padding:20, textAlign:'center'}}>Нет репортов</div>}
+                    {adminBugList.map(bug => (
+                        <div key={bug.id} className="settings-item" style={{flexDirection: 'column', alignItems: 'flex-start', borderBottom: '1px solid #333', opacity: bug.status === 'resolved' ? 0.5 : 1}}>
+                            <div style={{display:'flex', justifyContent:'space-between', width:'100%', marginBottom: 5}}>
+                                <span style={{color: '#2b95ff', fontWeight:'bold'}}>@{bug.reporter}</span>
+                                <span style={{fontSize: 12, color: '#666'}}>{new Date(bug.created_at).toLocaleDateString()}</span>
+                            </div>
+                            <div style={{whiteSpace: 'pre-wrap', marginBottom: 10}}>{bug.description}</div>
+                            {bug.media_urls && JSON.parse(bug.media_urls).length > 0 && (
+                                <div className="gallery-grid" style={{marginBottom: 10}}>
+                                    {JSON.parse(bug.media_urls).map((url, i) => (
+                                        <img key={i} src={url} className="gallery-image" onClick={() => setImageModalSrc(url)} />
+                                    ))}
+                                </div>
+                            )}
+                            {bug.status !== 'resolved' && (
+                                <button className="btn-accept" onClick={() => resolveBug(bug.id)} style={{width:'100%', marginTop: 5}}>Отметить решенным</button>
+                            )}
+                            {bug.status === 'resolved' && <span style={{color: '#4caf50', fontSize: 12}}>✔ Решено</span>}
+                        </div>
+                    ))}
+                </div>
+            </Modal>
         )}
 
         {activeModal === "settings" && (

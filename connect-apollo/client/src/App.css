@@ -1317,3 +1317,91 @@ p {
     filter: blur(2px);
   }
 }
+
+.btn-accept {
+    background: #2b95ff;
+    border: none;
+    color: white;
+    padding: 6px 12px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 13px;
+    transition: 0.2s;
+}
+.btn-accept:hover {
+    background: #1a7bd6;
+}
+.btn-decline {
+    background: #333;
+    border: none;
+    color: #ff4d4d;
+    padding: 6px 12px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 13px;
+}
+
+/* --- TELEGRAM STYLE IN-APP NOTIFICATION --- */
+.tg-in-app-notification {
+    position: fixed;
+    top: -100px; /* Спрятано сверху */
+    left: 10px;
+    right: 10px;
+    background: rgba(33, 33, 33, 0.95);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    color: white;
+    padding: 12px;
+    border-radius: 12px;
+    box-shadow: 0 4px 15px rgba(0,0,0,0.5);
+    z-index: 10000;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    transition: top 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    cursor: pointer;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    max-width: 600px;
+    margin: 0 auto;
+}
+
+.tg-in-app-notification.visible {
+    top: 10px; /* Показываем */
+}
+
+.tg-notif-avatar {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    background-color: #444;
+    background-size: cover;
+    background-position: center;
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: bold;
+    color: #fff;
+}
+
+.tg-notif-content {
+    flex: 1;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.tg-notif-title {
+    font-weight: 600;
+    font-size: 14px;
+    color: #fff;
+}
+
+.tg-notif-body {
+    font-size: 13px;
+    color: #aaa;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}

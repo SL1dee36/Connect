@@ -44,7 +44,8 @@ async function initDB() {
         CREATE TABLE IF NOT EXISTS blocked_users (id INTEGER PRIMARY KEY AUTOINCREMENT, blocker TEXT, blocked TEXT);
         CREATE TABLE IF NOT EXISTS user_avatars (id INTEGER PRIMARY KEY AUTOINCREMENT, username TEXT, avatar_url TEXT, created_at DATETIME DEFAULT CURRENT_TIMESTAMP, FOREIGN KEY (username) REFERENCES user_profiles(username) ON DELETE CASCADE);
         CREATE TABLE IF NOT EXISTS notifications (id INTEGER PRIMARY KEY AUTOINCREMENT, user_to TEXT, type TEXT, content TEXT, data TEXT, is_read BOOLEAN DEFAULT 0, created_at DATETIME DEFAULT CURRENT_TIMESTAMP);
-    `);
+        CREATE TABLE IF NOT EXISTS bug_reports (id INTEGER PRIMARY KEY AUTOINCREMENT, reporter TEXT, description TEXT, media_urls TEXT, status TEXT DEFAULT 'open', created_at DATETIME DEFAULT CURRENT_TIMESTAMP);
+        `);
 
     const safeRun = async (query) => { try { await db.exec(query); } catch (e) { } };
 
@@ -158,6 +159,47 @@ app.post("/upload-avatar", upload.single("avatar"), async (req, res) => {
     } catch (e) { res.status(500).json({ message: "Avatar upload failed" }); }
 });
 
+// --- BUG REPORT ROUTES ---
+app.post("/report-bug", upload.array("files", 5), async (req, res) => {
+    try {
+        if (!db) throw new Error("Database not ready");
+        const { description, reporter } = req.body;
+        
+        let mediaUrls = [];
+        if (req.files && req.files.length > 0) {
+            mediaUrls = await Promise.all(req.files.map((f) => processImage(f.buffer)));
+        }
+
+        await db.run(
+            "INSERT INTO bug_reports (reporter, description, media_urls) VALUES (?, ?, ?)",
+            [reporter, description, JSON.stringify(mediaUrls)]
+        );
+        res.json({ status: "ok", message: "Bug reported successfully" });
+    } catch (e) {
+        console.error(e);
+        res.status(500).json({ message: "Failed to report bug" });
+    }
+});
+
+app.get("/bug-reports", async (req, res) => {
+    try {
+        if (!db) throw new Error("Database not ready");
+        // В реальном проекте тут нужна проверка на админа через middleware
+        const reports = await db.all("SELECT * FROM bug_reports ORDER BY id DESC");
+        res.json(reports);
+    } catch (e) {
+        res.status(500).json({ message: "Error fetching reports" });
+    }
+});
+
+app.post("/resolve-bug", async (req, res) => {
+    try {
+        const { id } = req.body;
+        await db.run("UPDATE bug_reports SET status = 'resolved' WHERE id = ?", [id]);
+        res.json({ status: "ok" });
+    } catch (e) { res.status(500).json({ error: "Error" }); }
+});
+
 // --- SOCKET.IO ---
 const server = http.createServer(app);
 const io = new Server(server, { cors: { origin: FRONTEND_URL } });
@@ -229,6 +271,8 @@ io.use((socket, next) => {
 io.on("connection", async (socket) => {
     const username = socket.data.username;
     console.log(`Connect: ${socket.id} (${username})`);
+
+    socket.join(username);
     
     onlineUsers = onlineUsers.filter((u) => u.username !== username);
     onlineUsers.push({ socketId: socket.id, username: username });
@@ -278,12 +322,14 @@ io.on("connection", async (socket) => {
         const author = socket.data.username;
         if (!author) return;
 
+        // Проверка блокировок
         if (data.room.includes("_")) {
             const target = data.room.split("_").find((u) => u !== author);
             if (target && (await isBlocked(target, author)))
                 return socket.emit("error_message", { msg: "Blocked" });
         }
 
+        // Сохраняем в БД
         const res = await db.run(
             "INSERT INTO messages (room, author, message, type, time, reply_to_id, reply_to_author, reply_to_message) VALUES (?,?,?,?,?,?,?,?)",
             [data.room, author, data.message, data.type || "text", data.time, data.replyTo?.id, data.replyTo?.author, data.replyTo?.message]
@@ -294,9 +340,29 @@ io.on("connection", async (socket) => {
             reply_to_id: data.replyTo?.id || null, reply_to_author: data.replyTo?.author || null, reply_to_message: data.replyTo?.message || null, tempId: data.tempId,
         };
 
+        // 1. Отправляем сообщение тем, кто ПРЯМО СЕЙЧАС открыл этот чат
         io.to(data.room).emit("receive_message", broadcastMessage);
+        
         if (callback) callback({ status: "ok", id: res.lastID });
 
+        // --- НОВАЯ ЛОГИКА УВЕДОМЛЕНИЙ (Telegram Style) ---
+        // Если это личный чат (есть "_"), находим получателя
+        if (data.room.includes("_")) {
+            const parts = data.room.split("_");
+            const recipient = parts.find(u => u !== author);
+            
+            if (recipient) {
+                // Отправляем специальное событие "dm_notification" в личную комнату получателя.
+                // Получатель услышит это, даже если он в "General" или другом чате.
+                io.to(recipient).emit("dm_notification", {
+                    author: author,
+                    message: data.type === 'text' ? data.message : (data.type === 'audio' ? 'Голосовое сообщение' : 'Вложение'),
+                    room: data.room
+                });
+            }
+        }
+        
+        // --- ЛОГИКА МЕНШЕНОВ (оставляем как было) ---
         const mentionRegex = /@(\w+)/g;
         let match;
         const uniqueMentions = new Set();
