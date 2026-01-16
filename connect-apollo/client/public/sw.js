@@ -18,7 +18,7 @@ self.addEventListener('notificationclick', function(event) {
       // Если вкладка уже открыта - фокусируемся на ней
       for (var i = 0; i < windowClients.length; i++) {
         var client = windowClients[i];
-        if (client.url.indexOf('/') !== -1 && 'focus' in client) {
+        if (client.url && 'focus' in client) {
           return client.focus();
         }
       }

@@ -338,19 +338,28 @@ function Chat({ socket, username, room, setRoom, handleLogout }) {
         }
     }, [activeModal]);
 
+    // Handle closing via back button or swipe
+    const handleCloseMobileChat = useCallback(() => {
+        setShowMobileChat(false);
+        // ВАЖНО: Очищаем room, чтобы система знала, что мы больше не в чате.
+        // Это позволяет уведомлениям приходить, если придет новое сообщение в этот чат.
+        setRoom(""); 
+        localStorage.setItem("apollo_room", "");
+    }, [setRoom]);
+
     useEffect(() => {
         const handlePopState = (e) => {
             if (activeModal) {
                 setActiveModal(null);
             } 
             else if (showMobileChat) {
-                setShowMobileChat(false);
+                handleCloseMobileChat();
             }
         };
 
         window.addEventListener('popstate', handlePopState);
         return () => window.removeEventListener('popstate', handlePopState);
-    }, [activeModal, showMobileChat]);
+    }, [activeModal, showMobileChat, handleCloseMobileChat]);
 
     useEffect(() => {
         const params = new URLSearchParams(window.location.search);
@@ -417,20 +426,21 @@ function Chat({ socket, username, room, setRoom, handleLogout }) {
         // 1. Показываем плашку внутри приложения (In-App)
         triggerInAppNotification(title, body, avatarUrl, roomName);
 
-        // 2. Системное уведомление (через Service Worker для мобильных)
+        // 2. Системное уведомление (через Service Worker для мобильных или Notification API)
         if (!("Notification" in window)) return;
         
         if (Notification.permission === "granted") {
             try {
-                // Если есть Service Worker, используем его (лучше для Android)
+                // Если есть Service Worker, используем его (важно для Android)
                 if (navigator.serviceWorker && navigator.serviceWorker.ready) {
                     navigator.serviceWorker.ready.then(registration => {
                         registration.showNotification(title, {
                             body: body,
                             icon: '/connect.png',
+                            badge: '/connect.png', // Добавлено для Android
                             tag: tag,
-                            vibrate: [200, 100, 200],
-                            data: { room: roomName } // Данные для обработки клика в sw.js
+                            vibrate: [200, 100, 200], // Важно для вибро
+                            data: { room: roomName, url: window.location.href } 
                         });
                     });
                 } else {
@@ -450,13 +460,23 @@ function Chat({ socket, username, room, setRoom, handleLogout }) {
         } else if (Notification.permission !== "denied") {
             Notification.requestPermission();
         }
-    }, [triggerInAppNotification]); // switchChat добавлен в deps неявно, но лучше добавить если линтер ругается
+    }, [triggerInAppNotification]); 
 
     const requestNotificationPermission = () => {
         if ("Notification" in window) {
             Notification.requestPermission().then(permission => {
                 if (permission === "granted") {
                     socket.emit("update_profile", { ...myProfile, notifications_enabled: true });
+                    // Test notification
+                    if (navigator.serviceWorker && navigator.serviceWorker.ready) {
+                        navigator.serviceWorker.ready.then(reg => {
+                            reg.showNotification("Notifications Enabled", {
+                                body: "Теперь вы будете получать уведомления",
+                                icon: '/connect.png',
+                                vibrate: [200]
+                            });
+                        });
+                    }
                 }
             });
         }
@@ -484,10 +504,10 @@ function Chat({ socket, username, room, setRoom, handleLogout }) {
     // Global listener for DM notifications (when not in the room)
     useEffect(() => {
         const handleDMNotification = (data) => {
+            // Если мы УЖЕ в этой комнате, уведомление должно обрабатываться внутри receive_message
             if (room === data.room) return;
+            
             playNotificationSound();
-            // Try to find avatar of sender from friends list or cache
-            // For now passing null, but could be improved
             sendSystemNotification(data.author, data.message, 'dm', data.room, null);
         };
 
@@ -608,7 +628,7 @@ function Chat({ socket, username, room, setRoom, handleLogout }) {
         if (swipeX > window.innerWidth * 0.25) {
             setSwipeX(window.innerWidth);
             setTimeout(() => {
-                window.history.back();
+                window.history.back(); // This triggers handlePopState -> handleCloseMobileChat
             }, 100);
         } else {
             setSwipeX(0);
@@ -738,6 +758,7 @@ function Chat({ socket, username, room, setRoom, handleLogout }) {
     }, [socket, username, switchChat, playNotificationSound, sendSystemNotification, handleLogout, room]);
 
     useEffect(() => {
+        // Если room пустой, мы "в лобби" (или на списке чатов), сообщений быть не должно
         if (!room) return;
         
         setMessageList([]);
@@ -755,6 +776,7 @@ function Chat({ socket, username, room, setRoom, handleLogout }) {
         }
 
         const handleReceiveMessage = (data) => {
+             // 1. Сообщение для текущей открытой комнаты
              if (data.room === room) {
                 setMessageList((list) => {
                     if (data.author === username && data.tempId) {
@@ -763,11 +785,14 @@ function Chat({ socket, username, room, setRoom, handleLogout }) {
                     }
                     return [...list, data];
                 });
+                
+                // Проверяем, не свернуто ли приложение (document.hidden)
                 if (data.author !== username && document.hidden) { 
                     playNotificationSound(); 
                     sendSystemNotification(data.author, data.message, 'dm', data.room, null); 
                 }
              } else {
+                // 2. Сообщение для другой комнаты
                 if (data.author !== username) { 
                     playNotificationSound(); 
                     sendSystemNotification(data.author, data.message, 'dm', data.room, null); 
@@ -1154,7 +1179,7 @@ function Chat({ socket, username, room, setRoom, handleLogout }) {
           <div className="glass-chat">
             <div className="chat-header">
               <div className="header-left">
-                {isMobile && (<button className="back-btn" onClick={() => setShowMobileChat(false)}><svg xmlns="http://www.w3.org/2000/svg" width="32" height="26" viewBox="0 0 24 24"><path fill="#ffffff" d="M16 5v2h-2V5h2zm-4 4V7h2v2h-2zm-2 2V9h2v2h-2zm0 2H8v-2h2v2zm2 2v-2h-2v2h2zm0 0h2v2h-2v-2zm4 4v-2h-2v2h2z"/></svg></button>)}
+                {isMobile && (<button className="back-btn" onClick={handleCloseMobileChat}><svg xmlns="http://www.w3.org/2000/svg" width="32" height="26" viewBox="0 0 24 24"><path fill="#ffffff" d="M16 5v2h-2V5h2zm-4 4V7h2v2h-2zm-2 2V9h2v2h-2zm0 2H8v-2h2v2zm2 2v-2h-2v2h2zm0 0h2v2h-2v-2zm4 4v-2h-2v2h2z"/></svg></button>)}
                 <div onClick={openGroupInfo} style={{ cursor: "pointer", display: "flex", flexDirection: "column", whiteSpace: "nowrap"}}>
                   <h3 style={{ margin: 0 }}>{displayRoomName}</h3>
                   <span style={{ fontSize: 12, color: "#777", paddingLeft: 0 }}>
