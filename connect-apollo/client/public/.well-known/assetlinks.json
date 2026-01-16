@@ -1,0 +1,8 @@
+[{
+      "relation": ["delegate_permission/common.handle_all_urls"],
+      "target": {
+        "namespace": "android_app",
+        "package_name": "com.connect.apollo",
+        "sha256_cert_fingerprints": ["A1:58:6A:96:79:D8:62:0E:65:66:F1:37:6E:BA:91:34:DC:74:2C:C2:A9:66:DE:78:11:43:2E:1F:2C:F3:82:52"]
+      }
+    }]
