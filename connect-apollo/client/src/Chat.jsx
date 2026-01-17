@@ -4,7 +4,7 @@ import remarkGfm from 'remark-gfm';
 import Modal from "./Modal";
 import CustomAudioPlayer from "./CustomAudioPlayer";
 import Cropper from 'react-easy-crop';
-import { registerPushNotifications } from "./pushSubscription"; // <-- НОВЫЙ ИМПОРТ
+import { registerPushNotifications } from "./pushSubscription";
 import rehypeSanitize from 'rehype-sanitize';
 
 const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || "http://localhost:3001";
@@ -736,9 +736,6 @@ function Chat({ socket, username, room, setRoom, handleLogout }) {
             handleLogout();
         });
 
-        socket.emit("get_initial_data"); 
-        socket.emit("get_my_profile", username);
-
         return () => {
             window.removeEventListener('resize', handleResize);
             socket.off("user_groups");
@@ -760,6 +757,13 @@ function Chat({ socket, username, room, setRoom, handleLogout }) {
             socket.off("total_users");
         };
     }, [socket, username, switchChat, playNotificationSound, sendSystemNotification, handleLogout, room]);
+
+    useEffect(() => {
+        if (username && socket) {
+            socket.emit("get_initial_data"); 
+            socket.emit("get_my_profile", username);
+        }
+    }, [socket, username]);
 
     useEffect(() => {
         // Если room пустой, мы "в лобби" (или на списке чатов), сообщений быть не должно
@@ -1108,7 +1112,8 @@ function Chat({ socket, username, room, setRoom, handleLogout }) {
           </div>
         )}
 
-        <input type="file" ref={avatarInputRef} style={{ display: "none" }} onChange={onFileChange} accept="image/*" />
+        {/* FIX: Using class instead of inline style to prevent infinite update loop in devtools */}
+        <input type="file" ref={avatarInputRef} className="hidden-input" onChange={onFileChange} accept="image/*" />
 
         <div className={`left-panel ${isMobile && showMobileChat ? "hidden" : ""}`}>
           <div className="sidebar-top">
@@ -1210,7 +1215,7 @@ function Chat({ socket, username, room, setRoom, handleLogout }) {
                 <textarea ref={textareaRef} value={currentMessage} placeholder="Написать сообщение..." className="chat-textarea" onChange={(e) => { setCurrentMessage(e.target.value); socket.emit("typing", { room, username }); }} onKeyDown={handleKeyDown} rows={1} />
                 <div className="input-toolbar">
                     <div className="toolbar-left">
-                    <input type="file" style={{ display: "none" }} multiple ref={fileInputRef} onChange={handleFileSelect} accept="image/*" />
+                    <input type="file" className="hidden-input" multiple ref={fileInputRef} onChange={handleFileSelect} accept="image/*" />
                     <button className="tool-btn" onClick={() => fileInputRef.current.click()} title="Прикрепить фото"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path fill="currentColor" d="M16.5 6v11.5c0 2.21-1.79 4-4 4s-4-1.79-4-4V5a2.5 2.5 0 0 1 5 0v10.5c0 .55-.45 1-1 1s-1-.45-1-1V6H10v9.5a2.5 2.5 0 0 0 5 0V5c0-2.21-1.79-4-4-4S7 2.79 7 5v12.5c0 3.04 2.46 5.5 5.5 5.5s5.5-2.46 5.5-5.5V6h-1.5z"/></svg></button>
                     </div>
                     <div className="toolbar-right">

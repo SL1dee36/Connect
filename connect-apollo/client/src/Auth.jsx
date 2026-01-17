@@ -1,5 +1,3 @@
-// client/src/Auth.jsx
-
 import React, { useState } from 'react';
 
 const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || "http://localhost:3001";
@@ -35,7 +33,6 @@ function Auth({ onLoginSuccess }) {
         throw new Error(data.message || 'Что-то пошло не так');
       }
 
-      // Если всё успешно (и для входа, и для регистрации), вызываем колбэк
       onLoginSuccess(data.token);
 
     } catch (err) {

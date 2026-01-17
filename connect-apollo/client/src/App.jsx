@@ -1,12 +1,10 @@
-// client/src/App.jsx
-
 import { useState, useEffect } from "react";
 import "./App.css";
 import io from "socket.io-client";
 import Chat from "./Chat";
 import Auth from "./Auth";
 import { jwtDecode } from "jwt-decode";
-import { registerPushNotifications } from "./pushSubscription"; // Импорт функции подписки
+import { registerPushNotifications } from "./pushSubscription";
 
 const socket = io.connect(import.meta.env.VITE_BACKEND_URL || "http://localhost:3001", {
   autoConnect: false
@@ -17,7 +15,6 @@ function App() {
   const [room, setRoom] = useState("General");
   const [isLoading, setIsLoading] = useState(true);
 
-  // Слушаем сообщения от SW (клик по уведомлению)
   useEffect(() => {
     if ('serviceWorker' in navigator) {
       navigator.serviceWorker.addEventListener('message', (event) => {
@@ -42,7 +39,6 @@ function App() {
           socket.connect();
           socket.emit("authenticate", { token });
           
-          // Пробуем подписаться на Push тихо (если уже разрешено)
           registerPushNotifications(token);
         } else {
           localStorage.removeItem("apollo_token");
@@ -64,7 +60,6 @@ function App() {
     socket.connect();
     socket.emit("authenticate", { token });
 
-    // Запрашиваем разрешение на Push после входа
     registerPushNotifications(token);
   };
 
@@ -79,14 +74,12 @@ function App() {
       return <div className="App">Загрузка...</div>;
   }
 
-  const ChatWithLogout = () => <Chat socket={socket} username={user.username} room={room} setRoom={setRoom} handleLogout={handleLogout} />;
-
   return (
     <div className="App">
       {!user ? (
         <Auth onLoginSuccess={handleLoginSuccess} />
       ) : (
-        <ChatWithLogout />
+        <Chat socket={socket} username={user.username} room={room} setRoom={setRoom} handleLogout={handleLogout} />
       )}
     </div>
   );

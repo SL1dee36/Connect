@@ -1,14 +1,10 @@
-// client/public/sw.js
-
 const CACHE_NAME = 'connect-apollo-v2.0.1.5';
 const urlsToCache = [
   '/',
   '/index.html',
   '/manifest.json'
-  // Сюда можно добавить логотипы, если хотите кешировать их
 ];
 
-// 1. Установка: Кешируем статику (для галочки PWABuilder)
 self.addEventListener('install', (event) => {
   self.skipWaiting();
   event.waitUntil(
@@ -20,15 +16,11 @@ self.addEventListener('install', (event) => {
   );
 });
 
-// 2. Активация
 self.addEventListener('activate', (event) => {
   event.waitUntil(self.clients.claim());
 });
 
-// 3. Fetch: Простая стратегия (Сначала сеть, если нет - кеш)
-// Это нужно, чтобы PWABuilder поставил галочку "Offline Support"
 self.addEventListener('fetch', (event) => {
-  // Для API запросов и сокетов не используем кеш
   if (event.request.url.includes('/socket.io/') || event.request.method !== 'GET') {
       return;
   }
@@ -41,7 +33,6 @@ self.addEventListener('fetch', (event) => {
   );
 });
 
-// 4. PUSH УВЕДОМЛЕНИЯ (Самое важное для вас)
 self.addEventListener('push', function(event) {
   if (!(self.Notification && self.Notification.permission === 'granted')) {
     return;
@@ -52,8 +43,8 @@ self.addEventListener('push', function(event) {
   const title = data.title || 'Connect';
   const options = {
     body: data.body || 'Новое сообщение',
-    icon: '/icon-192.png', // Используем PNG
-    badge: '/icon-192.png', // Используем PNG (желательно монохромный, но этот тоже пойдет)
+    icon: '/icon-192.png',
+    badge: '/icon-192.png',
     vibrate: [200, 100, 200],
     tag: data.tag || 'general',
     data: {
@@ -67,7 +58,6 @@ self.addEventListener('push', function(event) {
   );
 });
 
-// 5. Клик по уведомлению
 self.addEventListener('notificationclick', function(event) {
   event.notification.close();
   const targetUrl = event.notification.data.url || '/';
@@ -75,14 +65,12 @@ self.addEventListener('notificationclick', function(event) {
 
   event.waitUntil(
     clients.matchAll({type: 'window', includeUncontrolled: true}).then(windowClients => {
-      // Если приложение открыто - фокусируемся
       for (let client of windowClients) {
         if (client.url && 'focus' in client) {
           if(room) client.postMessage({ type: 'NAVIGATE', room: room });
           return client.focus();
         }
       }
-      // Если закрыто - открываем
       if (clients.openWindow) {
         return clients.openWindow(targetUrl);
       }
