@@ -2,6 +2,10 @@ require('dotenv').config();
 
 const express = require("express");
 const app = express();
+
+// Доверяем прокси (для Vercel/CSB)
+app.set('trust proxy', 1);
+
 const http = require("http");
 const cors = require("cors");
 const { Server } = require("socket.io");
@@ -16,6 +20,38 @@ const jwt = require("jsonwebtoken");
 const webpush = require("web-push");
 const helmet = require("helmet");
 const rateLimit = require("express-rate-limit");
+
+const PORT = process.env.PORT || 3001;
+const JWT_SECRET = process.env.JWT_SECRET;
+if (!JWT_SECRET) {
+    throw new Error("FATAL ERROR: JWT_SECRET is not defined in .env");
+}
+
+const allowedOrigins = [
+  "http://localhost:5173",
+  "http://localhost:3000",
+  "https://connect-apollo.vercel.app",
+  "https://rs5y26-3001.csb.app"
+];
+
+const corsOptions = {
+  origin: function (origin, callback) {
+    if (!origin) return callback(null, true);
+    if (allowedOrigins.indexOf(origin) !== -1) {
+      callback(null, true);
+    } else {
+      console.log("Blocked by CORS:", origin);
+      callback(new Error("Not allowed by CORS"));
+    }
+  },
+  methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+  credentials: true,
+  allowedHeaders: ["Content-Type", "Authorization"],
+  optionsSuccessStatus: 200
+};
+
+app.use(cors(corsOptions));
+app.use(express.json());
 
 app.use(helmet({
   contentSecurityPolicy: {
@@ -44,7 +80,7 @@ app.use(helmet({
 
 const authLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
-  max: 3,
+  max: 20,
   message: "Слишком много попыток входа",
   standardHeaders: true,
   legacyHeaders: false,
@@ -57,7 +93,6 @@ const apiLimiter = rateLimit({
   legacyHeaders: false,
 });
 
-// Middleware для отключения кэширования чувствительных данных
 const apiNoCache = (req, res, next) => {
   res.set('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
   res.set('Pragma', 'no-cache');
@@ -71,38 +106,6 @@ app.use("/register", authLimiter, apiNoCache);
 app.use("/report-bug", apiLimiter, apiNoCache);
 app.use("/resolve-bug", apiLimiter, apiNoCache);
 app.use("/", apiLimiter);
-
-const PORT = process.env.PORT || 3001;
-const JWT_SECRET = process.env.JWT_SECRET;
-if (!JWT_SECRET) {
-    throw new Error("FATAL ERROR: JWT_SECRET is not defined in .env");
-}
-
-// --- НАСТРОЙКА БЕЗОПАСНОСТИ (CORS) ---
-const allowedOrigins = [
-  "http://localhost:5173",
-  "http://localhost:3000",
-  "https://connect-apollo.vercel.app",
-  "https://rs5y26-3001.csb.app"
-];
-
-const corsOptions = {
-  origin: function (origin, callback) {
-    if (!origin) return callback(null, true);
-    if (allowedOrigins.indexOf(origin) !== -1) {
-      callback(null, true);
-    } else {
-      console.log("Blocked by CORS:", origin);
-      callback(new Error("Not allowed by CORS"));
-    }
-  },
-  methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
-  credentials: true,
-  allowedHeaders: ["Content-Type", "Authorization"],
-  optionsSuccessStatus: 200
-};
-
-app.use(cors(corsOptions));
 
 const dataDir = path.join(__dirname, "data");
 if (!fs.existsSync(dataDir)) fs.mkdirSync(dataDir);
@@ -134,7 +137,6 @@ webpush.setVapidDetails(
   vapidKeys.privateKey
 );
 
-app.use(express.json());
 app.use("/uploads", express.static(uploadDir, {
   setHeaders: (res, path) => {
     res.set('Cache-Control', 'public, max-age=31536000');
@@ -159,12 +161,12 @@ async function initDB() {
         CREATE TABLE IF NOT EXISTS user_avatars (id INTEGER PRIMARY KEY AUTOINCREMENT, username TEXT, avatar_url TEXT, created_at DATETIME DEFAULT CURRENT_TIMESTAMP, FOREIGN KEY (username) REFERENCES user_profiles(username) ON DELETE CASCADE);
         CREATE TABLE IF NOT EXISTS notifications (id INTEGER PRIMARY KEY AUTOINCREMENT, user_to TEXT, type TEXT, content TEXT, data TEXT, is_read BOOLEAN DEFAULT 0, created_at DATETIME DEFAULT CURRENT_TIMESTAMP);
         CREATE TABLE IF NOT EXISTS bug_reports (id INTEGER PRIMARY KEY AUTOINCREMENT, reporter TEXT, description TEXT, media_urls TEXT, status TEXT DEFAULT 'open', created_at DATETIME DEFAULT CURRENT_TIMESTAMP);
-        CREATE TABLE IF NOT EXISTS push_subscriptions (id INTEGER PRIMARY KEY AUTOINCREMENT, username TEXT, subscription TEXT); 
+        CREATE TABLE IF NOT EXISTS push_subscriptions (id INTEGER PRIMARY KEY AUTOINCREMENT, username TEXT, subscription TEXT);
+        CREATE TABLE IF NOT EXISTS chat_wallpapers (id INTEGER PRIMARY KEY AUTOINCREMENT, username TEXT, room TEXT, settings TEXT, UNIQUE(username, room));
     `);
 
-  const safeRun = async (query) => {
-    try { await db.exec(query); } catch (e) {}
-  };
+  // Migrations logic
+  const safeRun = async (query) => { try { await db.exec(query); } catch (e) {} };
   await safeRun(`ALTER TABLE messages ADD COLUMN type TEXT DEFAULT 'text'`);
   await safeRun(`ALTER TABLE messages ADD COLUMN reply_to_id INTEGER`);
   await safeRun(`ALTER TABLE messages ADD COLUMN reply_to_author TEXT`);
@@ -178,13 +180,10 @@ async function initDB() {
   await safeRun(`ALTER TABLE user_profiles ADD COLUMN display_name TEXT DEFAULT ''`);
   await safeRun(`ALTER TABLE user_profiles ADD COLUMN notifications_enabled BOOLEAN DEFAULT 1`);
   await safeRun(`CREATE TABLE IF NOT EXISTS push_subscriptions (id INTEGER PRIMARY KEY AUTOINCREMENT, username TEXT, subscription TEXT)`);
+  await safeRun(`CREATE TABLE IF NOT EXISTS chat_wallpapers (id INTEGER PRIMARY KEY AUTOINCREMENT, username TEXT, room TEXT, settings TEXT, UNIQUE(username, room))`);
 
-  try {
-    await db.run(`INSERT INTO group_members (room, username, role) SELECT 'General', username, 'member' FROM users WHERE username NOT IN (SELECT username FROM group_members WHERE room = 'General')`);
-  } catch (e) {}
-  try {
-    await db.run("UPDATE group_members SET role = 'owner' WHERE username = 'slide36' AND room = 'General'");
-  } catch (e) {}
+  try { await db.run(`INSERT INTO group_members (room, username, role) SELECT 'General', username, 'member' FROM users WHERE username NOT IN (SELECT username FROM group_members WHERE room = 'General')`); } catch (e) {}
+  try { await db.run("UPDATE group_members SET role = 'owner' WHERE username = 'slide36' AND room = 'General'"); } catch (e) {}
 
   console.log("Database connected & Schema synced");
 }
@@ -227,7 +226,6 @@ app.post("/login", async (req, res) => {
   }
 });
 
-// --- ВАЖНОЕ ИСПРАВЛЕНИЕ: Определение upload ---
 const upload = multer({ storage: multer.memoryStorage() });
 
 const processImage = async (buf) => {
@@ -325,34 +323,22 @@ app.post("/subscribe", async (req, res) => {
     }
     res.json({ status: "ok" });
   } catch (e) {
-    console.error(e);
     res.status(401).json({ message: "Invalid token or error" });
   }
 });
 
 async function sendWebPush(username, payload) {
   if (!db) return;
-  const pref = await db.get(
-    "SELECT notifications_enabled FROM user_profiles WHERE username = ?",
-    [username]
-  );
+  const pref = await db.get("SELECT notifications_enabled FROM user_profiles WHERE username = ?", [username]);
   if (pref && pref.notifications_enabled === 0) return;
-
-  const subs = await db.all(
-    "SELECT * FROM push_subscriptions WHERE username = ?",
-    [username]
-  );
+  const subs = await db.all("SELECT * FROM push_subscriptions WHERE username = ?", [username]);
   for (const subRecord of subs) {
     try {
       const sub = JSON.parse(subRecord.subscription);
       await webpush.sendNotification(sub, JSON.stringify(payload));
     } catch (error) {
       if (error.statusCode === 410 || error.statusCode === 404) {
-        await db.run("DELETE FROM push_subscriptions WHERE id = ?", [
-          subRecord.id,
-        ]);
-      } else {
-        console.error(`Push Error for ${username}:`, error.message);
+        await db.run("DELETE FROM push_subscriptions WHERE id = ?", [subRecord.id]);
       }
     }
   }
@@ -401,10 +387,8 @@ async function sendNotification(toUser, type, content, dataStr = "") {
   if (!db) return;
   const pref = await db.get("SELECT notifications_enabled FROM user_profiles WHERE username = ?", [toUser]);
   if (pref && pref.notifications_enabled === 0) return;
-
   const res = await db.run("INSERT INTO notifications (user_to, type, content, data) VALUES (?, ?, ?, ?)", [toUser, type, content, dataStr]);
   const targetSocket = onlineUsers.find((u) => u.username === toUser);
-
   if (targetSocket) {
     io.to(targetSocket.socketId).emit("new_notification", { id: res.lastID, user_to: toUser, type, content, data: dataStr, is_read: 0, created_at: new Date() });
   } else {
@@ -443,9 +427,7 @@ io.on("connection", async (socket) => {
     socket.emit("friends_list", lists.friends);
     socket.emit("user_groups", lists.groups);
     socket.emit("total_users", await getTotalUsers());
-    try {
-      socket.emit("notification_history", await db.all("SELECT * FROM notifications WHERE user_to = ? ORDER BY id DESC LIMIT 50", [username]));
-    } catch (e) {}
+    try { socket.emit("notification_history", await db.all("SELECT * FROM notifications WHERE user_to = ? ORDER BY id DESC LIMIT 50", [username])); } catch (e) {}
   }
 
   socket.on("get_initial_data", async () => {
@@ -461,23 +443,31 @@ io.on("connection", async (socket) => {
     if (!db) return;
     if (room.includes("_")) {
         const users = room.split("_");
-        if (!users.includes(username)) {
-            socket.emit("error_message", { msg: "Доступ запрещен" });
-            return;
-        }
+        if (!users.includes(username)) return socket.emit("error_message", { msg: "Доступ запрещен" });
     } else if (room !== "General") {
         const member = await db.get("SELECT * FROM group_members WHERE room = ? AND username = ?", [room, username]);
-        if (!member) {
-             socket.emit("error_message", { msg: "Вы не состоите в этой группе" });
-             return;
-        }
+        if (!member) return socket.emit("error_message", { msg: "Вы не состоите в этой группе" });
     }
-    Array.from(socket.rooms).forEach((r) => {
-      if (r !== socket.id && r !== username) socket.leave(r);
-    });
+    Array.from(socket.rooms).forEach((r) => { if (r !== socket.id && r !== username) socket.leave(r); });
     socket.join(room);
     const msgs = await db.all("SELECT * FROM messages WHERE room = ? ORDER BY id DESC LIMIT 30", [room]);
     socket.emit("chat_history", msgs.reverse());
+
+    // --- Wallpaper Logic ---
+    const wp = await db.get("SELECT settings FROM chat_wallpapers WHERE username=? AND room=?", [username, room]);
+    if (wp) socket.emit("wallpaper_data", JSON.parse(wp.settings));
+    else socket.emit("wallpaper_data", null); // Reset if none
+  });
+
+  socket.on("save_wallpaper", async ({ room, settings }) => {
+      if (!db) return;
+      const settingsStr = JSON.stringify(settings);
+      // Upsert
+      await db.run(`INSERT INTO chat_wallpapers (username, room, settings) VALUES (?, ?, ?) 
+                    ON CONFLICT(username, room) DO UPDATE SET settings=excluded.settings`, 
+                    [username, room, settingsStr]);
+      socket.emit("wallpaper_saved", settings);
+      socket.emit("wallpaper_data", settings); // Apply immediately
   });
 
   socket.on("load_more_messages", async ({ room, offset }) => {
@@ -633,6 +623,7 @@ io.on("connection", async (socket) => {
         await db.run("UPDATE blocked_users SET blocked = ? WHERE blocked = ?", [d.newUsername, username]);
         await db.run("UPDATE user_avatars SET username = ? WHERE username = ?", [d.newUsername, username]);
         await db.run("UPDATE notifications SET user_to = ? WHERE user_to = ?", [d.newUsername, username]);
+        await db.run("UPDATE chat_wallpapers SET username = ? WHERE username = ?", [d.newUsername, username]);
         const involvedRooms = await db.all("SELECT DISTINCT room FROM messages WHERE room LIKE ? OR room LIKE ?", [`${username}_%`, `%_${username}`]);
         for (const row of involvedRooms) {
           const parts = row.room.split("_");
