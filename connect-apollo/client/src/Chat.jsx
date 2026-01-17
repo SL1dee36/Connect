@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useRef, useLayoutEffect, useCallback } from "react";
+import React, { useEffect, useState, useRef, useLayoutEffect, useCallback, useMemo } from "react";
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import Modal from "./Modal";
@@ -57,7 +57,6 @@ const IconShare = () => (
 const IconBug = () => (
     <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24"><path fill="#ffffff" d="M8 2h2v4h4V2h2v4h2v3h2v2h-2v2h4v2h-4v2h2v2h-2v3H6v-3H4v-2h2v-2H2v-2h4v-2H4V9h2V6h2V2Zm8 6H8v3h8V8Zm-5 5H8v7h3v-7Zm2 7h3v-7h-3v7ZM4 9H2V7h2v2Zm0 10v2H2v-2h2Zm16 0h2v2h-2v-2Zm0-10V7h2v2h-2Z"/></svg>
 );
-
 const IconShield = () => (
     <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24"><path fill="#ffffff" d="M22 2H2v12h2V4h16v10h2V2zM6 14H4v2h2v-2zm0 2h2v2h2v2H8v-2H6v-2zm4 4v2h4v-2h2v-2h-2v2h-4zm10-6h-2v2h-2v2h2v-2h2v-2z"/></svg>
 );
@@ -66,6 +65,20 @@ const IconMic = () => (
 );
 const IconPaperclip = () => (
     <svg width="24" height="24" viewBox="0 0 24 24" fill="#fff" xmlns="http://www.w3.org/2000/svg"><path d="M5 5h16v10H7V9h10v2H9v2h10V7H5v10h14v2H3V5h2z"/> </svg>
+);
+const IconPin = () => (
+    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24"><path fill="currentColor" d="M16 3a1 1 0 0 1 .117 1.993L16 5v4.764l1.894 3.789a1 1 0 0 1 .106.447V15a1 1 0 0 1-1 1h-4v4a1 1 0 0 1-2 0v-4H7a1 1 0 0 1-1-1v-1a1 1 0 0 1 .106-.447L8 9.764V5a1 1 0 0 1 .117-1.993L8 3h8Z"/></svg>
+);
+const IconFolder = () => (
+    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24"><path fill="currentColor" d="M4 4h8l2 2h6v14H4V4zm0 2v12h14V8h-5l-2-2H4z"/></svg>
+);
+const IconCheckCircle = () => (
+    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"><path fill="#2b95ff" d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10s10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5l1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/></svg>
+);
+const IconDrag = () => (
+    <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor" xmlns="http://www.w3.org/2000/svg">
+         <path d="M20 6V4H4v2h16zm0 14v-2H4v2h16zM17 8v8h-2V8h2zm-8 6v-4h6V8H7v8h8v-2H9z" />
+    </svg>
 );
 
 // --- HELPER FUNCTION FOR TIMER ---
@@ -274,6 +287,20 @@ function Chat({ socket, username, room, setRoom, handleLogout }) {
     const [friends, setFriends] = useState(() => { try { return JSON.parse(localStorage.getItem("apollo_friends")) || []; } catch { return []; } });
     const [myProfile, setMyProfile] = useState(() => { try { return JSON.parse(localStorage.getItem("apollo_my_profile")) || { bio: "", phone: "", avatar_url: "", display_name: "", notifications_enabled: 1 }; } catch { return { bio: "", phone: "", avatar_url: "", display_name: "", notifications_enabled: 1 }; } });
 
+    // --- State for Sidebar Management ---
+    const [pinnedChats, setPinnedChats] = useState(() => { try { return JSON.parse(localStorage.getItem("apollo_pinned_chats")) || []; } catch { return []; } });
+    const [folders, setFolders] = useState(() => { try { return JSON.parse(localStorage.getItem("apollo_folders")) || [{id: 'all', name: 'All', chatIds: []}]; } catch { return [{id: 'all', name: 'All', chatIds: []}]; } });
+    const [activeFolderId, setActiveFolderId] = useState('all');
+    const [customChatOrder, setCustomChatOrder] = useState(() => { try { return JSON.parse(localStorage.getItem("apollo_chat_order")) || []; } catch { return []; } });
+    
+    // Selection Mode State
+    const [isSelectionMode, setIsSelectionMode] = useState(false);
+    const [selectedChats, setSelectedChats] = useState([]);
+    
+    // Folder Management State
+    const [newFolderName, setNewFolderName] = useState("");
+    const [folderToEdit, setFolderToEdit] = useState(null);
+
     const myProfileRef = useRef(myProfile);
     useEffect(() => { myProfileRef.current = myProfile; }, [myProfile]);
 
@@ -333,6 +360,57 @@ function Chat({ socket, username, room, setRoom, handleLogout }) {
     const [swipeX, setSwipeX] = useState(0);
     const isSwiping = useRef(false);
     const startTouchX = useRef(0);
+    
+    // Sidebar DnD refs
+    const dragItemRef = useRef(null);
+    const dragOverItemRef = useRef(null);
+    // Selection long-press ref
+    const chatLongPressTimer = useRef(null);
+    // Mobile Drag State
+    const [isMobileDragging, setIsMobileDragging] = useState(false);
+    const [draggedItemId, setDraggedItemId] = useState(null);
+
+    // --- EFFECT: Persist Sidebar State ---
+    useEffect(() => { localStorage.setItem("apollo_pinned_chats", JSON.stringify(pinnedChats)); }, [pinnedChats]);
+    useEffect(() => { localStorage.setItem("apollo_folders", JSON.stringify(folders)); }, [folders]);
+    useEffect(() => { localStorage.setItem("apollo_chat_order", JSON.stringify(customChatOrder)); }, [customChatOrder]);
+
+    // --- COMPUTED: Unified Chat List for Sidebar ---
+    const unifiedChatList = useMemo(() => {
+        // 1. Normalize data
+        let all = [
+            ...myChats.map(c => ({ id: c, type: 'group', name: c === 'General' ? 'Community Bot' : c, avatar: null })),
+            ...friends.map(f => ({ id: f.username || f, type: 'dm', name: f.username || f, avatar: f.avatar_url }))
+        ];
+
+        // 2. Filter by Active Folder
+        if (activeFolderId !== 'all') {
+            const currentFolder = folders.find(f => f.id === activeFolderId);
+            if (currentFolder) {
+                all = all.filter(c => currentFolder.chatIds.includes(c.id));
+            }
+        }
+
+        // 3. Sort logic
+        all.sort((a, b) => {
+            const isPinnedA = pinnedChats.includes(a.id);
+            const isPinnedB = pinnedChats.includes(b.id);
+            if (isPinnedA && !isPinnedB) return -1;
+            if (!isPinnedA && isPinnedB) return 1;
+
+            // Use custom order if exists
+            const idxA = customChatOrder.indexOf(a.id);
+            const idxB = customChatOrder.indexOf(b.id);
+            if (idxA !== -1 && idxB !== -1) return idxA - idxB;
+            if (idxA !== -1) return -1;
+            if (idxB !== -1) return 1;
+
+            return 0; 
+        });
+
+        return all;
+    }, [myChats, friends, pinnedChats, activeFolderId, folders, customChatOrder]);
+
 
     // --- 1. ЛОГИКА КНОПКИ "НАЗАД" (HISTORY API) ---
     useEffect(() => {
@@ -347,11 +425,8 @@ function Chat({ socket, username, room, setRoom, handleLogout }) {
         }
     }, [activeModal]);
 
-    // Handle closing via back button or swipe
     const handleCloseMobileChat = useCallback(() => {
         setShowMobileChat(false);
-        // ВАЖНО: Очищаем room, чтобы система знала, что мы больше не в чате.
-        // Это позволяет уведомлениям приходить, если придет новое сообщение в этот чат.
         setRoom(""); 
         localStorage.setItem("apollo_room", "");
     }, [setRoom]);
@@ -363,12 +438,15 @@ function Chat({ socket, username, room, setRoom, handleLogout }) {
             } 
             else if (showMobileChat) {
                 handleCloseMobileChat();
+            } else if (isSelectionMode) {
+                setIsSelectionMode(false);
+                setSelectedChats([]);
             }
         };
 
         window.addEventListener('popstate', handlePopState);
         return () => window.removeEventListener('popstate', handlePopState);
-    }, [activeModal, showMobileChat, handleCloseMobileChat]);
+    }, [activeModal, showMobileChat, handleCloseMobileChat, isSelectionMode]);
 
     useEffect(() => {
         const params = new URLSearchParams(window.location.search);
@@ -432,20 +510,17 @@ function Chat({ socket, username, room, setRoom, handleLogout }) {
         const currentProfile = myProfileRef.current;
         if (currentProfile.notifications_enabled === 0 || currentProfile.notifications_enabled === false) return; 
         
-        // 1. Показываем плашку внутри приложения (In-App)
         triggerInAppNotification(title, body, avatarUrl, roomName);
 
-        // 2. Системное уведомление (через Service Worker для мобильных или Notification API)
         if (!("Notification" in window)) return;
         
         if (Notification.permission === "granted") {
             try {
-                // Если есть Service Worker, используем его (важно для Android)
                 if (navigator.serviceWorker && navigator.serviceWorker.ready) {
                     navigator.serviceWorker.ready.then(registration => {
                         registration.showNotification(title, {
                             body: body,
-                            icon: '/icon-192.png', // Обновили путь к иконке
+                            icon: '/icon-192.png', 
                             badge: '/icon-192.png',
                             tag: tag,
                             vibrate: [200, 100, 200], 
@@ -453,7 +528,6 @@ function Chat({ socket, username, room, setRoom, handleLogout }) {
                         });
                     });
                 } else {
-                    // Фолбэк для Desktop (если SW не готов)
                     const notif = new Notification(title, { 
                         body, 
                         icon: '/icon-192.png', 
@@ -469,16 +543,11 @@ function Chat({ socket, username, room, setRoom, handleLogout }) {
         }
     }, [triggerInAppNotification]); 
 
-    // --- ОБНОВЛЕННАЯ ФУНКЦИЯ ДЛЯ PUSH ---
     const requestNotificationPermission = async () => {
-        // Вызываем нашу функцию подписки, которая отправит ключи на бэкенд
         const token = localStorage.getItem("apollo_token");
         await registerPushNotifications(token);
-
-        // И на всякий случай обновляем профиль в БД через сокет (визуальная часть)
         socket.emit("update_profile", { ...myProfile, notifications_enabled: true });
         
-        // Проверочное уведомление
         if ("Notification" in window && Notification.permission === "granted") {
              if (navigator.serviceWorker && navigator.serviceWorker.ready) {
                 navigator.serviceWorker.ready.then(reg => {
@@ -511,12 +580,9 @@ function Chat({ socket, username, room, setRoom, handleLogout }) {
     useEffect(() => localStorage.setItem("apollo_friends", JSON.stringify(friends)), [friends]);
     useEffect(() => localStorage.setItem("apollo_my_profile", JSON.stringify(myProfile)), [myProfile]);
 
-    // Global listener for DM notifications (when not in the room)
     useEffect(() => {
         const handleDMNotification = (data) => {
-            // Если мы УЖЕ в этой комнате, уведомление должно обрабатываться внутри receive_message
             if (room === data.room) return;
-            
             playNotificationSound();
             sendSystemNotification(data.author, data.message, 'dm', data.room, null);
         };
@@ -646,7 +712,9 @@ function Chat({ socket, username, room, setRoom, handleLogout }) {
     };
 
     const switchChat = useCallback((targetName) => {
+        if (isSelectionMode) return; // Disable switching if selecting
         if (!targetName || typeof targetName !== 'string') return;
+        
         const isGroupChat = targetName === "General" || myChats.includes(targetName);
         const roomId = isGroupChat ? targetName : [username, targetName].sort().join("_");
         
@@ -660,7 +728,7 @@ function Chat({ socket, username, room, setRoom, handleLogout }) {
             setShowMobileChat(true); 
             if (document.activeElement instanceof HTMLElement) document.activeElement.blur(); 
         }
-    }, [room, setRoom, username, isMobile, myChats]);
+    }, [room, setRoom, username, isMobile, myChats, isSelectionMode]);
 
     useEffect(() => {
         if (!showMobileChat) {
@@ -772,7 +840,6 @@ function Chat({ socket, username, room, setRoom, handleLogout }) {
     }, [socket, username]);
 
     useEffect(() => {
-        // Если room пустой, мы "в лобби" (или на списке чатов), сообщений быть не должно
         if (!room) return;
         
         setMessageList([]);
@@ -790,7 +857,6 @@ function Chat({ socket, username, room, setRoom, handleLogout }) {
         }
 
         const handleReceiveMessage = (data) => {
-             // 1. Сообщение для текущей открытой комнаты
              if (data.room === room) {
                 setMessageList((list) => {
                     if (data.author === username && data.tempId) {
@@ -799,14 +865,11 @@ function Chat({ socket, username, room, setRoom, handleLogout }) {
                     }
                     return [...list, data];
                 });
-                
-                // Проверяем, не свернуто ли приложение (document.hidden)
                 if (data.author !== username && document.hidden) { 
                     playNotificationSound(); 
                     sendSystemNotification(data.author, data.message, 'dm', data.room, null); 
                 }
              } else {
-                // 2. Сообщение для другой комнаты
                 if (data.author !== username) { 
                     playNotificationSound(); 
                     sendSystemNotification(data.author, data.message, 'dm', data.room, null); 
@@ -1062,7 +1125,7 @@ function Chat({ socket, username, room, setRoom, handleLogout }) {
     
     const displayRoomName = (room === "General") ? "Community Bot" : ((myChats.includes(room)) ? room : room.replace(username, "").replace("_", ""));
     const isPrivateChat = !myChats.includes(room);
-    const getAvatarStyle = (imgUrl) => imgUrl ? { backgroundImage: `url(${imgUrl})`, backgroundSize: 'cover', backgroundPosition: 'center', color: 'transparent', border: '2px solid #333' } : {};
+    const getAvatarStyle = (imgUrl) => imgUrl ? { backgroundImage: `url(${imgUrl})`, backgroundSize: 'cover', backgroundPosition: 'center', backgroundColor: '#333', color: 'transparent', border: '2px solid #333' } : { backgroundColor: '#333' };
 
     let headerSubtitle = "";
     if (room === "General") {
@@ -1079,8 +1142,215 @@ function Chat({ socket, username, room, setRoom, handleLogout }) {
         return isAuthor || isGroupOwner;
     }
 
+    // --- Sidebar Drag & Drop Handlers ---
+    const onDragStart = (e, index) => {
+        if (isSelectionMode) { e.preventDefault(); return; }
+        dragItemRef.current = index;
+    };
+
+    const onDragEnter = (e, index) => {
+        if (isSelectionMode) return;
+        dragOverItemRef.current = index;
+    };
+
+    const onDragEnd = () => {
+        if (isSelectionMode) return;
+        
+        // CHECK VALIDITY
+        if (dragItemRef.current === null || dragOverItemRef.current === null) {
+            dragItemRef.current = null;
+            dragOverItemRef.current = null;
+            return;
+        }
+
+        const _unified = [...unifiedChatList];
+        // CHECK IF ITEMS EXIST
+        if (!_unified[dragItemRef.current] || !_unified[dragOverItemRef.current]) {
+             return;
+        }
+
+        const draggedItemContent = _unified[dragItemRef.current];
+        if (!draggedItemContent) return;
+
+        const newOrder = [...customChatOrder];
+        // If items are not in custom order yet, initialize them
+        unifiedChatList.forEach(c => {
+             if (!newOrder.includes(c.id)) newOrder.push(c.id);
+        });
+
+        const draggedId = _unified[dragItemRef.current].id;
+        const droppedId = _unified[dragOverItemRef.current].id;
+
+        const fromIndex = newOrder.indexOf(draggedId);
+        const toIndex = newOrder.indexOf(droppedId);
+
+        if (fromIndex !== -1 && toIndex !== -1) {
+            newOrder.splice(fromIndex, 1);
+            newOrder.splice(toIndex, 0, draggedId);
+            setCustomChatOrder(newOrder);
+        }
+
+        dragItemRef.current = null;
+        dragOverItemRef.current = null;
+    };
+
+    // --- Custom Touch Drag Logic (Mobile) ---
+    const handleTouchDragStart = (e, chatId) => {
+        e.stopPropagation();
+        
+        // Passive listener fix:
+        if (e.cancelable) e.preventDefault();
+        
+        const touch = e.touches[0];
+        
+        // Timer for long press (200ms)
+        chatLongPressTimer.current = setTimeout(() => {
+             if (window.navigator.vibrate) window.navigator.vibrate(50);
+             setIsMobileDragging(true);
+             setDraggedItemId(chatId);
+             // Ensure custom order is initialized
+             if (customChatOrder.length === 0) {
+                 setCustomChatOrder(unifiedChatList.map(c => c.id));
+             }
+        }, 200);
+    };
+
+    const handleTouchDragMove = (e) => {
+        if (!isMobileDragging) {
+             // If moved before 200ms, cancel timer
+             if (chatLongPressTimer.current) clearTimeout(chatLongPressTimer.current);
+             return;
+        }
+
+        if (e.cancelable) e.preventDefault(); // Prevent scrolling
+        
+        const touch = e.touches[0];
+        const element = document.elementFromPoint(touch.clientX, touch.clientY);
+        
+        if (element) {
+            const chatItem = element.closest('.chat-list-item');
+            if (chatItem) {
+                const targetId = chatItem.getAttribute('data-chat-id');
+                
+                if (targetId && targetId !== draggedItemId) {
+                    const newOrder = [...(customChatOrder.length ? customChatOrder : unifiedChatList.map(c => c.id))];
+                    const fromIndex = newOrder.indexOf(draggedItemId);
+                    const toIndex = newOrder.indexOf(targetId);
+                    
+                    if (fromIndex !== -1 && toIndex !== -1) {
+                        // Swap
+                        newOrder.splice(fromIndex, 1);
+                        newOrder.splice(toIndex, 0, draggedItemId);
+                        setCustomChatOrder(newOrder);
+                    }
+                }
+            }
+        }
+    };
+
+    const handleTouchDragEnd = () => {
+        if (chatLongPressTimer.current) clearTimeout(chatLongPressTimer.current);
+        setIsMobileDragging(false);
+        setDraggedItemId(null);
+    };
+
+
+    // --- Sidebar Selection Handlers ---
+    const handleChatLongPress = (chatId) => {
+        if (isSelectionMode) return;
+        setIsSelectionMode(true);
+        setSelectedChats([chatId]);
+        if (window.navigator.vibrate) window.navigator.vibrate(50);
+    };
+
+    const toggleChatSelection = (chatId) => {
+        if (selectedChats.includes(chatId)) {
+            const newSelection = selectedChats.filter(id => id !== chatId);
+            setSelectedChats(newSelection);
+            if (newSelection.length === 0) setIsSelectionMode(false);
+        } else {
+            setSelectedChats([...selectedChats, chatId]);
+        }
+    };
+
+    const handleChatClick = (chatId) => {
+        if (isSelectionMode) {
+            toggleChatSelection(chatId);
+        } else {
+            switchChat(chatId);
+        }
+    };
+
+    // --- Sidebar Actions ---
+    const handlePinSelected = () => {
+        const newPinned = [...pinnedChats];
+        selectedChats.forEach(id => {
+            if (newPinned.includes(id)) {
+                const idx = newPinned.indexOf(id);
+                newPinned.splice(idx, 1);
+            } else {
+                newPinned.push(id);
+            }
+        });
+        setPinnedChats(newPinned);
+        setIsSelectionMode(false);
+        setSelectedChats([]);
+    };
+
+    const handleDeleteSelected = () => {
+        if (!window.confirm(`Удалить выбранные чаты (${selectedChats.length})?`)) return;
+        
+        selectedChats.forEach(chatId => {
+            if (myChats.includes(chatId) || chatId === 'General') {
+                 if (chatId !== 'General') socket.emit("leave_group", { room: chatId });
+            } else {
+                 socket.emit("remove_friend", chatId);
+            }
+        });
+        setIsSelectionMode(false);
+        setSelectedChats([]);
+    };
+
+    const handleAddToFolder = (folderId) => {
+        const updatedFolders = folders.map(f => {
+            if (f.id === folderId) {
+                const newChats = [...f.chatIds];
+                selectedChats.forEach(cId => {
+                    if (!newChats.includes(cId)) newChats.push(cId);
+                });
+                return { ...f, chatIds: newChats };
+            }
+            return f;
+        });
+        setFolders(updatedFolders);
+        setIsSelectionMode(false);
+        setSelectedChats([]);
+        setActiveModal(null);
+    };
+
+    const createNewFolder = () => {
+        if (!newFolderName.trim()) return;
+        const newFolder = {
+            id: Date.now().toString(),
+            name: newFolderName,
+            chatIds: []
+        };
+        setFolders([...folders, newFolder]);
+        setNewFolderName("");
+        setActiveModal(null);
+    };
+    
+    const removeFolder = (folderId) => {
+        if(folderId === 'all') return;
+        if(window.confirm("Удалить папку? Чаты не будут удалены.")) {
+            setFolders(folders.filter(f => f.id !== folderId));
+            if (activeFolderId === folderId) setActiveFolderId('all');
+            setActiveModal(null);
+        }
+    }
+
     return (
-      <div className={`main-layout ${isMobile ? "mobile-mode" : ""}`} style={{ touchAction: "pan-y" }}>
+      <div className={`main-layout ${isMobile ? "mobile-mode" : ""} ${isSelectionMode ? "selection-mode-active" : ""}`} style={{ touchAction: "pan-y" }}>
         
         {/* --- TELEGRAM STYLE IN-APP NOTIFICATION --- */}
         <div 
@@ -1118,56 +1388,150 @@ function Chat({ socket, username, room, setRoom, handleLogout }) {
           </div>
         )}
 
-        {/* FIX: Using class instead of inline style to prevent infinite update loop in devtools */}
         <input type="file" ref={avatarInputRef} className="hidden-input" onChange={onFileChange} accept="image/*" />
 
-        <div className={`left-panel ${isMobile && showMobileChat ? "hidden" : ""}`}>
-          <div className="sidebar-top">
-            <div className="sidebar-header-content">
-              <div className="my-avatar" style={getAvatarStyle(myProfile.avatar_url)} onClick={openSettings}>{!myProfile.avatar_url && username[0].toUpperCase()}</div>
-              {isMobile && <div className="mobile-app-title">Chats</div>}
-            </div>
-            <div className="actMenu" style={{display: 'flex', gap: 15, alignItems: 'center'}}>
-                 <div onClick={() => setActiveModal("notifications")} title="notifications"><IconBell hasUnread={hasUnreadNotifs} /></div>
-                 <button className="fab-btn" onClick={() => setActiveModal("actionMenu")}><svg id="plus-icon" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="#ffffff"><path fill="#ffffff" d="M11 4h2v7h7v2h-7v7h-2v-7H4v-2h7V4z"/></svg></button>
-            </div>
-          </div>
+        <div 
+            className={`left-panel ${isMobile && showMobileChat ? "hidden" : ""}`}
+            // Event listener for touch move needs to be high up to catch movement over other items
+            onTouchMove={handleTouchDragMove}
+            onTouchEnd={handleTouchDragEnd}
+        >
+          
+          {/* --- SIDEBAR HEADER / ACTION BAR --- */}
+
+            <div className="sidebar-top">
+                <div className="sidebar-header-content">
+                  <div className="my-avatar" style={getAvatarStyle(myProfile.avatar_url)} onClick={openSettings}>{!myProfile.avatar_url && username[0].toUpperCase()}</div>
+                  {isMobile && <div className="mobile-app-title">Chats</div>}
+                </div>
+                <div className="actMenu" style={{display: 'flex', gap: 15, alignItems: 'center'}}>
+                     <div onClick={() => setActiveModal("notifications")} title="notifications"><IconBell hasUnread={hasUnreadNotifs} /></div>
+                     <button className="fab-btn" onClick={() => setActiveModal("actionMenu")}><svg id="plus-icon" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="#ffffff"><path fill="#ffffff" d="M11 4h2v7h7v2h-7v7h-2v-7H4v-2h7V4z"/></svg></button>
+                </div>
+              </div>
+
+          {isSelectionMode ? (
+              <div className="sidebar-selection-header">
+                  <button className="back-btn" onClick={() => { setIsSelectionMode(false); setSelectedChats([]); }}>
+                      &times;
+                  </button>
+                  <span className="selection-title">Выбрано: {selectedChats.length}</span>
+                  <div className="selection-actions">
+                       <button className="tool-btn" onClick={handlePinSelected} title="Закрепить/Открепить"><IconPin /></button>
+                       <button className="tool-btn" onClick={() => setActiveModal("addToFolder")} title="В папку"><IconFolder /></button>
+                       <button className="tool-btn" style={{color: '#ff4d4d'}} onClick={handleDeleteSelected} title="Удалить"><IconTrash /></button>
+                  </div>
+              </div>
+          ) : (
+
+            <p></p>
+
+            //   <div className="sidebar-top">
+            //     <div className="sidebar-header-content">
+            //       <div className="my-avatar" style={getAvatarStyle(myProfile.avatar_url)} onClick={openSettings}>{!myProfile.avatar_url && username[0].toUpperCase()}</div>
+            //       {isMobile && <div className="mobile-app-title">Chats</div>}
+            //     </div>
+            //     <div className="actMenu" style={{display: 'flex', gap: 15, alignItems: 'center'}}>
+            //          <div onClick={() => setActiveModal("notifications")} title="notifications"><IconBell hasUnread={hasUnreadNotifs} /></div>
+            //          <button className="fab-btn" onClick={() => setActiveModal("actionMenu")}><svg id="plus-icon" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="#ffffff"><path fill="#ffffff" d="M11 4h2v7h7v2h-7v7h-2v-7H4v-2h7V4z"/></svg></button>
+            //     </div>
+            //   </div>
+          )}
 
           <div className="friends-list">
-            {myChats.filter((chat) => chat && typeof chat === "string").map((chat, idx) => (
-                <div key={idx} className="chat-list-item" onClick={() => switchChat(chat)}>
-                  <div className="friend-avatar" style={{ background: chat === room ? "#2b95ff" : "#333", color: "white" }}>
-                      {chat === "General" ? <svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 24 24"><path fill="#ffffff" d="M2 5h2v2H2V5zm4 4H4V7h2v2zm2 0H6v2H4v2H2v6h20v-6h-2v-2h-2V9h2V7h2V5h-2v2h-2v2h-2V7H8v2zm0 0h8v2h2v2h2v4H4v-4h2v-2h2V9zm2 4H8v2h2v-2zm4 0h2v2h-2v-2z"/></svg> : chat.substring(0, 2)}
-                  </div>
-                  <div className="chat-info-mobile">
-                      <div className="chat-name">{chat === "General" ? "Community Bot" : chat}</div>
-                      <div className="chat-preview">
-                          {chat === "General" ? "Новости и обновления" : "Групповой чат"}
-                      </div>
-                  </div>
+            {/* --- FOLDER TABS --- */}
+            {!isSelectionMode && (
+                <div className="folder-tabs">
+                    {folders.map(f => (
+                        <div 
+                            key={f.id} 
+                            className={`folder-tab ${activeFolderId === f.id ? 'active' : ''}`}
+                            onClick={() => setActiveFolderId(f.id)}
+                            onContextMenu={(e) => { e.preventDefault(); setFolderToEdit(f); setActiveModal("editFolder"); }}
+                        >
+                            {f.name}
+                        </div>
+                    ))}
+                    <div className="add-folder-btn" onClick={() => setActiveModal("createFolder")}>+</div>
+                    <div className="background-folder-btn" onClick={() => setActiveModal("createFolder")}>+</div>
                 </div>
-            ))}
-            {friends.map((friend, idx) => {
-                const fName = friend.username || friend;
-                const fAvatar = friend.avatar_url;
-                const isActive = [username, fName].sort().join("_") === room;
-                const avatarStyle = { 
-                    background: isActive ? "#2b95ff" : "#444",
-                    backgroundImage: fAvatar ? `url(${fAvatar})` : 'none',
-                    backgroundSize: 'cover',
-                    backgroundPosition: 'center'
-                };
+            )}
+
+            {unifiedChatList.length === 0 && (
+                <div style={{ padding: 20, textAlign: 'center', color: '#666', fontSize: 13 }}>Нет чатов в этой папке</div>
+            )}
+
+            {unifiedChatList.map((chat, idx) => {
+                const isActive = chat.id === room;
+                const isSelected = selectedChats.includes(chat.id);
+                const isPinned = pinnedChats.includes(chat.id);
+                const isBeingDragged = isMobileDragging && draggedItemId === chat.id;
 
                 return (
-                  <div key={idx} className="chat-list-item" onClick={() => switchChat(fName)}>
-                    <div className="friend-avatar" style={avatarStyle}>
-                        {!fAvatar && (fName[0] ? fName[0].toUpperCase() : "?")}
+                    <div 
+                        key={chat.id} 
+                        data-chat-id={chat.id}
+                        className={`chat-list-item ${isActive ? 'active' : ''} ${isSelected ? 'selected' : ''} ${isPinned ? 'pinned' : ''} ${isBeingDragged ? 'dragging' : ''}`}
+                        onClick={() => handleChatClick(chat.id)}
+                        onContextMenu={(e) => { e.preventDefault(); handleChatLongPress(chat.id); }}
+                        
+                        // Mobile Long Press Logic for SELECTION (on the card itself)
+                        onTouchStart={(e) => {
+                            // Only trigger selection long press if NOT clicking the drag handle
+                            if (!e.target.closest('.drag-handle')) {
+                                chatLongPressTimer.current = setTimeout(() => {
+                                    handleChatLongPress(chat.id);
+                                }, 600);
+                            }
+                        }}
+                        onTouchEnd={() => {
+                            if (chatLongPressTimer.current) clearTimeout(chatLongPressTimer.current);
+                        }}
+                        onTouchMove={() => {
+                            if (chatLongPressTimer.current) clearTimeout(chatLongPressTimer.current);
+                        }}
+
+                        // Desktop DnD Logic
+                        draggable={!isSelectionMode}
+                        onDragStart={(e) => onDragStart(e, idx)}
+                        onDragEnter={(e) => onDragEnter(e, idx)}
+                        onDragEnd={onDragEnd}
+                        onDragOver={(e) => e.preventDefault()}
+                    >
+                        {isSelected && (
+                            <div className="check-icon-container">
+                                <IconCheckCircle />
+                            </div>
+                        )}
+                        
+                        <div className="friend-avatar" style={{ 
+                            backgroundImage: chat.avatar ? `url(${chat.avatar})` : 'none',
+                            backgroundSize: 'cover', backgroundPosition: 'center',
+                            backgroundColor: '#333',
+                            fontSize: chat.avatar ? 0 : 16,
+                            color: chat.avatar ? 'transparent' : 'white'
+                        }}>
+                            {chat.id === "General" ? <svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 24 24"><path fill="#ffffff" d="M2 5h2v2H2V5zm4 4H4V7h2v2zm2 0H6v2H4v2H2v6h20v-6h-2v-2h-2V9h2V7h2V5h-2v2h-2v2h-2V7H8v2zm0 0h8v2h2v2h2v4H4v-4h2v-2h2V9zm2 4H8v2h2v-2zm4 0h2v2h-2v-2z"/></svg> : (!chat.avatar && (chat.name[0] ? chat.name[0].toUpperCase() : "?"))}
+                        </div>
+                        <div className="chat-info-mobile">
+                            <div className="chat-name chat-name-row">
+                                {chat.name}
+                                {isPinned && <IconPin />}
+                            </div>
+                            <div className="chat-preview">
+                                {chat.id === "General" ? "Новости" : (chat.type === 'group' ? "Группа" : "Личное")}
+                            </div>
+                        </div>
+
+                        {/* DRAG HANDLE ICON (Visible in Selection Mode) */}
+                        <div 
+                            className="drag-handle"
+                            onTouchStart={(e) => handleTouchDragStart(e, chat.id)}
+                            // We handle move/end on container to catch fast swipes
+                        >
+                            <IconDrag />
+                        </div>
                     </div>
-                    <div className="chat-info-mobile">
-                        <div className="chat-name">{fName}</div>
-                        <div className="chat-preview">Личное сообщение</div>
-                    </div>
-                  </div>
                 );
             })}
           </div>
@@ -1264,6 +1628,39 @@ function Chat({ socket, username, room, setRoom, handleLogout }) {
                         </div>
                     ))}
                  </div>
+            </Modal>
+        )}
+
+        {/* --- MODAL FOR CREATING FOLDER --- */}
+        {activeModal === "createFolder" && (
+            <Modal title="Новая папка" onClose={() => setActiveModal(null)}>
+                <input 
+                    className="modal-input" 
+                    placeholder="Название папки..." 
+                    value={newFolderName} 
+                    onChange={(e) => setNewFolderName(e.target.value)} 
+                />
+                <button className="btn-primary" onClick={createNewFolder}>Создать</button>
+            </Modal>
+        )}
+
+        {/* --- MODAL FOR EDITING FOLDER --- */}
+        {activeModal === "editFolder" && folderToEdit && (
+            <Modal title={`Папка: ${folderToEdit.name}`} onClose={() => setActiveModal(null)}>
+                <button className="btn-danger" onClick={() => removeFolder(folderToEdit.id)}>Удалить папку</button>
+            </Modal>
+        )}
+
+        {/* --- MODAL FOR ADDING TO FOLDER --- */}
+        {activeModal === "addToFolder" && (
+            <Modal title="Добавить в папку" onClose={() => setActiveModal(null)}>
+                <div className="settings-list">
+                    {folders.map(f => (
+                        <div key={f.id} className="settings-item" onClick={() => handleAddToFolder(f.id)}>
+                            <div className="settings-label">{f.name}</div>
+                        </div>
+                    ))}
+                </div>
             </Modal>
         )}
 
@@ -1455,7 +1852,8 @@ function Chat({ socket, username, room, setRoom, handleLogout }) {
                         backgroundImage: m.avatar_url ? `url(${m.avatar_url})` : 'none',
                         backgroundSize: 'cover',
                         backgroundPosition: 'center',
-                        color: m.avatar_url ? 'transparent' : 'white'
+                        color: m.avatar_url ? 'transparent' : 'white',
+                        backgroundColor: '#333'
                     }}>
                         {m.username[0].toUpperCase()}
                     </div> 

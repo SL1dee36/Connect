@@ -1,8 +1,11 @@
 import { useState, useEffect } from "react";
+import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom"; // Импортируем роутинг
 import "./App.css";
 import io from "socket.io-client";
 import Chat from "./Chat";
 import Auth from "./Auth";
+import UserAgreement from "./legal/UserAgreement";
+import License from "./legal/License";
 import { jwtDecode } from "jwt-decode";
 import { registerPushNotifications } from "./pushSubscription";
 
@@ -10,7 +13,7 @@ const socket = io.connect(import.meta.env.VITE_BACKEND_URL || "http://localhost:
   autoConnect: false
 });
 
-function App() {
+const MainApp = () => {
   const [user, setUser] = useState(null);
   const [room, setRoom] = useState("General");
   const [isLoading, setIsLoading] = useState(true);
@@ -82,6 +85,24 @@ function App() {
         <Chat socket={socket} username={user.username} room={room} setRoom={setRoom} handleLogout={handleLogout} />
       )}
     </div>
+  );
+};
+
+function App() {
+  return (
+    <BrowserRouter>
+      <Routes>
+        {/* Главная страница с чатом и авторизацией */}
+        <Route path="/" element={<MainApp />} />
+        
+        {/* Новые страницы */}
+        <Route path="/terms" element={<UserAgreement />} />
+        <Route path="/license" element={<License />} />
+        
+        {/* Любой неизвестный путь редиректим на главную */}
+        <Route path="*" element={<Navigate to="/" replace />} />
+      </Routes>
+    </BrowserRouter>
   );
 }
 

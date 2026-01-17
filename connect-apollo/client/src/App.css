@@ -6,7 +6,25 @@ body {
   background-color: #0f0f0f;
   color: white;
   overflow: hidden;
+  -webkit-user-select: none;
+  -moz-user-select: none;   
+  -ms-user-select: none;    
+  user-select: none;        
   -webkit-tap-highlight-color: transparent;
+  -webkit-touch-callout: none;
+}
+
+input, textarea {
+  -webkit-user-select: text !important;
+  -moz-user-select: text !important;
+  -ms-user-select: text !important;
+  user-select: text !important;
+  -webkit-touch-callout: default !important; 
+}
+
+.bubble {
+  user-select: text;
+  -webkit-user-select: text;
 }
 
 .App {
@@ -726,7 +744,7 @@ body {
       background: #111; border-bottom: 1px solid #000; border-radius: 0px;
       transition: 0.2s; width: 100%; box-sizing: border-box;
   }
-  .chat-list-item:active { background: #1a1a1a; transform: scale(0.98); }
+  .chat-list-item:active { background: #1a1a1a; }
   .friend-avatar { width: 50px; height: 50px; font-size: 18px; margin: 0; border-radius: 14px; }
   
   .chat-info-mobile { display: flex; flex-direction: column; justify-content: center; gap: 2px; overflow: hidden; }
@@ -1420,4 +1438,240 @@ p {
 
 .hidden-input {
   display: none;
+}
+
+
+
+/* Шапка режима выделения */
+.sidebar-selection-header {
+  background: #252525;
+  border-bottom: 1px solid #1a7bd6;
+  padding: 15px;
+  display: flex;
+  align-items: center;
+  gap: 15px;
+  width: 100%;
+  box-sizing: border-box;
+  height: 63px; /* Фиксируем высоту как у обычной шапки */
+  /* margin-top: 68px; */
+}
+
+.selection-title {
+  font-size: 16px;
+  font-weight: bold;
+  color: white;
+}
+
+.selection-actions {
+  display: flex;
+  gap: 15px;
+  margin-left: auto;
+}
+
+/* Панель с папками */
+.folder-tabs {
+  display: flex;
+  flex-direction: column;
+  overflow-x: auto;
+  gap: 10px;
+  padding: 12px 15px;
+  border-bottom: 1px solid #333;
+  scrollbar-width: none; /* Firefox */
+  /* background: #000; */
+  flex-shrink: 0;
+  max-height: 180px;
+}
+
+@media (max-width: 768px) {
+  .folder-tabs {
+    display: flex;
+    flex-direction: row;
+    overflow-x: auto;
+    gap: 10px;
+    padding: 12px 15px;
+    border-bottom: 1px solid #333;
+    scrollbar-width: none; /* Firefox */
+    background: #000;
+    flex-shrink: 0;
+    padding-right: 70px;
+  }
+  .folder-tab {
+    padding: 6px 12px;
+    border-radius: 16px;
+    font-size: 13px;
+    white-space: nowrap;
+    cursor: pointer;
+    background: #222;
+    color: #aaa;
+    border: 1px solid #333;
+    transition: 0.2s;
+    user-select: none;
+    width: clamp(24px, fit-content, 100%) !important;
+    max-width: 180px !important;
+    min-height: 24px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+  }
+  .add-folder-btn {
+    padding: 6px 10px;
+    border-radius: 16px;
+    background: #111;
+    color: #666;
+    cursor: pointer;
+    border: 1px solid #333;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 24px;
+    min-width: 24px;
+    align-items: center;
+    justify-content: center;
+    position: absolute;
+    right: 15px;
+    z-index: 999;
+  }
+  .background-folder-btn {
+    right: 0px;
+    border-radius: 0px;
+    border: 1px solid #000000f0;
+    background: #000000f0;
+    backdrop-filter: blur(2px);
+    z-index: 9;
+    position: fixed;
+    display: flex !important;
+    color: #000;
+    width: 40px;
+    height: 36px;
+  }
+  .folder-tab.active {
+    background: #2b95ff;
+    color: white;
+    border-color: #2b95ff;
+  }
+}
+
+.background-folder-btn { display: none; }
+
+.folder-tabs::-webkit-scrollbar { display: none; }
+
+.folder-tab {
+  padding: 6px 12px;
+  border-radius: 16px;
+  font-size: 13px;
+  white-space: nowrap;
+  cursor: pointer;
+  background: #222;
+  color: #aaa;
+  border: 1px solid #333;
+  transition: 0.2s;
+  user-select: none;
+  min-width: 24px;
+  max-width: 42px;
+  min-height: 24px;
+  height: fit-content;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.folder-tab:hover {
+  background: #333;
+  color: #fff;
+}
+
+.folder-tab.active {
+  background: #2b95ff;
+  color: white;
+  border-color: #2b95ff;
+}
+
+.add-folder-btn {
+  padding: 6px 10px;
+  border-radius: 16px;
+  background: #111;
+  color: #666;
+  cursor: pointer;
+  border: 1px solid #333;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.add-folder-btn:hover { color: #fff; border-color: #555; }
+
+/* Состояния элементов списка чатов */
+.chat-list-item {
+  position: relative; /* Для позиционирования иконок внутри */
+}
+
+/* Активный чат (открытый) */
+.chat-list-item.active {
+  background: #111;
+}
+
+/* Выделенный чат (долгое нажатие) */
+.chat-list-item.selected {
+  background: rgba(43, 149, 255, 0.2) !important;
+}
+
+/* Закрепленный чат */
+.chat-list-item.pinned {
+  border-right: 3px solid #888;
+}
+
+/* Иконка галочки при выделении */
+.check-icon-container {
+  margin-right: 10px;
+  display: flex;
+  align-items: center;
+  animation: popIn 0.2s ease;
+}
+
+/* Имя чата в списке */
+.chat-name-row {
+  display: flex;
+  gap: 5px;
+  align-items: center;
+}
+
+/* Исправление для аватарок (динамические стили) */
+.friend-avatar {
+  /* Базовые стили уже есть в App.css, здесь только уточнения */
+  background-color: #333; /* Fallback color */
+}
+
+/* Контейнер иконки перетаскивания */
+.drag-handle {
+  display: none; /* Скрыто по умолчанию */
+  width: 40px;
+  height: 40px;
+  align-items: center;
+  justify-content: center;
+  color: #666;
+  cursor: grab;
+  margin-left: auto; /* Прижимаем вправо */
+  touch-action: none; /* ВАЖНО: Отключает скролл страницы при касании иконки */
+  flex-shrink: 0;
+}
+
+/* Показываем иконку, когда родитель (список) в режиме selection-mode */
+/* Мы будем добавлять класс .selection-mode-active на контейнер списка */
+.selection-mode-active .drag-handle {
+  display: flex;
+}
+
+/* Стиль элемента, который сейчас перетаскивают */
+.chat-list-item.dragging {
+  opacity: 0.9;
+  background: #2a2a2a !important;
+  box-shadow: 0 10px 20px rgba(0,0,0,0.5);
+  transform: scale(1.02);
+  z-index: 1000;
+  border: 1px solid #1a7bd6;
+  position: relative;
+}
+
+.drag-handle:active {
+  color: #fff;
 }

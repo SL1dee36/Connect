@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
-
+import { Link } from 'react-router-dom'; 
+import "./legal/Legal.css";
 const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || "http://localhost:3001";
 
 function Auth({ onLoginSuccess }) {
@@ -76,6 +77,10 @@ function Auth({ onLoginSuccess }) {
             {isLoginMode ? 'Зарегистрироваться' : 'Войти'}
           </button>
         </p>
+        <div className="LegalLinks">
+            <Link to="/terms" style={{ color: '#888', textDecoration: 'none' }}>Соглашение</Link>
+            <Link to="/license" style={{ color: '#888', textDecoration: 'none' }}>Лицензия</Link>
+        </div>
       </div>
     </div>
   );
