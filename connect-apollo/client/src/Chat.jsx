@@ -1225,7 +1225,7 @@ function Chat({ socket, username, room, setRoom, handleLogout }) {
                     <button className="tool-btn" onClick={() => fileInputRef.current.click()} title="Прикрепить фото"><IconPaperclip></IconPaperclip></button>
                     </div>
                     <div className="toolbar-right">
-                    {currentMessage.trim() || attachedFiles.length > 0 ? (<button className="send-pill-btn" onClick={sendMessage}> Отправить ↵ </button>) : (<button className={`mic-btn ${isRecording ? "recording" : ""}`} onClick={isRecording ? stopRecording : startRecording}>{isRecording ? formatTime(recordingTime) : (
+                    {currentMessage.trim() || attachedFiles.length > 0 ? (<button className="send-pill-btn" onClick={sendMessage}> Отправить ↵ </button>) : (<button className={`mic-btn ${isRecording ? "recording" : ""}`} style={{ fontSize: isRecording ? '18px' : '0' }} onClick={isRecording ? stopRecording : startRecording}>{isRecording ? formatTime(recordingTime) : (
                         <IconMic> </IconMic>
                     )}</button>)}
                     </div>
