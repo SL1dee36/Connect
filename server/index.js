@@ -329,6 +329,34 @@ app.post("/subscribe", async (req, res) => {
   }
 });
 
+async function sendWebPush(username, payload) {
+  if (!db) return;
+  const pref = await db.get(
+    "SELECT notifications_enabled FROM user_profiles WHERE username = ?",
+    [username]
+  );
+  if (pref && pref.notifications_enabled === 0) return;
+
+  const subs = await db.all(
+    "SELECT * FROM push_subscriptions WHERE username = ?",
+    [username]
+  );
+  for (const subRecord of subs) {
+    try {
+      const sub = JSON.parse(subRecord.subscription);
+      await webpush.sendNotification(sub, JSON.stringify(payload));
+    } catch (error) {
+      if (error.statusCode === 410 || error.statusCode === 404) {
+        await db.run("DELETE FROM push_subscriptions WHERE id = ?", [
+          subRecord.id,
+        ]);
+      } else {
+        console.error(`Push Error for ${username}:`, error.message);
+      }
+    }
+  }
+}
+
 // --- SOCKET.IO ---
 const server = http.createServer(app);
 const io = new Server(server, {

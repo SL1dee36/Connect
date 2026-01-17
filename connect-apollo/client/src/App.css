@@ -1412,3 +1412,7 @@ p {
     overflow: hidden;
     text-overflow: ellipsis;
 }
+
+.hidden-input {
+  display: none;
+}
