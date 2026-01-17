@@ -61,6 +61,12 @@ const IconBug = () => (
 const IconShield = () => (
     <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24"><path fill="#ffffff" d="M22 2H2v12h2V4h16v10h2V2zM6 14H4v2h2v-2zm0 2h2v2h2v2H8v-2H6v-2zm4 4v2h4v-2h2v-2h-2v2h-4zm10-6h-2v2h-2v2h2v-2h2v-2z"/></svg>
 );
+const IconMic = () => (
+    <svg width="24" height="24" viewBox="0 0 24 24" fill="#fff" xmlns="http://www.w3.org/2000/svg"><path d="M12.9975 4H15V2H12.9975H11.0025H9V4H11.0025H12.9975Z M12.9975 15H15V13H12.9975H11.0025H9V15H11.0025H12.9975Z M13.33 18H16V16H13.33H10.67H8V18H10.67H13.33ZM13.33 22H16V20H13.33H10.67H8V22H10.67H13.33ZM15 6.24895V7.37553V8.49789V9.62447V10.7511V11.8734V13H17V11.8734V10.7511V9.62447V8.49789V7.37553V6.24895V5.12236V4H15V5.12236V6.24895ZM6 11H4V12.5V14H6V12.5V11ZM18 11V12.5V14H20V12.5V11H18ZM8 14H6V16H8V14ZM18 14H16V16H18V14ZM7 6.24895V7.37553V8.49789V9.62447V10.7511V11.8734V13H9V11.8734V10.7511V9.62447V8.49789V7.37553V6.24895V5.12236V4H7V5.12236V6.24895ZM11 18.4998V18.7501V18.9995V19.2499V19.5002V19.7496V20H13V19.7496V19.5002V19.2499V18.9995V18.7501V18.4998V18.2494V18H11V18.2494V18.4998Z"/></svg>
+);
+const IconPaperclip = () => (
+    <svg width="24" height="24" viewBox="0 0 24 24" fill="#fff" xmlns="http://www.w3.org/2000/svg"><path d="M5 5h16v10H7V9h10v2H9v2h10V7H5v10h14v2H3V5h2z"/> </svg>
+);
 
 // --- HELPER FUNCTION FOR TIMER ---
 const formatTime = (seconds) => {
@@ -1216,10 +1222,12 @@ function Chat({ socket, username, room, setRoom, handleLogout }) {
                 <div className="input-toolbar">
                     <div className="toolbar-left">
                     <input type="file" className="hidden-input" multiple ref={fileInputRef} onChange={handleFileSelect} accept="image/*" />
-                    <button className="tool-btn" onClick={() => fileInputRef.current.click()} title="Прикрепить фото"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path fill="currentColor" d="M16.5 6v11.5c0 2.21-1.79 4-4 4s-4-1.79-4-4V5a2.5 2.5 0 0 1 5 0v10.5c0 .55-.45 1-1 1s-1-.45-1-1V6H10v9.5a2.5 2.5 0 0 0 5 0V5c0-2.21-1.79-4-4-4S7 2.79 7 5v12.5c0 3.04 2.46 5.5 5.5 5.5s5.5-2.46 5.5-5.5V6h-1.5z"/></svg></button>
+                    <button className="tool-btn" onClick={() => fileInputRef.current.click()} title="Прикрепить фото"><IconPaperclip></IconPaperclip></button>
                     </div>
                     <div className="toolbar-right">
-                    {currentMessage.trim() || attachedFiles.length > 0 ? (<button className="send-pill-btn" onClick={sendMessage}> Отправить ↵ </button>) : (<button className={`mic-btn ${isRecording ? "recording" : ""}`} onClick={isRecording ? stopRecording : startRecording}>{isRecording ? formatTime(recordingTime) : (<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path fill="currentColor" d="M12 14c1.66 0 2.99-1.34 2.99-3L15 5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3zm5.3-3c0 3-2.54 5.1-5.3 5.1S6.7 14 6.7 11H5c0 3.41 2.72 6.23 6 6.72V21h2v-3.28c3.28-.48 6-3.3 6-6.72h-1.7z"/></svg>)}</button>)}
+                    {currentMessage.trim() || attachedFiles.length > 0 ? (<button className="send-pill-btn" onClick={sendMessage}> Отправить ↵ </button>) : (<button className={`mic-btn ${isRecording ? "recording" : ""}`} onClick={isRecording ? stopRecording : startRecording}>{isRecording ? formatTime(recordingTime) : (
+                        <IconMic> </IconMic>
+                    )}</button>)}
                     </div>
                 </div>
                 </div>

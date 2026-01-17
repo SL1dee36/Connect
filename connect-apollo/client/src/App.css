@@ -239,13 +239,13 @@ body {
 }
 
 .tool-btn {
-    background: #333;
+    background: #33333390;
     border: none;
     width: 36px; 
     height: 36px;
     border-radius: 10px;
     color: #aaa;
-    font-size: 18px;
+    font-size: 0px !important;
     cursor: pointer;
     display: flex;
     align-items: center;
@@ -271,13 +271,17 @@ body {
 .send-pill-btn:hover { background: #1a7bd6; }
 
 .mic-btn {
-    background: #333;
+    background: #33333390;
     border: none;
-    width: 36px; height: 36px;
+    width: 36px;
+    height: 36px;
     border-radius: 50%;
-    color: white;
+    font-size: 0px !important;
+    color: #aaa;
     cursor: pointer;
-    display: flex; align-items: center; justify-content: center;
+    display: flex;
+    align-items: center;
+    justify-content: center;
     transition: 0.2s;
 }
 .mic-btn:hover { background: #444; }
@@ -834,8 +838,9 @@ body {
 
 .tool-btn svg,
 .mic-btn svg {
-  width: 20px;
-  height: 20px;
+  /* width: 20px; */
+  /* height: 20px; */
+  fill: #aaa;
   flex-shrink: 0;
   display: block;
 }
