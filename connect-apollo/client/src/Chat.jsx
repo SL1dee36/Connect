@@ -1,11 +1,12 @@
 import React, { useEffect, useState, useRef, useLayoutEffect, useCallback, useMemo } from "react";
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
-import Modal from "./Modal";
-import CustomAudioPlayer from "./CustomAudioPlayer";
+import Modal from "./custom/Modal";
+import CustomAudioPlayer from "./custom/CustomAudioPlayer";
 import Cropper from 'react-easy-crop';
-import { registerPushNotifications } from "./pushSubscription";
+import { registerPushNotifications } from "./custom/pushSubscription";
 import rehypeSanitize from 'rehype-sanitize';
+import AdminPanel from "./AdminPanel"; // Импорт панели администратора
 
 const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || "http://localhost:3001";
 
@@ -23,11 +24,6 @@ const IconCheck = () => (
 const IconReply = () => (
     <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
          <path fill="#ffffff" d="M18 8H8V6H6v2H4v2h2v2h2v-2h10v10h2V8h-2zM8 12v2h2v-2H8zm0-6V4h2v2H8z"/>
-    </svg>
-);
-const IconForward = () => (
-    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
-         <path fill="#ffffff" d="M6 8h10V6h2v2h2v2h-2v2h-2v-2H6v10H4V8h2zm10 4v2h-2v-2h2zm0-6V4h-2v2h2z"/>
     </svg>
 );
 const IconCopy = () => (
@@ -86,27 +82,6 @@ const formatTime = (seconds) => {
     const mins = Math.floor(seconds / 60);
     const secs = seconds % 60;
     return `${mins}:${secs < 10 ? '0' : ''}${secs}`;
-};
-
-// --- HELPER: Parse Mentions in Text ---
-const renderMessageWithMentions = (text, onMentionClick) => {
-    const mentionRegex = /(@\w+)/g;
-    const parts = text.split(mentionRegex);
-    return parts.map((part, index) => {
-        if (part.match(mentionRegex)) {
-            const username = part.substring(1); // remove @
-            return (
-                <span 
-                    key={index} 
-                    className="mention-link" 
-                    onClick={(e) => { e.stopPropagation(); onMentionClick(username); }}
-                >
-                    {part}
-                </span>
-            );
-        }
-        return part;
-    });
 };
 
 // --- Context Menu Component ---
@@ -262,7 +237,12 @@ const MessageItem = React.memo(({ msg, username, display_name, setImageModalSrc,
 
             <div className={`bubble-container ${isLongPress ? 'long-press-active' : ''}`} style={{ transform: `translateX(${translateX}px)`, transition: translateX === 0 ? 'transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275)' : 'none' }}>
                 <div className="bubble">
-                    <span className="meta-name">{msg.author}</span>
+                    <span className="meta-name" style={{display:'flex', alignItems:'center', gap: '4px'}}>
+                        {msg.author_display_name || msg.author}
+                        {msg.author_badges && msg.author_badges.map((b, i) => (
+                            <span key={i} title={b.name} style={{width: '14px', height: '14px', display:'inline-flex'}} dangerouslySetInnerHTML={{__html: b.svg_content}} />
+                        ))}
+                    </span>
                     {msg.reply_to_id && (
                         <div className="reply-preview-bubble" onClick={() => scrollToMessage(msg.reply_to_id)}>
                             <div className="reply-content">
@@ -286,7 +266,13 @@ function Chat({ socket, username, room, setRoom, handleLogout }) {
     const [myChats, setMyChats] = useState(() => { try { return JSON.parse(localStorage.getItem("apollo_my_chats")) || []; } catch { return []; } });
     const [friends, setFriends] = useState(() => { try { return JSON.parse(localStorage.getItem("apollo_friends")) || []; } catch { return []; } });
     const [myProfile, setMyProfile] = useState(() => { try { return JSON.parse(localStorage.getItem("apollo_my_profile")) || { bio: "", phone: "", avatar_url: "", display_name: "", notifications_enabled: 1 }; } catch { return { bio: "", phone: "", avatar_url: "", display_name: "", notifications_enabled: 1 }; } });
+    // NEW STATE: For storing last message previews
+    const [chatPreviews, setChatPreviews] = useState(() => { try { return JSON.parse(localStorage.getItem("apollo_chat_previews")) || {}; } catch { return {}; } });
 
+    // --- State for Roles & Settings ---
+    const [globalRole, setGlobalRole] = useState('member'); // 'mod' or 'member'
+    const [roomSettings, setRoomSettings] = useState({ is_private: 0, slow_mode: 0, avatar_url: '' });
+    
     // --- State for Sidebar Management ---
     const [pinnedChats, setPinnedChats] = useState(() => { try { return JSON.parse(localStorage.getItem("apollo_pinned_chats")) || []; } catch { return []; } });
     const [folders, setFolders] = useState(() => { try { return JSON.parse(localStorage.getItem("apollo_folders")) || [{id: 'all', name: 'All', chatIds: []}]; } catch { return [{id: 'all', name: 'All', chatIds: []}]; } });
@@ -374,42 +360,69 @@ function Chat({ socket, username, room, setRoom, handleLogout }) {
     useEffect(() => { localStorage.setItem("apollo_pinned_chats", JSON.stringify(pinnedChats)); }, [pinnedChats]);
     useEffect(() => { localStorage.setItem("apollo_folders", JSON.stringify(folders)); }, [folders]);
     useEffect(() => { localStorage.setItem("apollo_chat_order", JSON.stringify(customChatOrder)); }, [customChatOrder]);
+    // NEW: Persist chat previews
+    useEffect(() => { localStorage.setItem("apollo_chat_previews", JSON.stringify(chatPreviews)); }, [chatPreviews]);
+
 
     // --- COMPUTED: Unified Chat List for Sidebar ---
     const unifiedChatList = useMemo(() => {
-        // 1. Normalize data
+        // 1. Create base list with consistent IDs (room IDs) and original IDs
         let all = [
-            ...myChats.map(c => ({ id: c, type: 'group', name: c === 'General' ? 'Community Bot' : c, avatar: null })),
-            ...friends.map(f => ({ id: f.username || f, type: 'dm', name: f.username || f, avatar: f.avatar_url }))
+            ...myChats.map(c => ({ 
+                id: c, // room ID is the name for groups
+                originalId: c,
+                type: 'group', 
+                name: c === 'General' ? 'Community Bot' : c, 
+                avatar: null
+            })),
+            ...friends.map(f => {
+                const friendUsername = f.username || f;
+                const roomId = [username, friendUsername].sort().join("_");
+                return { 
+                    id: roomId, 
+                    originalId: friendUsername, // This is what's stored in folders/pins
+                    type: 'dm', 
+                    name: f.display_name || friendUsername, 
+                    avatar: f.avatar_url 
+                };
+            })
         ];
 
-        // 2. Filter by Active Folder
+        // 2. Augment with preview data
+        all = all.map(chat => ({
+            ...chat,
+            preview: chatPreviews[chat.id] || null
+        }));
+        
+        // 3. Filter by active folder
         if (activeFolderId !== 'all') {
             const currentFolder = folders.find(f => f.id === activeFolderId);
             if (currentFolder) {
-                all = all.filter(c => currentFolder.chatIds.includes(c.id));
+                all = all.filter(c => currentFolder.chatIds.includes(c.originalId));
             }
         }
 
-        // 3. Sort logic
+        // 4. Sort
         all.sort((a, b) => {
-            const isPinnedA = pinnedChats.includes(a.id);
-            const isPinnedB = pinnedChats.includes(b.id);
+            const isPinnedA = pinnedChats.includes(a.originalId);
+            const isPinnedB = pinnedChats.includes(b.originalId);
+            
             if (isPinnedA && !isPinnedB) return -1;
             if (!isPinnedA && isPinnedB) return 1;
-
-            // Use custom order if exists
-            const idxA = customChatOrder.indexOf(a.id);
-            const idxB = customChatOrder.indexOf(b.id);
+    
+            const idxA = customChatOrder.indexOf(a.originalId);
+            const idxB = customChatOrder.indexOf(b.originalId);
             if (idxA !== -1 && idxB !== -1) return idxA - idxB;
             if (idxA !== -1) return -1;
             if (idxB !== -1) return 1;
-
-            return 0; 
+    
+            const timeA = a.preview?.timestamp || 0;
+            const timeB = b.preview?.timestamp || 0;
+            return timeB - timeA;
         });
-
+    
         return all;
-    }, [myChats, friends, pinnedChats, activeFolderId, folders, customChatOrder]);
+    }, [myChats, friends, pinnedChats, activeFolderId, folders, customChatOrder, chatPreviews, username]);
 
 
     // --- 1. ЛОГИКА КНОПКИ "НАЗАД" (HISTORY API) ---
@@ -489,7 +502,6 @@ function Chat({ socket, username, room, setRoom, handleLogout }) {
         } catch (e) {}
     }, []);
 
-    // --- TRIGGER TELEGRAM-STYLE IN-APP NOTIFICATION ---
     const triggerInAppNotification = useCallback((title, body, avatar, roomName) => {
         if (inAppNotifTimeoutRef.current) clearTimeout(inAppNotifTimeoutRef.current);
         
@@ -505,7 +517,6 @@ function Chat({ socket, username, room, setRoom, handleLogout }) {
         setInAppNotif(prev => ({ ...prev, visible: false }));
     };
 
-    // --- ENHANCED SYSTEM NOTIFICATION (Like Telegram) ---
     const sendSystemNotification = useCallback((title, body, tag, roomName, avatarUrl) => {
         const currentProfile = myProfileRef.current;
         if (currentProfile.notifications_enabled === 0 || currentProfile.notifications_enabled === false) return; 
@@ -712,11 +723,11 @@ function Chat({ socket, username, room, setRoom, handleLogout }) {
     };
 
     const switchChat = useCallback((targetName) => {
-        if (isSelectionMode) return; // Disable switching if selecting
+        if (isSelectionMode) return; 
         if (!targetName || typeof targetName !== 'string') return;
         
-        const isGroupChat = targetName === "General" || myChats.includes(targetName);
-        const roomId = isGroupChat ? targetName : [username, targetName].sort().join("_");
+        // targetName here is the ROOM ID
+        const roomId = targetName;
         
         if (roomId !== room) { 
             setRoom(roomId); 
@@ -728,7 +739,7 @@ function Chat({ socket, username, room, setRoom, handleLogout }) {
             setShowMobileChat(true); 
             if (document.activeElement instanceof HTMLElement) document.activeElement.blur(); 
         }
-    }, [room, setRoom, username, isMobile, myChats, isSelectionMode]);
+    }, [room, setRoom, isMobile, isSelectionMode]);
 
     useEffect(() => {
         if (!showMobileChat) {
@@ -775,6 +786,29 @@ function Chat({ socket, username, room, setRoom, handleLogout }) {
              });
         };
         
+        socket.on("global_role", (role) => setGlobalRole(role));
+        
+        // Listen for settings and update
+        socket.on("room_settings", (settings) => {
+            setRoomSettings(settings);
+            // Also update myRole for the current room logic
+            setMyRole(settings.myRole);
+        });
+
+        socket.on("room_settings_updated", (data) => {
+            if(data.room === room) {
+                setRoomSettings(prev => ({...prev, ...data}));
+            }
+        });
+        
+        // NEW: Listen for chat previews
+        socket.on("chat_previews_data", (data) => {
+            if (typeof data === 'object' && data !== null) setChatPreviews(data);
+        });
+        socket.on("update_chat_preview", (data) => {
+            setChatPreviews(prev => ({ ...prev, [data.room]: data.preview }));
+        });
+
         socket.on("avatar_history_data", (data) => setAvatarHistory(data)); 
         socket.on("user_groups", (groups) => { if(Array.isArray(groups)) setMyChats(groups); });
         socket.on("friends_list", (list) => { if(Array.isArray(list)) setFriends(list); });
@@ -812,6 +846,9 @@ function Chat({ socket, username, room, setRoom, handleLogout }) {
 
         return () => {
             window.removeEventListener('resize', handleResize);
+            socket.off("global_role");
+            socket.off("room_settings");
+            socket.off("room_settings_updated");
             socket.off("user_groups");
             socket.off("friends_list");
             socket.off("search_results");
@@ -829,6 +866,8 @@ function Chat({ socket, username, room, setRoom, handleLogout }) {
             socket.off("error_message");
             socket.off("force_logout");
             socket.off("total_users");
+            socket.off("chat_previews_data");
+            socket.off("update_chat_preview");
         };
     }, [socket, username, switchChat, playNotificationSound, sendSystemNotification, handleLogout, room]);
 
@@ -849,6 +888,7 @@ function Chat({ socket, username, room, setRoom, handleLogout }) {
         setCurrentMessage("");
         setReplyingTo(null);
         setIsLoadingHistory(true);
+        setRoomSettings({ is_private: 0, slow_mode: 0, avatar_url: '' }); // Reset
         
         socket.emit("join_room", { username, room });
         
@@ -857,6 +897,18 @@ function Chat({ socket, username, room, setRoom, handleLogout }) {
         }
 
         const handleReceiveMessage = (data) => {
+            // Update preview for the chat list (simulating backend push)
+            setChatPreviews(prev => ({
+                ...prev,
+                [data.room]: {
+                    text: data.message,
+                    sender: data.author,
+                    time: data.time,
+                    timestamp: data.timestamp,
+                    type: data.type
+                }
+            }));
+
              if (data.room === room) {
                 setMessageList((list) => {
                     if (data.author === username && data.tempId) {
@@ -890,7 +942,7 @@ function Chat({ socket, username, room, setRoom, handleLogout }) {
             } 
         });
         
-        socket.on("group_info_data", (d) => { if(d.room === room) { setGroupMembers(d.members); setMyRole(d.myRole); } });
+        socket.on("group_info_data", (d) => { if(d.room === room) { setGroupMembers(d.members); } }); // myRole handled by room_settings now for consistency
         socket.on("group_info_updated", (data) => { if(room === data.members?.[0]?.room) setGroupMembers(data.members); });
         socket.on("message_deleted", (id) => setMessageList((prev) => prev.filter((msg) => msg.id !== id)));
 
@@ -984,8 +1036,12 @@ function Chat({ socket, username, room, setRoom, handleLogout }) {
             const data = await response.json();
             if (data.url) {
                 const time = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-                const tempId = Date.now();
-                const optimisticMsg = { room, author: username, message: data.url, type: 'audio', time, status: 'pending', tempId, id: tempId, replyTo: replyingTo ? { id: replyingTo.id, author: replyingTo.author, message: replyingTo.message } : null };
+                const timestamp = Date.now();
+                const tempId = timestamp;
+                const optimisticMsg = { room, author: username, message: data.url, type: 'audio', time, timestamp, status: 'pending', tempId, id: tempId, replyTo: replyingTo ? { id: replyingTo.id, author: replyingTo.author, message: replyingTo.message } : null };
+                
+                // Manually update preview for sent message
+                setChatPreviews(prev => ({ ...prev, [room]: { text: '🎤 Голосовое сообщение', sender: username, time, timestamp, type: 'audio' } }));
                 setMessageList(prev => [...prev, optimisticMsg]);
                 setReplyingTo(null);
                 socket.emit("send_message", optimisticMsg, (res) => { if (res && res.status === 'ok') setMessageList(prev => prev.map(m => m.tempId === tempId ? { ...m, id: res.id, status: 'sent' } : m)); });
@@ -1005,6 +1061,7 @@ function Chat({ socket, username, room, setRoom, handleLogout }) {
         if (!currentMessage.trim() && attachedFiles.length === 0) return;
         previousScrollHeight.current = 0;
         const time = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+        const timestamp = Date.now();
         const replyData = replyingTo ? { id: replyingTo.id, author: replyingTo.author, message: replyingTo.message } : null;
 
         if (attachedFiles.length > 0) {
@@ -1016,8 +1073,10 @@ function Chat({ socket, username, room, setRoom, handleLogout }) {
                 if (data.urls && data.urls.length > 0) {
                     let msgType = data.urls.length === 1 ? 'image' : 'gallery';
                     let msgContent = data.urls.length === 1 ? data.urls[0] : JSON.stringify(data.urls);
-                    const tempId = Date.now() + Math.random();
-                    const optimisticMsg = { room, author: username, message: msgContent, type: msgType, time, status: 'pending', tempId, id: tempId, replyTo: replyData };
+                    const tempId = timestamp + Math.random();
+                    const optimisticMsg = { room, author: username, message: msgContent, type: msgType, time, timestamp, status: 'pending', tempId, id: tempId, replyTo: replyData };
+                    
+                    setChatPreviews(prev => ({ ...prev, [room]: { text: '📷 Изображение', sender: username, time, timestamp, type: 'image' } }));
                     setMessageList(prev => [...prev, optimisticMsg]);
                     socket.emit("send_message", optimisticMsg, (res) => { if (res && res.status === 'ok') setMessageList(prev => prev.map(m => m.tempId === tempId ? { ...m, id: res.id, status: 'sent' } : m)); });
                 }
@@ -1026,8 +1085,10 @@ function Chat({ socket, username, room, setRoom, handleLogout }) {
         }
 
         if (currentMessage.trim()) {
-            const tempId = Date.now();
-            const optimisticMsg = { room, author: username, message: currentMessage, type: 'text', time, status: 'pending', tempId, id: tempId, replyTo: replyData };
+            const tempId = timestamp;
+            const optimisticMsg = { room, author: username, message: currentMessage, type: 'text', time, timestamp, status: 'pending', tempId, id: tempId, replyTo: replyData };
+
+            setChatPreviews(prev => ({ ...prev, [room]: { text: currentMessage, sender: username, time, timestamp, type: 'text' } }));
             setMessageList(prev => [...prev, optimisticMsg]);
             setCurrentMessage("");
             socket.emit("send_message", optimisticMsg, (res) => { if (res && res.status === 'ok') setMessageList(prev => prev.map(m => m.tempId === tempId ? { ...m, id: res.id, status: 'sent' } : m)); });
@@ -1072,8 +1133,17 @@ function Chat({ socket, username, room, setRoom, handleLogout }) {
     }
 
     const openGroupInfo = () => {
-        if (!myChats.includes(room)) { socket.emit("get_user_profile", room.replace(username, "").replace("_", "") || room); setShowMenu(false); }
-        else { socket.emit("get_group_info", room); setActiveModal("groupInfo"); setShowMenu(false); }
+        if (!myChats.includes(room) && room !== "General") { 
+            // Private Chat Info
+            socket.emit("get_user_profile", room.replace(username, "").replace("_", "") || room); 
+            setShowMenu(false); 
+        }
+        else { 
+            // Group Chat Info
+            socket.emit("get_group_info", room); 
+            setActiveModal("groupInfo"); 
+            setShowMenu(false); 
+        }
     };
     
     const openSettings = () => {
@@ -1122,10 +1192,14 @@ function Chat({ socket, username, room, setRoom, handleLogout }) {
     const leaveGroup = () => { if (window.confirm(myRole === 'owner' && room !== "General" ? "Удалить группу?" : "Выйти из группы?")) socket.emit("leave_group", { room }); };
     const removeFriend = (t) => { if (window.confirm(`Удалить ${t}?`)) { socket.emit("remove_friend", t); setActiveModal(null); }};
     const blockUser = (t) => { if (window.confirm(`Заблокировать ${t}?`)) { socket.emit("block_user", t); setActiveModal(null); }};
+    const isPrivateChat = room.includes("_");
+    const currentChatInfo = unifiedChatList.find(c => c.id === room);
+    const displayRoomName = currentChatInfo?.name || (isPrivateChat ? room.replace(username, "").replace("_", "") : room);
     
-    const displayRoomName = (room === "General") ? "Community Bot" : ((myChats.includes(room)) ? room : room.replace(username, "").replace("_", ""));
-    const isPrivateChat = !myChats.includes(room);
-    const getAvatarStyle = (imgUrl) => imgUrl ? { backgroundImage: `url(${imgUrl})`, backgroundSize: 'cover', backgroundPosition: 'center', backgroundColor: '#333', color: 'transparent', border: '2px solid #333' } : { backgroundColor: '#333' };
+    
+    // Use room avatar from settings if available
+    const roomAvatar = roomSettings.avatar_url || (room === "General" ? '' : '');
+    const getAvatarStyle = (imgUrl) => imgUrl ? { backgroundImage: `url(${imgUrl})`, backgroundSize: 'cover', backgroundPosition: 'center', backgroundColor: '#333', color: 'transparent', } : { backgroundColor: '#333' };
 
     let headerSubtitle = "";
     if (room === "General") {
@@ -1138,8 +1212,8 @@ function Chat({ socket, username, room, setRoom, handleLogout }) {
 
     const canDeleteMessage = (msg) => {
         const isAuthor = msg.author === username;
-        const isGroupOwner = myRole === 'owner' && !room.includes('_');
-        return isAuthor || isGroupOwner;
+        const canManage = (myRole === 'owner' || myRole === 'editor' || globalRole === 'mod');
+        return isAuthor || (canManage && !msg.room.includes('_'));
     }
 
     // --- Sidebar Drag & Drop Handlers ---
@@ -1156,7 +1230,6 @@ function Chat({ socket, username, room, setRoom, handleLogout }) {
     const onDragEnd = () => {
         if (isSelectionMode) return;
         
-        // CHECK VALIDITY
         if (dragItemRef.current === null || dragOverItemRef.current === null) {
             dragItemRef.current = null;
             dragOverItemRef.current = null;
@@ -1164,22 +1237,13 @@ function Chat({ socket, username, room, setRoom, handleLogout }) {
         }
 
         const _unified = [...unifiedChatList];
-        // CHECK IF ITEMS EXIST
-        if (!_unified[dragItemRef.current] || !_unified[dragOverItemRef.current]) {
-             return;
-        }
+        if (!_unified[dragItemRef.current] || !_unified[dragOverItemRef.current]) return;
 
-        const draggedItemContent = _unified[dragItemRef.current];
-        if (!draggedItemContent) return;
+        const draggedId = _unified[dragItemRef.current].originalId;
+        const droppedId = _unified[dragOverItemRef.current].originalId;
 
         const newOrder = [...customChatOrder];
-        // If items are not in custom order yet, initialize them
-        unifiedChatList.forEach(c => {
-             if (!newOrder.includes(c.id)) newOrder.push(c.id);
-        });
-
-        const draggedId = _unified[dragItemRef.current].id;
-        const droppedId = _unified[dragOverItemRef.current].id;
+        unifiedChatList.forEach(c => { if (!newOrder.includes(c.originalId)) newOrder.push(c.originalId); });
 
         const fromIndex = newOrder.indexOf(draggedId);
         const toIndex = newOrder.indexOf(droppedId);
@@ -1195,34 +1259,26 @@ function Chat({ socket, username, room, setRoom, handleLogout }) {
     };
 
     // --- Custom Touch Drag Logic (Mobile) ---
-    const handleTouchDragStart = (e, chatId) => {
+    const handleTouchDragStart = (e, chat) => {
         e.stopPropagation();
-        
-        // Passive listener fix:
         if (e.cancelable) e.preventDefault();
         
-        const touch = e.touches[0];
-        
-        // Timer for long press (200ms)
         chatLongPressTimer.current = setTimeout(() => {
              if (window.navigator.vibrate) window.navigator.vibrate(50);
              setIsMobileDragging(true);
-             setDraggedItemId(chatId);
-             // Ensure custom order is initialized
+             setDraggedItemId(chat.id);
              if (customChatOrder.length === 0) {
-                 setCustomChatOrder(unifiedChatList.map(c => c.id));
+                 setCustomChatOrder(unifiedChatList.map(c => c.originalId));
              }
         }, 200);
     };
 
     const handleTouchDragMove = (e) => {
         if (!isMobileDragging) {
-             // If moved before 200ms, cancel timer
              if (chatLongPressTimer.current) clearTimeout(chatLongPressTimer.current);
              return;
         }
-
-        if (e.cancelable) e.preventDefault(); // Prevent scrolling
+        if (e.cancelable) e.preventDefault(); 
         
         const touch = e.touches[0];
         const element = document.elementFromPoint(touch.clientX, touch.clientY);
@@ -1231,16 +1287,16 @@ function Chat({ socket, username, room, setRoom, handleLogout }) {
             const chatItem = element.closest('.chat-list-item');
             if (chatItem) {
                 const targetId = chatItem.getAttribute('data-chat-id');
-                
-                if (targetId && targetId !== draggedItemId) {
-                    const newOrder = [...(customChatOrder.length ? customChatOrder : unifiedChatList.map(c => c.id))];
-                    const fromIndex = newOrder.indexOf(draggedItemId);
-                    const toIndex = newOrder.indexOf(targetId);
-                    
+                const draggedChat = unifiedChatList.find(c => c.id === draggedItemId);
+                const targetChat = unifiedChatList.find(c => c.id === targetId);
+
+                if (draggedChat && targetChat && targetId !== draggedItemId) {
+                    const newOrder = [...(customChatOrder.length ? customChatOrder : unifiedChatList.map(c => c.originalId))];
+                    const fromIndex = newOrder.indexOf(draggedChat.originalId);
+                    const toIndex = newOrder.indexOf(targetChat.originalId);
                     if (fromIndex !== -1 && toIndex !== -1) {
-                        // Swap
                         newOrder.splice(fromIndex, 1);
-                        newOrder.splice(toIndex, 0, draggedItemId);
+                        newOrder.splice(toIndex, 0, draggedChat.originalId);
                         setCustomChatOrder(newOrder);
                     }
                 }
@@ -1284,12 +1340,14 @@ function Chat({ socket, username, room, setRoom, handleLogout }) {
     // --- Sidebar Actions ---
     const handlePinSelected = () => {
         const newPinned = [...pinnedChats];
-        selectedChats.forEach(id => {
-            if (newPinned.includes(id)) {
-                const idx = newPinned.indexOf(id);
+        const chatsToToggle = unifiedChatList.filter(c => selectedChats.includes(c.id));
+        chatsToToggle.forEach(chat => {
+            const idToStore = chat.originalId;
+            if (newPinned.includes(idToStore)) {
+                const idx = newPinned.indexOf(idToStore);
                 newPinned.splice(idx, 1);
             } else {
-                newPinned.push(id);
+                newPinned.unshift(idToStore);
             }
         });
         setPinnedChats(newPinned);
@@ -1300,11 +1358,12 @@ function Chat({ socket, username, room, setRoom, handleLogout }) {
     const handleDeleteSelected = () => {
         if (!window.confirm(`Удалить выбранные чаты (${selectedChats.length})?`)) return;
         
-        selectedChats.forEach(chatId => {
-            if (myChats.includes(chatId) || chatId === 'General') {
-                 if (chatId !== 'General') socket.emit("leave_group", { room: chatId });
-            } else {
-                 socket.emit("remove_friend", chatId);
+        const chatsToDelete = unifiedChatList.filter(c => selectedChats.includes(c.id));
+        chatsToDelete.forEach(chat => {
+            if (chat.type === 'group') {
+                 if (chat.originalId !== 'General') socket.emit("leave_group", { room: chat.originalId });
+            } else { // 'dm'
+                 socket.emit("remove_friend", chat.originalId);
             }
         });
         setIsSelectionMode(false);
@@ -1315,8 +1374,9 @@ function Chat({ socket, username, room, setRoom, handleLogout }) {
         const updatedFolders = folders.map(f => {
             if (f.id === folderId) {
                 const newChats = [...f.chatIds];
-                selectedChats.forEach(cId => {
-                    if (!newChats.includes(cId)) newChats.push(cId);
+                const chatsToAdd = unifiedChatList.filter(c => selectedChats.includes(c.id));
+                chatsToAdd.forEach(chat => {
+                    if (!newChats.includes(chat.originalId)) newChats.push(chat.originalId);
                 });
                 return { ...f, chatIds: newChats };
             }
@@ -1390,6 +1450,15 @@ function Chat({ socket, username, room, setRoom, handleLogout }) {
 
         <input type="file" ref={avatarInputRef} className="hidden-input" onChange={onFileChange} accept="image/*" />
 
+        {/* --- ADMIN PANEL MODAL --- */}
+        {activeModal === "adminPanel" && (
+            <AdminPanel 
+                token={localStorage.getItem("apollo_token")} 
+                socket={socket} 
+                onClose={() => setActiveModal(null)} 
+            />
+        )}
+
         <div 
             className={`left-panel ${isMobile && showMobileChat ? "hidden" : ""}`}
             // Event listener for touch move needs to be high up to catch movement over other items
@@ -1406,6 +1475,14 @@ function Chat({ socket, username, room, setRoom, handleLogout }) {
                 </div>
                 <div className="actMenu" style={{display: 'flex', gap: 15, alignItems: 'center'}}>
                      <div onClick={() => setActiveModal("notifications")} title="notifications"><IconBell hasUnread={hasUnreadNotifs} /></div>
+                     
+                     {/* Global Mod Admin Button */}
+                     {globalRole === 'mod' && (
+                        <button className="fab-btn" style={{backgroundColor: '#444', width: 40, height: 40}} onClick={() => setActiveModal("adminPanel")}>
+                            <IconShield />
+                        </button>
+                     )}
+
                      <button className="fab-btn" onClick={() => setActiveModal("actionMenu")}><svg id="plus-icon" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="#ffffff"><path fill="#ffffff" d="M11 4h2v7h7v2h-7v7h-2v-7H4v-2h7V4z"/></svg></button>
                 </div>
               </div>
@@ -1423,118 +1500,112 @@ function Chat({ socket, username, room, setRoom, handleLogout }) {
                   </div>
               </div>
           ) : (
-
             <p></p>
-
-            //   <div className="sidebar-top">
-            //     <div className="sidebar-header-content">
-            //       <div className="my-avatar" style={getAvatarStyle(myProfile.avatar_url)} onClick={openSettings}>{!myProfile.avatar_url && username[0].toUpperCase()}</div>
-            //       {isMobile && <div className="mobile-app-title">Chats</div>}
-            //     </div>
-            //     <div className="actMenu" style={{display: 'flex', gap: 15, alignItems: 'center'}}>
-            //          <div onClick={() => setActiveModal("notifications")} title="notifications"><IconBell hasUnread={hasUnreadNotifs} /></div>
-            //          <button className="fab-btn" onClick={() => setActiveModal("actionMenu")}><svg id="plus-icon" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="#ffffff"><path fill="#ffffff" d="M11 4h2v7h7v2h-7v7h-2v-7H4v-2h7V4z"/></svg></button>
-            //     </div>
-            //   </div>
           )}
 
-          <div className="friends-list">
-            {/* --- FOLDER TABS --- */}
-            {!isSelectionMode && (
-                <div className="folder-tabs">
-                    {folders.map(f => (
-                        <div 
-                            key={f.id} 
-                            className={`folder-tab ${activeFolderId === f.id ? 'active' : ''}`}
-                            onClick={() => setActiveFolderId(f.id)}
-                            onContextMenu={(e) => { e.preventDefault(); setFolderToEdit(f); setActiveModal("editFolder"); }}
-                        >
-                            {f.name}
-                        </div>
-                    ))}
-                    <div className="add-folder-btn" onClick={() => setActiveModal("createFolder")}>+</div>
-                    <div className="background-folder-btn" onClick={() => setActiveModal("createFolder")}>+</div>
-                </div>
-            )}
-
-            {unifiedChatList.length === 0 && (
-                <div style={{ padding: 20, textAlign: 'center', color: '#666', fontSize: 13 }}>Нет чатов в этой папке</div>
-            )}
-
-            {unifiedChatList.map((chat, idx) => {
-                const isActive = chat.id === room;
-                const isSelected = selectedChats.includes(chat.id);
-                const isPinned = pinnedChats.includes(chat.id);
-                const isBeingDragged = isMobileDragging && draggedItemId === chat.id;
-
-                return (
-                    <div 
-                        key={chat.id} 
-                        data-chat-id={chat.id}
-                        className={`chat-list-item ${isActive ? 'active' : ''} ${isSelected ? 'selected' : ''} ${isPinned ? 'pinned' : ''} ${isBeingDragged ? 'dragging' : ''}`}
-                        onClick={() => handleChatClick(chat.id)}
-                        onContextMenu={(e) => { e.preventDefault(); handleChatLongPress(chat.id); }}
-                        
-                        // Mobile Long Press Logic for SELECTION (on the card itself)
-                        onTouchStart={(e) => {
-                            // Only trigger selection long press if NOT clicking the drag handle
-                            if (!e.target.closest('.drag-handle')) {
-                                chatLongPressTimer.current = setTimeout(() => {
-                                    handleChatLongPress(chat.id);
-                                }, 600);
-                            }
-                        }}
-                        onTouchEnd={() => {
-                            if (chatLongPressTimer.current) clearTimeout(chatLongPressTimer.current);
-                        }}
-                        onTouchMove={() => {
-                            if (chatLongPressTimer.current) clearTimeout(chatLongPressTimer.current);
-                        }}
-
-                        // Desktop DnD Logic
-                        draggable={!isSelectionMode}
-                        onDragStart={(e) => onDragStart(e, idx)}
-                        onDragEnter={(e) => onDragEnter(e, idx)}
-                        onDragEnd={onDragEnd}
-                        onDragOver={(e) => e.preventDefault()}
-                    >
-                        {isSelected && (
-                            <div className="check-icon-container">
-                                <IconCheckCircle />
+            <div className="friends-list">
+                {/* --- FOLDER TABS --- */}
+                {!isSelectionMode && (
+                    <div className="folder-tabs">
+                        {folders.map(f => (
+                            <div 
+                                key={f.id} 
+                                className={`folder-tab ${activeFolderId === f.id ? 'active' : ''}`}
+                                onClick={() => setActiveFolderId(f.id)}
+                                onContextMenu={(e) => { e.preventDefault(); setFolderToEdit(f); setActiveModal("editFolder"); }}
+                            >
+                                {f.name}
                             </div>
-                        )}
-                        
-                        <div className="friend-avatar" style={{ 
-                            backgroundImage: chat.avatar ? `url(${chat.avatar})` : 'none',
-                            backgroundSize: 'cover', backgroundPosition: 'center',
-                            backgroundColor: '#333',
-                            fontSize: chat.avatar ? 0 : 16,
-                            color: chat.avatar ? 'transparent' : 'white'
-                        }}>
-                            {chat.id === "General" ? <svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 24 24"><path fill="#ffffff" d="M2 5h2v2H2V5zm4 4H4V7h2v2zm2 0H6v2H4v2H2v6h20v-6h-2v-2h-2V9h2V7h2V5h-2v2h-2v2h-2V7H8v2zm0 0h8v2h2v2h2v4H4v-4h2v-2h2V9zm2 4H8v2h2v-2zm4 0h2v2h-2v-2z"/></svg> : (!chat.avatar && (chat.name[0] ? chat.name[0].toUpperCase() : "?"))}
-                        </div>
-                        <div className="chat-info-mobile">
-                            <div className="chat-name chat-name-row">
-                                {chat.name}
-                                {isPinned && <IconPin />}
-                            </div>
-                            <div className="chat-preview">
-                                {chat.id === "General" ? "Новости" : (chat.type === 'group' ? "Группа" : "Личное")}
-                            </div>
-                        </div>
-
-                        {/* DRAG HANDLE ICON (Visible in Selection Mode) */}
-                        <div 
-                            className="drag-handle"
-                            onTouchStart={(e) => handleTouchDragStart(e, chat.id)}
-                            // We handle move/end on container to catch fast swipes
-                        >
-                            <IconDrag />
-                        </div>
+                        ))}
+                        <div className="add-folder-btn" onClick={() => setActiveModal("createFolder")}>+</div>
+                        <div className="background-folder-btn" onClick={() => setActiveModal("createFolder")}>+</div>
                     </div>
-                );
-            })}
-          </div>
+                )}
+                
+                {/* NEW WRAPPER FOR SCROLLING */}
+                <div className="chat-list-scroll-container">
+                    {unifiedChatList.length === 0 && (
+                        <div style={{ padding: 20, textAlign: 'center', color: '#666', fontSize: 13 }}>Нет чатов в этой папке</div>
+                    )}
+
+                    {unifiedChatList.map((chat, idx) => {
+                        const isActive = chat.id === room;
+                        const isSelected = selectedChats.includes(chat.id);
+                        const isPinned = pinnedChats.includes(chat.originalId);
+                        const isBeingDragged = isMobileDragging && draggedItemId === chat.id;
+
+                        // Helper for message preview
+                        const renderPreview = () => {
+                            if (!chat.preview) {
+                                return chat.id === "General" ? "Новости и обновления" : "Нет сообщений";
+                            }
+                            const sender = chat.preview.sender === username ? "Вы: " : (chat.type === 'dm' ? "" : `${chat.preview.sender}: `);
+                            let text = chat.preview.text;
+                            if (chat.preview.type === 'image' || chat.preview.type === 'gallery') text = "📷 Изображение";
+                            if (chat.preview.type === 'audio') text = "🎤 Голосовое сообщение";
+                            return <><span className="preview-sender">{sender}</span><span className="preview-text">{text}</span></>;
+                        };
+
+                        return (
+                            <div 
+                                key={chat.id} 
+                                data-chat-id={chat.id}
+                                className={`chat-list-item ${isActive ? 'active' : ''} ${isSelected ? 'selected' : ''} ${isPinned ? 'pinned' : ''} ${isBeingDragged ? 'dragging' : ''}`}
+                                onClick={() => handleChatClick(chat.id)}
+                                onContextMenu={(e) => { e.preventDefault(); handleChatLongPress(chat.id); }}
+                                
+                                onTouchStart={(e) => {
+                                    if (!e.target.closest('.drag-handle')) {
+                                        chatLongPressTimer.current = setTimeout(() => {
+                                            handleChatLongPress(chat.id);
+                                        }, 600);
+                                    }
+                                }}
+                                onTouchEnd={() => {
+                                    if (chatLongPressTimer.current) clearTimeout(chatLongPressTimer.current);
+                                }}
+                                onTouchMove={() => {
+                                    if (chatLongPressTimer.current) clearTimeout(chatLongPressTimer.current);
+                                }}
+
+                                draggable={!isSelectionMode}
+                                onDragStart={(e) => onDragStart(e, idx)}
+                                onDragEnter={(e) => onDragEnter(e, idx)}
+                                onDragEnd={onDragEnd}
+                                onDragOver={(e) => e.preventDefault()}
+                            >
+                                {isSelected && (
+                                    <div className="check-icon-container">
+                                        <IconCheckCircle />
+                                    </div>
+                                )}
+                                
+                                <div className="friend-avatar" style={getAvatarStyle(chat.avatar)}>
+                                    {chat.id === "General" ? <svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 24 24"><path fill="#ffffff" d="M2 5h2v2H2V5zm4 4H4V7h2v2zm2 0H6v2H4v2H2v6h20v-6h-2v-2h-2V9h2V7h2V5h-2v2h-2v2h-2V7H8v2zm0 0h8v2h2v2h2v4H4v-4h2v-2h2V9zm2 4H8v2h2v-2zm4 0h2v2h-2v-2z"/></svg> : (!chat.avatar && (chat.name[0] ? chat.name[0].toUpperCase() : "?"))}
+                                </div>
+                                <div className="chat-info-mobile">
+                                    <div className="chat-name chat-name-row">
+                                        <span className="chat-name-text">{chat.name}</span>
+                                        {isPinned && <IconPin />}
+                                        <span className="preview-time">{chat.preview?.time}</span>
+                                    </div>
+                                    <div className="chat-preview">
+                                        {renderPreview()}
+                                    </div>
+                                </div>
+
+                                {/* DRAG HANDLE ICON */}
+                                <div 
+                                    className="drag-handle"
+                                    onTouchStart={(e) => handleTouchDragStart(e, chat)}
+                                >
+                                    <IconDrag />
+                                </div>
+                            </div>
+                        );
+                    })}
+                </div>
+            </div>
         </div>
 
         <div 
@@ -1574,11 +1645,12 @@ function Chat({ socket, username, room, setRoom, handleLogout }) {
 
             <div className="chat-body" ref={chatBodyRef} onScroll={handleScroll}>
               {isLoadingHistory && (<div style={{ textAlign: "center", fontSize: 12, color: "#666", padding: 10 }}>Загрузка истории...</div>)}
-              {messageList.map((msg, index) => (<MessageItem key={msg.id || index} msg={msg} username={username} setImageModalSrc={setImageModalSrc} onContextMenu={handleContextMenu} onReplyTrigger={handleReply} scrollToMessage={handleScrollToReply} onMentionClick={onMentionClick} />))}
+              {messageList.map((msg, index) => (<MessageItem key={msg.id || index} msg={msg} username={username} display_name={msg.author_display_name} setImageModalSrc={setImageModalSrc} onContextMenu={handleContextMenu} onReplyTrigger={handleReply} scrollToMessage={handleScrollToReply} onMentionClick={onMentionClick} />))}
               <div ref={messagesEndRef} />
             </div>
 
-            {(room !== "General" || myRole === 'owner') ? (
+            {/* MESSAGE INPUT AREA - CHECK PERMISSIONS */}
+            {(room === "General" || isPrivateChat || myRole !== 'guest' || globalRole === 'mod') ? (
                 <div className="chat-input-wrapper">
                 {replyingTo && (<div className="reply-bar"><div><div style={{ color: "#8774e1", fontSize: 13, fontWeight: "bold" }}>В ответ {replyingTo.author}</div><div style={{ fontSize: 14, color: "#ccc", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", maxWidth: "250px" }}>{replyingTo.message}</div></div><button onClick={() => setReplyingTo(null)} style={{ background: "none", border: "none", color: "#888", cursor: "pointer", fontSize: 24 }}>&times;</button></div>)}
                 {attachedFiles.length > 0 && (<div className="attachments-preview"> {attachedFiles.map((f, i) => (<div key={i} className="attachment-thumb"> <img src={URL.createObjectURL(f)} alt="preview" /> <button onClick={() => removeAttachment(i)}>&times;</button> </div>))} </div>)}
@@ -1597,7 +1669,7 @@ function Chat({ socket, username, room, setRoom, handleLogout }) {
                 </div>
             ) : (
                 <div style={{ padding: 20, textAlign: 'center', color: '#666', fontSize: 13 }}>
-                    Только администраторы могут писать в этот канал.
+                    У вас нет прав писать в этот чат.
                 </div>
             )}
           </div>
@@ -1671,7 +1743,7 @@ function Chat({ socket, username, room, setRoom, handleLogout }) {
               <div className="action-card" onClick={() => setActiveModal("searchGroup")}> <span style={{ fontSize: 24 }}><svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24"><path fill="#ffffff" d="M6 2h8v2H6V2zM4 6V4h2v2H4zm0 8H2V6h2v8zm2 2H4v-2h2v2zm8 0v2H6v-2h8zm2-2h-2v2h2v2h2v2h2v2h2v-2h-2v-2h-2v-2h-2v-2zm0-8h2v8h-2V6zm0 0V4h-2v2h2z"/></svg></span> <div><div style={{ fontWeight: "bold" }}>Найти группу</div></div> </div>
               <div className="action-card" onClick={() => setActiveModal("addFriend")}> <span style={{ fontSize: 24 }}><svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24"><path fill="#ffffff" d="M18 2h-6v2h-2v6h2V4h6V2zm0 8h-6v2h6v-2zm0-6h2v6h-2V4zM7 16h2v-2h12v2H9v4h12v-4h2v6H7v-6zM3 8h2v2h2v2H5v2H3v-2H1v-2h2V8z"/></svg></span> <div><div style={{ fontWeight: "bold" }}>Поиск людей</div></div> </div>
               <div className="action-card" onClick={() => setActiveModal("reportBug")}> <span style={{ fontSize: 24 }}><IconBug/></span> <div><div style={{ fontWeight: "bold" }}>Report Bug</div></div> </div>
-              {(username === 'slide36' || myRole === 'admin') && (<div className="action-card" onClick={() => { setActiveModal("adminBugs"); fetchBugReports(); }}> <span style={{ fontSize: 24 }}><IconShield/></span> <div><div style={{ fontWeight: "bold" }}>Admin Bugs</div></div> </div>)}
+              {(username === 'slide36' || myRole === 'admin' || globalRole === 'mod') && (<div className="action-card" onClick={() => { setActiveModal("adminBugs"); fetchBugReports(); }}> <span style={{ fontSize: 24 }}><IconShield/></span> <div><div style={{ fontWeight: "bold" }}>Admin Bugs</div></div> </div>)}
             </div>
           </Modal>
         )}
@@ -1830,8 +1902,32 @@ function Chat({ socket, username, room, setRoom, handleLogout }) {
 
         {activeModal === "groupInfo" && (
           <Modal title="Group Info" onClose={() => setActiveModal(null)}>
-            <div className="profile-hero"> <div className="profile-avatar-large">{room.substring(0, 2)}</div> 
-            <div className="profile-name">{room}</div> <div className="profile-status">{groupMembers.length} members</div></div>
+            <div className="profile-hero"> 
+                <div className="profile-avatar-large" style={getAvatarStyle(roomSettings.avatar_url || '')}>{!roomSettings.avatar_url && room.substring(0, 2)}</div> 
+                <div className="profile-name">{room}</div> 
+                <div className="profile-status">{groupMembers.length} members</div>
+            </div>
+            
+            {/* CHAT SETTINGS FOR OWNER/MOD */}
+            {(myRole === 'owner' || globalRole === 'mod') && room !== "General" && (
+                <div style={{padding: '0 20px', marginBottom: 20}}>
+                     <div className="settings-item">
+                        <label>Приватный чат (только по приглашению)</label>
+                        <div className={`toggle-switch ${roomSettings.is_private ? 'on' : ''}`} onClick={() => socket.emit("update_group_settings", { room, is_private: !roomSettings.is_private, slow_mode: roomSettings.slow_mode, avatar_url: roomSettings.avatar_url })}>
+                            <div className="knob"></div>
+                        </div>
+                    </div>
+                    <div className="settings-item" style={{flexDirection: 'column', alignItems: 'flex-start'}}>
+                        <label style={{marginBottom: 5}}>Slow Mode (секунды): {roomSettings.slow_mode}</label>
+                        <input type="range" min="0" max="60" value={roomSettings.slow_mode} onChange={(e) => socket.emit("update_group_settings", { room, is_private: roomSettings.is_private, slow_mode: parseInt(e.target.value), avatar_url: roomSettings.avatar_url })} style={{width: '100%'}} />
+                    </div>
+                    <button className="btn-primary" onClick={() => {
+                       const url = prompt("Введите URL аватарки чата:");
+                       if(url) socket.emit("update_group_settings", { room, is_private: roomSettings.is_private, slow_mode: roomSettings.slow_mode, avatar_url: url });
+                    }}>Сменить аватарку чата</button>
+                </div>
+            )}
+
             <div className="settings-list" style={{ padding: "0 15px" }}>
               <div style={{ color: "#8774e1", padding: "10px 0", fontSize: "14px", fontWeight: "bold" }}>Members</div>
               
@@ -1858,30 +1954,36 @@ function Chat({ socket, username, room, setRoom, handleLogout }) {
                         {m.username[0].toUpperCase()}
                     </div> 
                     
-                    <div className="settings-label"> 
-                        <div style={{ fontSize: "16px" }}>{m.username}</div> 
+                    <div className="settings-label" style={{flex: 1}}> 
+                        <div style={{ fontSize: "16px", display: 'flex', alignItems: 'center', gap: 5 }}>
+                            {m.display_name || m.username}
+                            {m.badges && m.badges.map((b, i) => (
+                                <span key={i} title={b.name} style={{width: '14px', height: '14px', display:'inline-flex'}} dangerouslySetInnerHTML={{__html: b.svg_content}} />
+                            ))}
+                        </div> 
                         <div style={{ fontSize: "12px", color: "#888" }}>
-                            {m.role === "owner" ? "owner" : "member"}
+                            {m.role === "owner" ? "owner" : m.role}
                             {m.username !== username && <span style={{marginLeft: 5, color: '#1a7bd6'}}>• Профиль</span>}
                         </div> 
                     </div> 
                     
-                    {myRole === "owner" && m.role !== "owner" && m.username !== username && (
-                        <button 
-                            style={{ color: "#ff5959", background: "none", border: "none", cursor: "pointer", fontSize: "18px", padding: 10 }} 
-                            onClick={(e) => {
-                                e.stopPropagation();
-                                socket.emit("remove_group_member", { room, username: m.username });
-                            }}
-                        >
-                        &times;
-                        </button>
+                    {/* ROLE MANAGEMENT */}
+                    {(myRole === "owner" || globalRole === 'mod') && m.username !== username && room !== "General" && (
+                        <div style={{display:'flex', gap: 5}}>
+                             {m.role !== 'owner' && (
+                                <>
+                                    {m.role !== 'editor' && <button className="add-btn-small" title="Сделать редактором" onClick={(e) => {e.stopPropagation(); socket.emit("assign_chat_role", { room, targetUsername: m.username, newRole: 'editor' })}}>↑</button>}
+                                    {m.role === 'editor' && <button className="add-btn-small" title="Разжаловать" onClick={(e) => {e.stopPropagation(); socket.emit("assign_chat_role", { room, targetUsername: m.username, newRole: 'member' })}}>↓</button>}
+                                    <button className="add-btn-small" style={{background:'#ff4d4d'}} title="Выгнать" onClick={(e) => {e.stopPropagation(); socket.emit("assign_chat_role", { room, targetUsername: m.username, newRole: 'kick' })}}>✕</button>
+                                </>
+                             )}
+                        </div>
                     )} 
                   </div> 
               ))}
             </div>
             <div style={{ padding: "20px" }}>
-              <div className="action-card" onClick={() => { const n = prompt("Ник:"); if (n) socket.emit("add_group_member", { room, username: n }); }} style={{ marginBottom: 10, height: "auto", display: "flex", alignItems: "center", justifyContent: "center", flexDirection: "row" }}><svg xmlns="http://www.w3.org/2000/svg" width="32" height="24" viewBox="0 0 24 24"><path fill="#ffffff" d="M18 2h-6v2h-2v6h2V4h6V2zm0 8h-6v2h6v-2zm0-6h2v6h-2V4zM7 16h2v-2h12v2H9v4h12v-4h2v6H7v-6zM3 8h2v2h2v2H5v2H3v-2H1v-2h2V8z"/></svg> Добавить участника</div>
+              {(myRole === "owner" || myRole === "editor" || globalRole === "mod") && (<div className="action-card" onClick={() => { const n = prompt("Ник:"); if (n) socket.emit("add_group_member", { room, username: n }); }} style={{ marginBottom: 10, height: "auto", display: "flex", alignItems: "center", justifyContent: "center", flexDirection: "row" }}><svg xmlns="http://www.w3.org/2000/svg" width="32" height="24" viewBox="0 0 24 24"><path fill="#ffffff" d="M18 2h-6v2h-2v6h2V4h6V2zm0 8h-6v2h6v-2zm0-6h2v6h-2V4zM7 16h2v-2h12v2H9v4h12v-4h2v6H7v-6zM3 8h2v2h2v2H5v2H3v-2H1v-2h2V8z"/></svg> Добавить участника</div>)}
               <button className="btn-danger" style={{ textAlign: "center" }} onClick={leaveGroup}>{myRole === "owner" && room !== "General" ? "Delete Group" : "Leave Group"}</button>
             </div>
           </Modal>
@@ -1891,8 +1993,17 @@ function Chat({ socket, username, room, setRoom, handleLogout }) {
           <Modal title="Info" onClose={() => setActiveModal(null)}>
             <div className="profile-hero"> 
                 <div className="profile-avatar-large" style={getAvatarStyle(viewProfileData.avatar_url)}>{!viewProfileData.avatar_url && viewProfileData.username[0]?.toUpperCase()}</div> 
-                <div className="profile-name">{viewProfileData.display_name || viewProfileData.username}</div> 
+                <div className="profile-name">
+                    {viewProfileData.display_name || viewProfileData.username}
+                    {viewProfileData.isGlobalMod && <span title="Global Mod" style={{marginLeft: 5, color: '#2b95ff'}}>🛡️</span>}
+                </div> 
                 <div className="profile-status">@{viewProfileData.username}</div>
+                {/* BADGES DISPLAY */}
+                <div style={{display:'flex', gap: 5, justifyContent:'center', marginTop: 10}}>
+                    {viewProfileData.badges && viewProfileData.badges.map((b,i) => (
+                        <div key={i} title={b.name} style={{width: 24, height: 24}} dangerouslySetInnerHTML={{__html: b.svg_content}} />
+                    ))}
+                </div>
                 <div style={{fontSize: 12, color: '#888', marginTop: 5}}>{viewProfileData.isFriend ? "В контактах" : ""}</div>
             </div>
             <div className="settings-list">

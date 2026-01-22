@@ -7,7 +7,7 @@ import Auth from "./Auth";
 import UserAgreement from "./legal/UserAgreement";
 import License from "./legal/License";
 import { jwtDecode } from "jwt-decode";
-import { registerPushNotifications } from "./pushSubscription";
+import { registerPushNotifications } from "./custom/pushSubscription";
 
 const socket = io.connect(import.meta.env.VITE_BACKEND_URL || "http://localhost:3001", {
   autoConnect: false

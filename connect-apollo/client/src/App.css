@@ -34,32 +34,80 @@ input, textarea {
 
 /* --- LAYOUT --- */
 .main-layout {
-  display: flex; width: 95vw; height: 90vh; gap: 15px; max-width: 1920px;
+  display: flex; width: 95vw; height: 90vh; gap: 16px; max-width: 1920px;
 }
 
 /* --- LEFT PANEL --- */
 .left-panel {
-  width: 80px; height: 100%;
-  display: flex; flex-direction: column; gap: 15px;
+  width: 320px; height: 100%;
+  display: flex; flex-direction: column; gap: 8px;
   transition: width 0.3s;
 }
 
 .sidebar-top {
-  display: flex; flex-direction: column; align-items: center; gap: 15px; flex-shrink: 0;
+  display: flex; flex-direction: row; align-items: center; gap: 15px; flex-shrink: 0;
 }
 
+.actMenu {
+  display: flex; align-items: center; gap: 10px; flex-direction: row;
+  justify-content: space-around;
+    gap: 15px;
+    align-items: center;
+    background-color: #181818;
+    padding: 12px;
+    padding-inline: 34px;
+    border-radius: 64px;
+    width: 222px;
+}
+
+/* MODIFIED .friends-list for new scroll behavior */
 .friends-list {
   flex: 1; width: 100%;
   background: #181818;
-  border-radius: 16px;
-  display: flex; flex-direction: column; align-items: center;
-  padding: 20px 0; gap: 10px;
-  overflow-y: auto; overflow-x: hidden;
-  scrollbar-width: none;
+  border-radius: 32px;
+  display: flex; flex-direction: column;
+  padding: 0; 
+  gap: 0;
+  overflow: hidden; /* Prevent this container from scrolling itself */
 }
 
-.friends-list::-webkit-scrollbar { width: 4px; }
-.friends-list::-webkit-scrollbar-thumb { background: #333; border-radius: 10px; }
+/* NEW: On mobile, keep the old behavior */
+@media (max-width: 768px) {
+  .friends-list {
+    overflow-y: auto;
+  }
+}
+
+/* NEW: Styles for Desktop scrolling behavior */
+@media (min-width: 769px) {
+  .folder-tabs {
+    flex-shrink: 0;
+    overflow-x: auto;
+    overflow-y: hidden;
+    padding: 20px 20px 10px 20px;
+    border-bottom: 1px solid #333;
+    scrollbar-width: thin;
+    scrollbar-color: #444 #181818;
+    display: flex;
+    flex-wrap: nowrap;
+  }
+  .folder-tabs::-webkit-scrollbar { height: 4px; }
+  .folder-tabs::-webkit-scrollbar-thumb { background: #444; border-radius: 10px; }
+
+  .chat-list-scroll-container {
+    flex-grow: 1;
+    overflow-y: auto;
+    padding: 10px 0;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    scrollbar-width: thin;
+    scrollbar-color: #444 #181818;
+  }
+  .chat-list-scroll-container::-webkit-scrollbar { width: 4px; }
+  .chat-list-scroll-container::-webkit-scrollbar-thumb { background: #444; border-radius: 10px; }
+}
+
 
 /* Avatars */
 .my-avatar {
@@ -106,15 +154,25 @@ input, textarea {
   flex: 1; background-color: rgba(30, 30, 30, 0.6);
   -webkit-backdrop-filter: blur(20px);
   backdrop-filter: blur(20px); border-radius: 32px;
-  display: flex; flex-direction: column; padding: 20px 30px;
+  display: flex; flex-direction: column; 
   border: 1px solid rgba(255,255,255,0.05);
   overflow: hidden;
+  /* padding: 20px 30px; */
 }
 
 .chat-header {
-  display: flex; justify-content: space-between; align-items: center;
-  padding-bottom: 15px; border-bottom: 1px solid rgba(255,255,255,0.05);
-  flex-shrink: 0;
+  display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding-bottom: 15px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+    flex-shrink: 0;
+    padding: 20px 30px;
+    background-color: #111111cc;
+    backdrop-filter: blur(10px);
+    position: absolute;
+    z-index: 100;
+    width: -webkit-fill-available;
 }
 .header-left { display: flex; align-items: center; gap: 10px; }
 .header-left h3 { margin: 0; font-weight: 500; font-size: 18px; }
@@ -130,22 +188,27 @@ input, textarea {
 
 /* CHAT BODY */
 .chat-body { 
-    flex: 1; 
-    overflow-y: auto; 
-    display: flex; 
-    flex-direction: column; 
-    gap: 10px; 
+        /* margin-top: 100px; */
+    flex: 1;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
     padding: 10px 0;
     min-height: 0;
     padding-inline: 10px;
     overflow-x: hidden;
+    height: 100dvh;
+    padding: 0;
+    padding-top: 110px;
+    padding-inline: 20px;
 }
 .chat-body::-webkit-scrollbar { width: 5px; }
 .chat-body::-webkit-scrollbar-thumb { background: #444; border-radius: 10px; }
 
 /* MESSAGES */
 .message { display: flex; flex-direction: column; max-width: none; }
-.message.mine { align-self: none; align-items: flex-end; }
+.message.mine { align-self: none; align-items: flex-end;  }
 .message.theirs { align-self: none; align-items: flex-start; }
 
 .bubble { 
@@ -203,6 +266,7 @@ input, textarea {
     gap: 10px;
     position: relative;
     transition: border-color 0.2s;
+    margin: 20px 30px;
 }
 
 .chat-input-wrapper:focus-within {
@@ -347,7 +411,8 @@ input, textarea {
 /* Контейнер модалки (Desktop по умолчанию) */
 .modal-content {
   background: #212121;
-  width: 400px; 
+  width: 1200px; 
+  height: 1200px; 
   max-width: 90vw;
   max-height: 85vh; /* Ограничиваем высоту на ПК */
   border-radius: 16px;
@@ -656,45 +721,11 @@ input, textarea {
 }
 .avatar-history-item:hover .delete-avatar-btn { opacity: 1; }
 
-/* --- MOBILE RESPONSIVE ---
-@media (max-width: 768px) {
-  .main-layout { width: 100vw; height: 100vh; margin: 0; border-radius: 0; }
-  .left-panel { width: 100%; border-radius: 0; padding: 10px; box-sizing: border-box; }
-  .right-panel { width: 100%; height: 100%; border-radius: 0; }
-  .hidden { display: none !important; }
-  .glass-chat { border-radius: 0; border: none; padding: 10px; }
-  .friends-list { max-width: calc(100% - 20px); align-items: flex-start; padding: 10px; }
-  .friend-avatar { width: 60px; height: 60px; font-size: 20px; margin-bottom: 10px; }
-  .back-btn { background: none; border: none; color: white; font-size: 24px; margin-right: 15px; cursor: pointer; }
-  .message { max-width: 85%; }
-  body { background-color: #000;}
-  .auth-container { margin-top: 15vh; align-items: flex-start !important;}
-  .auth-form {
-    background-color: rgba(30, 30, 30, 0)!important; 
-    -webkit-backdrop-filter: blur(0)!important;
-    backdrop-filter: blur(0)!important;
-    padding: 0px!important;;
-    border-radius: 20px!important;
-    border: 1px solid rgba(0, 0, 0, 0)!important;
-    width: 100%!important;
-    max-width: 360px!important;
-    box-shadow: 0 10px 30px rgba(0, 0, 0, 0)!important;
-    text-align: left!important;
-  }
-  .auth-input {background: rgba(30, 30, 30, 0.7)!important; }
-}  */
-
-/* --- НОВЫЕ СТИЛИ ДЛЯ СПИСКА (Скрыты на Desktop) --- */
-.chat-info-mobile { display: none; }
-.mobile-app-title { display: none; }
-
-/* --- MOBILE RESPONSIVE --- */
 /* --- MOBILE RESPONSIVE --- */
 @media (max-width: 768px) {
   /* Базовая структура */
   body { background-color: #000; }
   
-  /* Отключаем дефолтный margin для layout */
   .main-layout { 
     width: 100%; 
     height: 100%; 
@@ -703,55 +734,52 @@ input, textarea {
     gap: 0;
   }
 
-  /* --- LEFT PANEL (Список чатов) --- */
   .left-panel { 
     width: 100%; height: 100%; padding: 0;
     background: #000; border-radius: 0;
     display: flex; flex-direction: column; gap: 0;
   }
 
-  /* Шапка списка чатов */
   .sidebar-top {
     flex-direction: row; justify-content: space-between;
     width: 100%; padding: 20px 20px; box-sizing: border-box;
-    background: rgba(0, 0, 0, 0.85); /* Полупрозрачность */
+    background: rgba(0, 0, 0, 0.85);
     backdrop-filter: blur(15px); -webkit-backdrop-filter: blur(15px);
     border-bottom: 1px solid #222;
     position: sticky; top: 0; z-index: 10;
   }
   
-  /* Контент шапки списка */
   .sidebar-header-content { display: flex; align-items: center; gap: 15px; }
   .mobile-app-title { display: block; font-size: 24px; font-weight: 700; letter-spacing: -0.5px; }
   .my-avatar { width: 40px; height: 40px; border: 1px solid #444; font-size: 16px; }
   .fab-btn { width: 40px; height: 40px; display: grid; border-radius: 12px; box-shadow: none; background: #222; border: 1px solid #333; }
 
-  /* Список чатов */
+  /* UPDATED: friends-list on mobile is now just the parent of the scrolling list */
   .friends-list { 
     width: 100%; background: transparent; 
-    padding: 0px !important;
     box-sizing: border-box; 
-    gap: 0px !important; 
-    align-items: 
-    stretch; overflow-y: auto;
-    border-radius: 0px !important;
+    align-items: stretch;
+    border-radius: 0 !important;
   }
+  .chat-list-scroll-container {
+    width: 100%;
+    overflow-y: auto;
+  }
+
   .divider { margin: 15px 0 5px 10px; color: #666; font-size: 11px; letter-spacing: 1px; }
 
-  /* Карточка чата */
   .chat-list-item {
       display: flex; align-items: center; gap: 15px; padding: 12px;
       background: #111; border-bottom: 1px solid #000; border-radius: 0px;
       transition: 0.2s; width: 100%; box-sizing: border-box;
   }
   .chat-list-item:active { background: #1a1a1a; }
-  .friend-avatar { width: 50px; height: 50px; font-size: 18px; margin: 0; border-radius: 14px; }
+  .friend-avatar { width: 50px; height: 50px; font-size: 18px; margin: 0; border-radius: 14px; border: 0px !important}
   
-  .chat-info-mobile { display: flex; flex-direction: column; justify-content: center; gap: 2px; overflow: hidden; }
+  .chat-info-mobile { display: flex; flex-direction: column; justify-content: center; gap: 2px; overflow: hidden; flex: 1; }
   .chat-name { font-size: 16px; font-weight: 600; color: #eee; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .chat-preview { font-size: 13px; color: #777; }
 
-  /* --- RIGHT PANEL (Окно чата - GLASS EFFECT) --- */
   .right-panel { 
     width: 100%; height: 100%; 
     position: fixed; top: 0; left: 0; z-index: 20;
@@ -762,61 +790,48 @@ input, textarea {
     border-radius: 0; border: none; padding: 0; 
     background: transparent; height: 100dvh;
     display: flex; flex-direction: column;
-    position: relative; /* Контекст для абсолютных панелей */
+    position: relative;
   }
 
-  /* 1. ВЕРХНЯЯ ПАНЕЛЬ (HEADER) - Парящая */
   .chat-header {
       position: absolute; top: 0; left: 0; right: 0;
       padding: 42px 15px 42px 20px;
-      background: rgba(0, 0, 0, 0.65); /* Сильная прозрачность */
-      backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px); /* Блюр */
+      background: rgba(0, 0, 0, 0.65);
+      backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
       border-bottom: 1px solid rgba(255, 255, 255, 0.05);
       z-index: 50;
-      height: 60px; /* Фиксируем высоту для расчета padding */
+      height: 60px;
       box-sizing: border-box;
   }
 
-  /* 2. НИЖНЯЯ ПАНЕЛЬ (INPUT) - Парящая */
   .chat-input-wrapper {
       position: absolute; bottom: 0; left: 0; right: 0;
       margin: 0; border-radius: 0;
-      background: rgba(0, 0, 0, 0.65); /* Сильная прозрачность */
-      backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px); /* Блюр */
+      background: rgba(0, 0, 0, 0.65);
+      backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
       border-top: 1px solid rgba(255, 255, 255, 0.05);
       border-left: none; border-right: none; border-bottom: none;
       padding: 10px 15px;
-      padding-bottom: max(10px, env(safe-area-inset-bottom)); /* Для iPhone Home Bar */
+      padding-bottom: max(10px, env(safe-area-inset-bottom));
       z-index: 50;
   }
 
-  /* 3. ТЕЛО ЧАТА - Растянуто на весь экран */
   .chat-body {
       height: 100%;
       padding: 0;
       margin: 0;
       overflow-y: auto;
-      
-      /* ВАЖНО: Отступы, чтобы контент не перекрывался панелями в покое */
-      padding-top: 96px;   /* Высота хедера + воздух */
-      padding-bottom: 100px; /* Высота инпута + воздух */
-      
-      /* Фон с легким паттерном, чтобы было видно блюр */
-      background-image: 
-        radial-gradient(circle at 50% 50%, #000000 0%, #000000 100%);
-
+      padding-top: 96px;
+      padding-bottom: 100px;
+      background-image: radial-gradient(circle at 50% 50%, #000000 0%, #000000 100%);
       padding-inline: 10px;
       overflow-x: hidden;
       scrollbar-width: none;
   }
 
-  /* Исправление для сообщений, чтобы они читались на темном фоне */
   .message { z-index: 1; }
     .back-btn {
       background: rgba(255, 255, 255, 0.0);
-      /* width: 32px;
-      height: 32px; */
-      /* border-radius: 50%; */
       display: flex;
       align-items: center;
       justify-content: center;
@@ -856,822 +871,202 @@ input, textarea {
 
 .tool-btn svg,
 .mic-btn svg {
-  /* width: 20px; */
-  /* height: 20px; */
   fill: #aaa;
   flex-shrink: 0;
   display: block;
 }
 
-/* --- СТИЛИ ДЛЯ ОКНА АВТОРИЗАЦИИ --- */
+/* --- AUTH STYLES --- */
+.auth-container { width: 100%; height: 100%; display: flex; justify-content: center; align-items: center; }
+.auth-form { background-color: rgba(30, 30, 30, 0.7); -webkit-backdrop-filter: blur(15px); backdrop-filter: blur(15px); padding: 40px; border-radius: 20px; border: 1px solid rgba(255, 255, 255, 0.1); width: 100%; max-width: 360px; box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3); text-align: center; }
+.form-title { margin-top: 0; margin-bottom: 30px; font-weight: 500; font-size: 24px; }
+.input-group-auth { margin-bottom: 20px; }
+.auth-input { width: 100%; padding: 12px 15px; background: #2b2b2b; border: 1px solid #444; border-radius: 10px; color: white; font-size: 16px; box-sizing: border-box; transition: border-color 0.2s; }
+.auth-input:focus { outline: none; border-color: #2b95ff; }
+.auth-button { width: 100%; padding: 12px; background: #2b95ff; color: white; border: none; border-radius: 10px; font-size: 16px; font-weight: 600; cursor: pointer; transition: background-color 0.2s; }
+.auth-button:hover { background: #1a7bd6; }
+.auth-button:disabled { background: #555; cursor: not-allowed; }
+.toggle-auth { margin-top: 25px; font-size: 14px; color: #aaa; }
+.toggle-auth button { background: none; border: none; color: #2b95ff; font-weight: 600; cursor: pointer; margin-left: 5px; font-size: 14px; }
+.error-message { color: #ff4d4d; font-size: 14px; margin-top: -10px; margin-bottom: 15px; }
 
-.auth-container {
-  width: 100%;
-  height: 100%;
-  display: flex;
-  justify-content: center;
-  align-items: center;
-}
-
-.auth-form {
-  background-color: rgba(30, 30, 30, 0.7);
-  -webkit-backdrop-filter: blur(15px);
-  backdrop-filter: blur(15px);
-  padding: 40px;
-  border-radius: 20px;
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  width: 100%;
-  max-width: 360px;
-  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
-  text-align: center;
-}
-
-.form-title {
-  margin-top: 0;
-  margin-bottom: 30px;
-  font-weight: 500;
-  font-size: 24px;
-}
-
-.input-group-auth {
-  margin-bottom: 20px;
-}
-
-.auth-input {
-  width: 100%;
-  padding: 12px 15px;
-  background: #2b2b2b;
-  border: 1px solid #444;
-  border-radius: 10px;
-  color: white;
-  font-size: 16px;
-  box-sizing: border-box;
-  transition: border-color 0.2s;
-}
-
-.auth-input:focus {
-  outline: none;
-  border-color: #2b95ff;
-}
-
-.auth-button {
-  width: 100%;
-  padding: 12px;
-  background: #2b95ff;
-  color: white;
-  border: none;
-  border-radius: 10px;
-  font-size: 16px;
-  font-weight: 600;
-  cursor: pointer;
-  transition: background-color 0.2s;
-}
-
-.auth-button:hover {
-  background: #1a7bd6;
-}
-
-.auth-button:disabled {
-  background: #555;
-  cursor: not-allowed;
-}
-
-.toggle-auth {
-  margin-top: 25px;
-  font-size: 14px;
-  color: #aaa;
-}
-
-.toggle-auth button {
-  background: none;
-  border: none;
-  color: #2b95ff;
-  font-weight: 600;
-  cursor: pointer;
-  margin-left: 5px;
-  font-size: 14px;
-}
-
-.error-message {
-  color: #ff4d4d;
-  font-size: 14px;
-  margin-top: -10px;
-  margin-bottom: 15px;
-}
-
-/* --- ДОБАВИТЬ В КОНЕЦ ФАЙЛА App.css --- */
-
-/* Контейнер для скролла внутри модалки (чтобы js мог его найти) */
-.modal-scroll-container {
-    flex: 1;
-    overflow-y: auto;
-    display: flex;
-    flex-direction: column;
-    /* Важно для iOS скролла */
-    -webkit-overflow-scrolling: touch; 
-    padding: 0 20px 20px 20px;
-}
-
-.modal-scroll-container {
-
-  .search-result {
-    padding: 4px 16px;
-    border: 1px solid #333;
-    border-radius: 16px
-  }
-
-  .modal-input {
-    margin-bottom: 12px;
-  }
-
-}
-
-span {
-  /* border: 1px solid; */
-  /* width: 80%; */
-  /* height: 50px; */
-  /* display: flex; */
-  align-items: center;
-  /* padding-left: 20px; */
-  /* justify-content: center;; */
-}
-
-.search-item {
-  display: flex;
-  /* padding: 5px; */
-  height: 50px;
-  border-radius: 12px;
-  border: 1px solid #333;
-  padding: 4px;
-  background-color: #252525;
-  flex-direction: row;
-  align-items: center;
-  justify-content: space-between;
-  margin-bottom: 4px;
-}
-
-.member-info {
-  display: flex;
-}
-
-.search-item button {
-  height: 50px;
-  border-radius: 12px;
-}
+/* MODAL SCROLL CONTAINER */
+.modal-scroll-container { flex: 1; overflow-y: auto; display: flex; flex-direction: column; -webkit-overflow-scrolling: touch; padding: 0 20px 20px 20px; }
+.modal-scroll-container .search-result { padding: 4px 16px; border: 1px solid #333; border-radius: 16px }
+.modal-scroll-container .modal-input { margin-bottom: 12px; }
+span { align-items: center; }
+.search-item { display: flex; height: 50px; border-radius: 12px; border: 1px solid #333; padding: 4px; background-color: #252525; flex-direction: row; align-items: center; justify-content: space-between; margin-bottom: 4px; }
+.member-info { display: flex; }
+.search-item button { height: 50px; border-radius: 12px; }
 
 @media (max-width: 768px) {
-
-  .modal-scroll-container {
-    margin-inline: 24px;
-  }
-
-  .search-item {
-    display: flex;
-    /* padding: 5px; */
-    height: 50px;
-    border-radius: 12px;
-    border: none !important;
-    padding: 4px;
-    background-color: #222 !important;
-    flex-direction: row;
-    align-items: center;
-    justify-content: space-between;
-    margin-bottom: 4px;
-  }
-
+  .modal-scroll-container { margin-inline: 24px; }
+  .search-item { height: 50px; border-radius: 12px; border: none !important; padding: 4px; background-color: #222 !important; flex-direction: row; align-items: center; justify-content: space-between; margin-bottom: 4px; }
 }
 
-/* Переопределяем padding для modal-body, так как теперь у нас wrapper */
-.modal-body, .modal-content > div:not(.modal-header):not(.modal-handle-bar):not(.modal-scroll-container) {
-    padding: 0; /* Паддинг теперь в scroll-container */
-}
-
-/* Анимация исчезновения при закрытии (для плавности) */
-.modal-overlay.closing {
-    animation: fadeOut 0.25s forwards;
-}
-
-/* Анимация улетания окна вниз (для Desktop, на мобилке рулит JS) */
-.modal-content.closing {
-    animation: popOut 0.25s forwards;
-}
-
+.modal-body, .modal-content > div:not(.modal-header):not(.modal-handle-bar):not(.modal-scroll-container) { padding: 0; }
+.modal-overlay.closing { animation: fadeOut 0.25s forwards; }
+.modal-content.closing { animation: popOut 0.25s forwards; }
 @keyframes fadeOut { to { opacity: 0; } }
 @keyframes popOut { to { opacity: 0; transform: scale(0.9); } }
-
-.actMenu {
-  flex-direction: column-reverse;
-}
-/* --- МОБИЛЬНЫЕ СТИЛИ (ОБНОВЛЕНИЕ) --- */
 @media (max-width: 768px) {
-  .modal-content {
-      /* Важно для производительности анимации драга */
-      will-change: transform; 
-      /* Разрешаем браузеру обрабатывать вертикальные жесты, но JS перехватит их при необходимости */
-      touch-action: pan-y; 
-  }
-
-  /* Если закрываем на мобилке программно (кнопкой), окно уезжает вниз */
-  .modal-content.closing {
-      animation: slideDownMobile 0.25s forwards;
-  }
-
-  /* Ручка */
-  .modal-handle-bar {
-      width: 40px; height: 4px;
-      background: #444; border-radius: 4px;
-      margin: 10px auto 5px auto; flex-shrink: 0; display: block;
-  }
-  
-  /* Убираем паддинги у wrapper'а, они теперь внутри container */
-  .modal-scroll-container {
-      padding: 0 15px 30px 15px; /* Больше отступ снизу на мобилке */
-  }
-
-  .actMenu {
-    flex-direction: row !important;
-  }
+  .modal-content { will-change: transform; touch-action: pan-y; }
+  .modal-content.closing { animation: slideDownMobile 0.25s forwards; }
+  .modal-handle-bar { width: 40px; height: 4px; background: #444; border-radius: 4px; margin: 10px auto 5px auto; flex-shrink: 0; display: block; }
+  .modal-scroll-container { padding: 0 15px 30px 15px; }
+  .actMenu { flex-direction: row !important; justify-content: flex-end !important; background-color: #18181800; padding: 0px!important; padding-inline: 0px !important}
 }
-
-@keyframes slideDownMobile {
-    from { transform: translateY(0); }
-    to { transform: translateY(100%); }
-}
-
-/* Скрываем ручку на ПК */
-@media (min-width: 769px) {
-    .modal-handle-bar { display: none; }
-}
-
+@keyframes slideDownMobile { from { transform: translateY(0); } to { transform: translateY(100%); } }
+@media (min-width: 769px) { .modal-handle-bar { display: none; } }
 
 .bubble-container { user-select: none; -webkit-user-select: none; max-width: 90%; min-width: 20%;}
 .long-press-active { filter: brightness(0.7); transition: filter 0.2s; }
-.reply-preview-bubble {
-    position: relative;
-    padding-inline: 24px;
-    cursor: pointer;
-    background: #44444480;
-    border-radius: 8px;
-    border-left: 3px solid;
-}
+.reply-preview-bubble { position: relative; padding-inline: 24px; cursor: pointer; background: #44444480; border-radius: 8px; border-left: 3px solid; }
 .reply-content { display: flex; flex-direction: column; overflow: hidden; }
 .reply-author { font-weight: bold; color: #ffffff; font-size: 13px; }
-.reply-text-preview { 
-    font-size: 13px;
-    white-space: nowrap; 
-    overflow: hidden; 
-    text-overflow: ellipsis; 
-    max-width: 250px; 
-    opacity: 0.8;
-}
-.reply-bar {
-    display: flex; align-items: center; justify-content: space-between;
-    background: #1e1e1e; padding: 8px 15px; border-left: 3px solid #8774e1;
-    margin-bottom: 5px; border-radius: 8px; margin-left: 10px; margin-right: 10px;
-}
-.message.highlighted .bubble {
-    animation: highlight-anim 1.5s ease-out;
-}
-@keyframes highlight-anim {
-    0% { background-color: rgba(135, 116, 225, 0.3); }
-    100% { background-color: transparent; }
-}
+.reply-text-preview { font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 250px; opacity: 0.8; }
+.reply-bar { display: flex; align-items: center; justify-content: space-between; background: #1e1e1e; padding: 8px 15px; border-left: 3px solid #8774e1; margin-bottom: 5px; border-radius: 8px; margin-left: 10px; margin-right: 10px; }
+.message.highlighted .bubble { animation: highlight-anim 1.5s ease-out; }
+@keyframes highlight-anim { 0% { background-color: rgba(135, 116, 225, 0.3); } 100% { background-color: transparent; } }
+.mention-link { color: #1a7bd6; font-weight: 500; cursor: pointer; text-decoration: none; }
+.mention-link:hover { text-decoration: underline; }
+.toggle-switch { width: 40px; height: 22px; background: #444; border-radius: 11px; position: relative; cursor: pointer; transition: background 0.2s; }
+.toggle-switch.on { background: #1a7bd6; }
+.toggle-switch .knob { width: 18px; height: 18px; background: white; border-radius: 50%; position: absolute; top: 2px; left: 2px; transition: transform 0.2s; }
+.toggle-switch.on .knob { transform: translateX(18px); }
+#plus-icon { margin-top: -3px; }
+.markdown-content { word-break: break-word; }
+.markdown-content ul, .markdown-content ol { padding-left: 20px; margin: 8px 0; }
+.markdown-content li { margin-bottom: 4px; }
+.markdown-content h1, .markdown-content h2, .markdown-content h3 { margin: 12px 0 6px 0; line-height: 1.2; }
+.markdown-content p:last-child { margin-bottom: 0; }
+.chat-textarea { transition: height 0.1s ease; overflow-y: auto !important; }
+.message-mine { align-self: flex-end; align-items: flex-end; min-width: 100%; }
+.message.mine .meta-name { display: none !important; }
 
-/* --- MENTIONS --- */
-.mention-link {
-    color: #1a7bd6;
-    font-weight: 500;
-    cursor: pointer;
-    text-decoration: none;
-}
-.mention-link:hover {
-    text-decoration: underline;
-}
-
-/* --- TOGGLE SWITCH (Notification Settings) --- */
-.toggle-switch {
-    width: 40px;
-    height: 22px;
-    background: #444;
-    border-radius: 11px;
-    position: relative;
-    cursor: pointer;
-    transition: background 0.2s;
-}
-
-.toggle-switch.on {
-    background: #1a7bd6;
-}
-
-.toggle-switch .knob {
-    width: 18px;
-    height: 18px;
-    background: white;
-    border-radius: 50%;
-    position: absolute;
-    top: 2px;
-    left: 2px;
-    transition: transform 0.2s;
-}
-
-.toggle-switch.on .knob {
-    transform: translateX(18px);
-}
-
-#plus-icon {
-  margin-top: -3px;
-}
-
-.markdown-content {
-    word-break: break-word;
-}
-
-.markdown-content ul, .markdown-content ol {
-    padding-left: 20px;
-    margin: 8px 0;
-}
-
-.markdown-content li {
-    margin-bottom: 4px;
-}
-
-.markdown-content h1, .markdown-content h2, .markdown-content h3 {
-    margin: 12px 0 6px 0;
-    line-height: 1.2;
-}
-
-.markdown-content p:last-child {
-    margin-bottom: 0;
-}
-
-/* Фикс высоты для плавного роста */
-.chat-textarea {
-    transition: height 0.1s ease;
-    overflow-y: auto !important; /* Включаем прокрутку когда достигнут max-height */
-}
-
-.message-mine {
-  align-self: flex-end;
-    align-items: flex-end;
-    min-width: 100%;
-}
-
-.message.mine .meta-name {
-    display: none;
-}
-
-.tg-audio-player {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    padding: 8px 6px;
-    min-width: 200px;
-}
-
-.tg-play-btn {
-    /* width: 38px;
-    height: 38px; */
-    border-radius: 8px;
-    border: none;
-    background-color: #80beff;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    cursor: pointer;
-    flex-shrink: 0;
-}
-
-.tg-audio-info {
-    display: flex;
-    flex-direction: column;
-    justify-content: center;
-    flex-grow: 1;
-}
-
-.tg-waveform {
-    display: flex;
-    align-items: center; /* Центрируем волну по вертикали как в ТГ */
-    gap: 2px;
-    height: 24px;
-    cursor: pointer;
-}
-
-.tg-bar {
-    width: 2px;
-    background-color: rgba(255, 255, 255, 0.2);
-    border-radius: 1px;
-    transition: background-color 0.1s;
-}
-
-.tg-bar.active {
-    background-color: #7898ba;
-}
-
-.tg-meta {
-    font-size: 11px;
-    color: #8199b0;
-    margin-top: 2px;
-    display: flex;
-    justify-content: space-between;
-}
-
-.tg-loading-wave {
-    font-size: 10px;
-    color: #555;
-    letter-spacing: 1px;
-}
-
-/* Стили для ваших сообщений */
-.mine .tg-bar.active {
-    background-color: #ffffff;
-}
-.mine .tg-play-btn {
-    background-color: #ffffff;
-}
-.mine .tg-play-btn svg {
-    fill: #2b95ff;
-}
-
-p {
-  margin: 0px;
-}
+/* Audio player styles */
+.tg-audio-player { display: flex; align-items: center; gap: 12px; padding: 8px 6px; min-width: 200px; }
+.tg-play-btn { border-radius: 8px; border: none; background-color: #80beff; display: flex; align-items: center; justify-content: center; cursor: pointer; flex-shrink: 0; }
+.tg-audio-info { display: flex; flex-direction: column; justify-content: center; flex-grow: 1; }
+.tg-waveform { display: flex; align-items: center; gap: 2px; height: 24px; cursor: pointer; }
+.tg-bar { width: 2px; background-color: rgba(255, 255, 255, 0.2); border-radius: 1px; transition: background-color 0.1s; }
+.tg-bar.active { background-color: #7898ba; }
+.tg-meta { font-size: 11px; color: #8199b0; margin-top: 2px; display: flex; justify-content: space-between; }
+.tg-loading-wave { font-size: 10px; color: #555; letter-spacing: 1px; }
+.mine .tg-bar.active { background-color: #ffffff; }
+.mine .tg-play-btn { background-color: #ffffff; }
+.mine .tg-play-btn svg { fill: #2b95ff; }
+p { margin: 0px; }
 
 @media (max-width: 768px) {
-  /* Контейнер для панелей */
-  .main-layout {
-    position: relative;
-    overflow: hidden;
-    width: 100vw;
-    height: 100dvh;
-  }
-
-  /* Левая панель (список чатов) теперь всегда под чатом */
-  .left-panel {
-    position: absolute;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
-    z-index: 10; /* Ниже чата */
-    background: #000;
-    display: flex !important; /* Убеждаемся, что она не скроется */
-    transition: transform 0.3s ease-out, opacity 0.3s ease-out;
-  }
-
-  /* Правая панель (окно чата) поверх списка */
-  .right-panel {
-    position: absolute;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
-    z-index: 20; /* Выше списка чатов */
-    background: #000;
-    will-change: transform;
-    /* Не используем display: none */
-  }
-
-  /* Если чат закрыт, он просто улетает за правую границу экрана */
-  .right-panel.hidden {
-    transform: translateX(100%) !important;
-    display: flex !important; /* Он должен существовать, но быть за экраном */
-    pointer-events: none;
-  }
-  
-  /* Эффект для левой панели, когда чат открыт (опционально, для глубины) */
-  .left-panel.under-chat {
-    transform: scale(0.95);
-    opacity: 0.7;
-    filter: blur(2px);
-  }
+  .main-layout { position: relative; overflow: hidden; width: 100vw; height: 100dvh; }
+  .left-panel { position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 10; background: #000; display: flex !important; transition: transform 0.3s ease-out, opacity 0.3s ease-out; }
+  .right-panel { position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 20; background: #000; will-change: transform; }
+  .right-panel.hidden { transform: translateX(100%) !important; display: flex !important; pointer-events: none; }
+  .left-panel.under-chat { transform: scale(0.95); opacity: 0.7; filter: blur(2px); }
 }
 
-.btn-accept {
-    background: #2b95ff;
-    border: none;
-    color: white;
-    padding: 6px 12px;
-    border-radius: 6px;
-    cursor: pointer;
-    font-size: 13px;
-    transition: 0.2s;
-}
-.btn-accept:hover {
-    background: #1a7bd6;
-}
-.btn-decline {
-    background: #333;
-    border: none;
-    color: #ff4d4d;
-    padding: 6px 12px;
-    border-radius: 6px;
-    cursor: pointer;
-    font-size: 13px;
-}
+.btn-accept { background: #2b95ff; border: none; color: white; padding: 6px 12px; border-radius: 6px; cursor: pointer; font-size: 13px; transition: 0.2s; }
+.btn-accept:hover { background: #1a7bd6; }
+.btn-decline { background: #333; border: none; color: #ff4d4d; padding: 6px 12px; border-radius: 6px; cursor: pointer; font-size: 13px; }
 
-.tg-in-app-notification {
-    position: fixed;
-    top: -100px; /* Спрятано по умолчанию */
-    left: 10px;
-    right: 10px;
-    background: rgba(30, 30, 30, 0.95); /* Темный фон */
-    backdrop-filter: blur(12px);
-    -webkit-backdrop-filter: blur(12px);
-    color: white;
-    padding: 12px 16px;
-    border-radius: 14px;
-    box-shadow: 0 10px 30px rgba(0,0,0,0.5);
-    z-index: 99999; /* Поверх всего */
-    display: flex;
-    align-items: center;
-    gap: 15px;
-    transition: top 0.4s cubic-bezier(0.19, 1, 0.22, 1); /* Плавная анимация */
-    border: 1px solid rgba(255, 255, 255, 0.1);
-    max-width: 500px;
-    margin: 0 auto;
-    cursor: pointer;
-}
+.tg-in-app-notification { position: fixed; top: -100px; left: 10px; right: 10px; background: rgba(30, 30, 30, 0.95); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); color: white; padding: 12px 16px; border-radius: 14px; box-shadow: 0 10px 30px rgba(0,0,0,0.5); z-index: 99999; display: flex; align-items: center; gap: 15px; transition: top 0.4s cubic-bezier(0.19, 1, 0.22, 1); border: 1px solid rgba(255, 255, 255, 0.1); max-width: 500px; margin: 0 auto; cursor: pointer; }
+.tg-in-app-notification.visible { top: 20px; }
+.tg-notif-avatar { width: 45px; height: 45px; border-radius: 50%; background-color: #2b95ff; background-size: cover; background-position: center; flex-shrink: 0; display: flex; align-items: center; justify-content: center; font-weight: bold; font-size: 18px; color: #fff; border: 2px solid #333; }
+.tg-notif-content { flex: 1; overflow: hidden; display: flex; flex-direction: column; justify-content: center; gap: 3px; }
+.tg-notif-title { font-weight: 600; font-size: 15px; color: #fff; }
+.tg-notif-body { font-size: 14px; color: #ccc; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.hidden-input { display: none; }
 
-.tg-in-app-notification.visible {
-    top: 20px; /* Показываем сверху */
-}
-
-.tg-notif-avatar {
-    width: 45px;
-    height: 45px;
-    border-radius: 50%;
-    background-color: #2b95ff;
-    background-size: cover;
-    background-position: center;
-    flex-shrink: 0;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-weight: bold;
-    font-size: 18px;
-    color: #fff;
-    border: 2px solid #333;
-}
-
-.tg-notif-content {
-    flex: 1;
-    overflow: hidden;
-    display: flex;
-    flex-direction: column;
-    justify-content: center;
-    gap: 3px;
-}
-
-.tg-notif-title {
-    font-weight: 600;
-    font-size: 15px;
-    color: #fff;
-}
-
-.tg-notif-body {
-    font-size: 14px;
-    color: #ccc;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-}
-
-.hidden-input {
-  display: none;
-}
-
-
-
-/* Шапка режима выделения */
-.sidebar-selection-header {
-  background: #252525;
-  border-bottom: 1px solid #1a7bd6;
-  padding: 15px;
-  display: flex;
-  align-items: center;
-  gap: 15px;
-  width: 100%;
-  box-sizing: border-box;
-  height: 63px; /* Фиксируем высоту как у обычной шапки */
-  /* margin-top: 68px; */
-}
-
-.selection-title {
-  font-size: 16px;
-  font-weight: bold;
-  color: white;
-}
-
-.selection-actions {
-  display: flex;
-  gap: 15px;
-  margin-left: auto;
-}
-
-/* Панель с папками */
-.folder-tabs {
-  display: flex;
-  flex-direction: column;
-  overflow-x: auto;
-  gap: 10px;
-  padding: 12px 15px;
-  border-bottom: 1px solid #333;
-  scrollbar-width: none; /* Firefox */
-  /* background: #000; */
-  flex-shrink: 0;
-  max-height: 180px;
-}
+/* SELECTION MODE & FOLDERS */
+.sidebar-selection-header { background: #252525; border-bottom: 1px solid #1a7bd6; padding: 15px; display: flex; align-items: center; gap: 15px; width: 100%; box-sizing: border-box; height: 63px; }
+.selection-title { font-size: 16px; font-weight: bold; color: white; }
+.selection-actions { display: flex; gap: 15px; margin-left: auto; }
+.folder-tabs { display: flex; flex-direction: row; gap: 10px; scrollbar-width: none; flex-shrink: 0; }
+.folder-tab { padding: 6px 12px; border-radius: 16px; font-size: 13px; white-space: nowrap; cursor: pointer; background: #222; color: #aaa; border: 1px solid #333; transition: 0.2s; user-select: none; width: clamp(24px, fit-content, 100%) !important; max-width: 180px !important; min-height: 24px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
 
 @media (max-width: 768px) {
-  .folder-tabs {
-    display: flex;
-    flex-direction: row;
-    overflow-x: auto;
-    gap: 10px;
-    padding: 12px 15px;
-    border-bottom: 1px solid #333;
-    scrollbar-width: none; /* Firefox */
-    background: #000;
-    flex-shrink: 0;
-    padding-right: 70px;
-  }
-  .folder-tab {
-    padding: 6px 12px;
-    border-radius: 16px;
-    font-size: 13px;
-    white-space: nowrap;
-    cursor: pointer;
-    background: #222;
-    color: #aaa;
-    border: 1px solid #333;
-    transition: 0.2s;
-    user-select: none;
-    width: clamp(24px, fit-content, 100%) !important;
-    max-width: 180px !important;
-    min-height: 24px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    flex-shrink: 0;
-  }
-  .add-folder-btn {
-    padding: 6px 10px;
-    border-radius: 16px;
-    background: #111;
-    color: #666;
-    cursor: pointer;
-    border: 1px solid #333;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    min-height: 24px;
-    min-width: 24px;
-    align-items: center;
-    justify-content: center;
-    position: absolute;
-    right: 15px;
-    z-index: 999;
-  }
-  .background-folder-btn {
-    right: 0px;
-    border-radius: 0px;
-    border: 1px solid #000000f0;
-    background: #000000f0;
-    backdrop-filter: blur(2px);
-    z-index: 9;
-    position: fixed;
-    display: flex !important;
-    color: #000;
-    width: 40px;
-    height: 36px;
-  }
-  .folder-tab.active {
-    background: #2b95ff;
-    color: white;
-    border-color: #2b95ff;
-  }
+  .folder-tabs { overflow-x: auto; padding: 12px 15px; border-bottom: 1px solid #333; background: #000; padding-right: 70px; }
+  .add-folder-btn { padding: 6px 10px; border-radius: 16px; background: #111; color: #666; cursor: pointer; border: 1px solid #333; display: flex; align-items: center; justify-content: center; min-height: 24px; min-width: 24px; position: absolute; right: 15px; z-index: 999; }
+  .background-folder-btn { right: 0px; border-radius: 0px; border: 1px solid #000000f0; background: #000000f0; backdrop-filter: blur(2px); z-index: 9; position: fixed; display: flex !important; color: #000; width: 40px; height: 36px; }
+  .folder-tab.active { background: #2b95ff; color: white; border-color: #2b95ff; }
 }
-
 .background-folder-btn { display: none; }
-
 .folder-tabs::-webkit-scrollbar { display: none; }
-
-.folder-tab {
-  padding: 6px 12px;
-  border-radius: 16px;
-  font-size: 13px;
-  white-space: nowrap;
-  cursor: pointer;
-  background: #222;
-  color: #aaa;
-  border: 1px solid #333;
-  transition: 0.2s;
-  user-select: none;
-  min-width: 24px;
-  max-width: 42px;
-  min-height: 24px;
-  height: fit-content;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.folder-tab:hover {
-  background: #333;
-  color: #fff;
-}
-
-.folder-tab.active {
-  background: #2b95ff;
-  color: white;
-  border-color: #2b95ff;
-}
-
-.add-folder-btn {
-  padding: 6px 10px;
-  border-radius: 16px;
-  background: #111;
-  color: #666;
-  cursor: pointer;
-  border: 1px solid #333;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
+.folder-tab { padding: 6px 12px; border-radius: 16px; font-size: 13px; white-space: nowrap; cursor: pointer; background: #222; color: #aaa; border: 1px solid #333; transition: 0.2s; user-select: none; min-width: 24px; max-width: 42px; min-height: 24px; height: fit-content; display: flex; align-items: center; justify-content: center; }
+.folder-tab:hover { background: #333; color: #fff; }
+.folder-tab.active { background: #2b95ff; color: white; border-color: #2b95ff; }
+.add-folder-btn { padding: 6px 10px; border-radius: 16px; background: #111; color: #666; cursor: pointer; border: 1px solid #333; display: flex; align-items: center; justify-content: center; }
 .add-folder-btn:hover { color: #fff; border-color: #555; }
 
-/* Состояния элементов списка чатов */
-.chat-list-item {
-  position: relative; /* Для позиционирования иконок внутри */
-}
+/* CHAT LIST ITEM STATES */
+.chat-list-item { position: relative; }
+.chat-list-item.active { background: #111; }
+.chat-list-item.selected { background: rgba(43, 149, 255, 0.2) !important; }
+.chat-list-item.pinned { border-right: 3px solid #888; }
+.check-icon-container { margin-right: 10px; display: flex; align-items: center; animation: popIn 0.2s ease; }
+.chat-name-row { display: flex; gap: 5px; align-items: center; }
+.friend-avatar { background-color: #333; }
+.drag-handle { display: none; width: 40px; height: 40px; align-items: center; justify-content: center; color: #666; cursor: grab; margin-left: auto; touch-action: none; flex-shrink: 0; }
+.selection-mode-active .drag-handle { display: flex; }
+.chat-list-item.dragging { opacity: 0.9; background: #2a2a2a !important; box-shadow: 0 10px 20px rgba(0,0,0,0.5); transform: scale(1.02); z-index: 1000; border: 1px solid #1a7bd6; position: relative; }
+.drag-handle:active { color: #fff; }
 
-/* Активный чат (открытый) */
-.chat-list-item.active {
-  background: #111;
-}
+.chat-list-item { background: #11111100; border-bottom: 1px solid #00000000; border-radius: 0px; }
+.friend-avatar { width: 50px; height: 50px; font-size: 18px; margin: 0; border-radius: 14px; }
 
-/* Выделенный чат (долгое нажатие) */
-.chat-list-item.selected {
-  background: rgba(43, 149, 255, 0.2) !important;
-}
-
-/* Закрепленный чат */
-.chat-list-item.pinned {
-  border-right: 3px solid #888;
-}
-
-/* Иконка галочки при выделении */
-.check-icon-container {
-  margin-right: 10px;
-  display: flex;
-  align-items: center;
-  animation: popIn 0.2s ease;
-}
-
-/* Имя чата в списке */
+/* NEW: Chat Preview Styles */
 .chat-name-row {
   display: flex;
-  gap: 5px;
-  align-items: center;
+  justify-content: space-between;
+  width: 100%;
 }
-
-/* Исправление для аватарок (динамические стили) */
-.friend-avatar {
-  /* Базовые стили уже есть в App.css, здесь только уточнения */
-  background-color: #333; /* Fallback color */
+.chat-name-text {
+  font-weight: 500;
+  color: #eee;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  flex: 1;
 }
-
-/* Контейнер иконки перетаскивания */
-.drag-handle {
-  display: none; /* Скрыто по умолчанию */
-  width: 40px;
-  height: 40px;
-  align-items: center;
-  justify-content: center;
+.preview-time {
+  font-size: 12px;
   color: #666;
-  cursor: grab;
-  margin-left: auto; /* Прижимаем вправо */
-  touch-action: none; /* ВАЖНО: Отключает скролл страницы при касании иконки */
+  margin-left: 8px;
   flex-shrink: 0;
 }
-
-/* Показываем иконку, когда родитель (список) в режиме selection-mode */
-/* Мы будем добавлять класс .selection-mode-active на контейнер списка */
-.selection-mode-active .drag-handle {
+.chat-preview {
   display: flex;
+  font-size: 13px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  color: #777;
+}
+.preview-sender {
+  color: #888;
+  margin-right: 4px;
+}
+.preview-text {
+  color: #666;
 }
 
-/* Стиль элемента, который сейчас перетаскивают */
-.chat-list-item.dragging {
-  opacity: 0.9;
-  background: #2a2a2a !important;
-  box-shadow: 0 10px 20px rgba(0,0,0,0.5);
-  transform: scale(1.02);
-  z-index: 1000;
-  border: 1px solid #1a7bd6;
-  position: relative;
-}
+/* Badge & Other styles */
+.meta-name svg { vertical-align: middle; margin-left: 2px; }
+.settings-item label { flex: 1; color: #eee; font-size: 14px; }
+.add-btn-small { background: #333; border: none; color: white; width: 24px; height: 24px; border-radius: 4px; cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: 12px; }
+.add-btn-small:hover { background: #555; }
+.reset-password-btn { padding: 6px 10px; border-radius: 16px; background: #111; color: #666; cursor: pointer; border: 1px solid #333; display: flex; align-items: center; justify-content: center; min-height: 24px; min-width: 24px; right: 15px; z-index: 999; }
+.reset-password-btn { padding: 6px 10px; border-radius: 16px; background: #111; color: #666; cursor: pointer; border: 1px solid #333; display: flex; align-items: center; justify-content: center; }
 
-.drag-handle:active {
-  color: #fff;
-}
+.chat-list-item {
+      display: flex; align-items: center; gap: 15px; padding: 12px;
+      background: #11111100; border-bottom: 1px solid #000; border-radius: 0px;
+      transition: 0.2s; width: 100%; box-sizing: border-box;
+  }
+ .chat-list-item:active { background: #1a1a1a; transition: 0.2s !important; }
+.friend-avatar { width: 50px; height: 50px; font-size: 18px; margin: 0; border-radius: 14px; }
+
+.chat-list-scroll-container {
+  gap: 0px !important;
+} 
