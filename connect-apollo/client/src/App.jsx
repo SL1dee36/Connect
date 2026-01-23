@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom"; // Импортируем роутинг
 import "./App.css";
+// import "./legal/temp.css";
 import io from "socket.io-client";
 import Chat from "./Chat";
 import Auth from "./Auth";

@@ -1626,6 +1626,7 @@ function Chat({ socket, username, room, setRoom, handleLogout }) {
                 zIndex: 100
             }}
         >
+            <div className="glass-chat-background"></div>            
           <div className="glass-chat">
             <div className="chat-header">
               <div className="header-left">
@@ -1648,6 +1649,8 @@ function Chat({ socket, username, room, setRoom, handleLogout }) {
               {messageList.map((msg, index) => (<MessageItem key={msg.id || index} msg={msg} username={username} display_name={msg.author_display_name} setImageModalSrc={setImageModalSrc} onContextMenu={handleContextMenu} onReplyTrigger={handleReply} scrollToMessage={handleScrollToReply} onMentionClick={onMentionClick} />))}
               <div ref={messagesEndRef} />
             </div>
+
+            <div className="chat-input-background"></div>
 
             {/* MESSAGE INPUT AREA - CHECK PERMISSIONS */}
             {(room === "General" || isPrivateChat || myRole !== 'guest' || globalRole === 'mod') ? (
