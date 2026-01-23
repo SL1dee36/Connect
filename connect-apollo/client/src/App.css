@@ -87,12 +87,13 @@ padding: 0px !important;
     position: absolute;
     width: -webkit-fill-available;
     height: -webkit-fill-available;
-    background-color: #000000;
+    background: #000000;
     border-radius: 32px;
     z-index: 0;
 }
 /* NEW: Styles for Desktop scrolling behavior */
 @media (min-width: 769px) {
+  .glass-chat-background{ display: none !important; }
   .folder-tabs {
     flex-shrink: 0;
     overflow-x: auto;
