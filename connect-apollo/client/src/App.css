@@ -927,7 +927,7 @@ padding: 0px !important;
 .modal-scroll-container .modal-input { margin-bottom: 12px; }
 span { align-items: center; }
 .search-item { display: flex; height: 50px; border-radius: 12px; border: 1px solid #333; padding: 4px; background-color: #252525; flex-direction: row; align-items: center; justify-content: space-between; margin-bottom: 4px; }
-.member-info { display: flex; }
+.member-info { display: flex; gap: 8px; }
 .search-item button { height: 50px; border-radius: 12px; }
 
 @media (max-width: 768px) {

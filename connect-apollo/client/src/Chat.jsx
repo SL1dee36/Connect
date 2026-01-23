@@ -1775,7 +1775,7 @@ function Chat({ socket, username, room, setRoom, handleLogout }) {
               {searchResults.map((u, i) => (
                 <div key={i} className="search-item">
                   <div className="member-info"> <div className="friend-avatar" style={{ fontSize: 12, backgroundImage: `url(${u.avatar_url})` }}>{!u.avatar_url && u.username[0]}</div> 
-                    <div style={{display: 'flex', flexDirection: 'column'}}>
+                    <div style={{display: 'flex', flexDirection: 'column', alignItems: 'flex-start', justifyContent: 'space-evenly'}}>
                         <span style={{lineHeight: 1}}>{u.display_name}</span>
                         <span style={{fontSize: 11, color: '#888'}}>@{u.username}</span>
                     </div>
