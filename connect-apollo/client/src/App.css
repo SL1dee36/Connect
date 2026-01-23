@@ -440,7 +440,7 @@ padding: 0px !important;
 /* Контейнер модалки (Desktop по умолчанию) */
 .modal-content {
   background: #212121;
-  width: 1200px; 
+  width: 700px; 
   height: 1200px; 
   max-width: 90vw;
   max-height: 85vh; /* Ограничиваем высоту на ПК */
@@ -462,8 +462,9 @@ padding: 0px !important;
   display: flex; 
   justify-content: space-between; 
   align-items: center; 
-  padding: 40px 20px;
-  background: #212121;
+  padding: 0px 20px;
+  padding-bottom: 20px;
+  /* background: #212121; */
   z-index: 2;
   flex-shrink: 0;
   border-bottom: 1px solid transparent; /* Резерв места */
@@ -508,7 +509,7 @@ padding: 0px !important;
   flex-direction: column; 
   align-items: center; 
   justify-content: center;
-  padding: 20px 0 25px 0; 
+  padding: 0px 0 0px 0; 
   margin-bottom: 10px; 
   border-bottom: 8px solid #141414; /* Темный разделитель */
   
@@ -516,7 +517,7 @@ padding: 0px !important;
   margin-left: -20px; 
   margin-right: -20px;
   width: calc(100% + 40px);
-  background: #212121;
+  /* background: #212121; */
 }
 
 /* Исправленные аватарки */
@@ -797,17 +798,16 @@ padding: 0px !important;
 }
 .avatar-history-item:hover .delete-avatar-btn { opacity: 1; }
 .profile-avatar-background {
-  /* position: absolute; */
   top: 0;
   width: -webkit-fill-available;
-  height: 360px;
+  height: 50dvw;
+  max-height: 500px;
   z-index: 100;
   display: flex;
-  /* align-items: flex-start; */
   flex-direction: column;
   justify-content: flex-end;
-  margin-top: 80px;
-  /* padding: 20px; */
+  /* border-radius: 32px; */
+  padding: 16px;
 }
 
 
@@ -815,6 +815,20 @@ padding: 0px !important;
 @media (max-width: 768px) {
   /* Базовая структура */
   body { background-color: #000; }
+
+  .profile-avatar-background {
+    /* position: absolute; */
+    top: 0;
+    width: -webkit-fill-available;
+    height: 100dvw;
+    z-index: 100;
+    display: flex;
+    /* align-items: flex-start; */
+    flex-direction: column;
+    justify-content: flex-end;
+    margin-top: 80px;
+    /* padding: 20px; */
+  }
   
   .main-layout { 
     width: 100%; 
@@ -989,6 +1003,14 @@ span { align-items: center; }
 .member-info { display: flex; gap: 8px; }
 .search-item button { height: 50px; border-radius: 12px; }
 
+.modal-input textarea {
+  width: -webkit-fill-available;
+}
+
+@media (max-width: 768px) {
+ .modal-scroll-container { margin-top: 80px; }
+}
+
 @media (max-width: 768px) {
   .modal-scroll-container { margin-inline: 0px; }
   .search-item { height: 50px; border-radius: 12px; border: none !important; padding: 4px; background-color: #222 !important; flex-direction: row; align-items: center; justify-content: space-between; margin-bottom: 4px; }
@@ -1155,7 +1177,7 @@ p { margin: 0px; }
 .chat-list-item.dragging { opacity: 0.9; background: #2a2a2a !important; box-shadow: 0 10px 20px rgba(0,0,0,0.5); transform: scale(1.02); z-index: 1000; border: 1px solid #1a7bd6; position: relative; }
 .drag-handle:active { color: #fff; }
 
-.chat-list-item { background: #000000cc; border-bottom: 1px solid #00000000; border-radius: 0px; }
+.chat-list-item { background: #111111cc; border-bottom: 1px solid #00000000; border-radius: 0px; }
 .friend-avatar { width: 50px; height: 50px; font-size: 18px; margin: 0; border-radius: 14px; }
 
 /* NEW: Chat Preview Styles */
@@ -1204,7 +1226,7 @@ p { margin: 0px; }
 
 .chat-list-item {
       display: flex; align-items: center; gap: 15px; padding: 12px;
-      background: #000000cc; border-bottom: 1px solid #000; border-radius: 0px;
+      background: #111111cc; border-bottom: 1px solid #000; border-radius: 0px;
       transition: 0.2s; width: 100%; box-sizing: border-box;
   }
  .chat-list-item:active { background: #1a1a1a; transition: 0.2s !important; }

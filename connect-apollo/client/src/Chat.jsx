@@ -32,9 +32,7 @@ const IconCopy = () => (
     </svg>
 );
 const IconTrash = () => (
-    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
-         <path fill="currentColor" d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/>
-    </svg>
+    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"><path fill="#ffffff" d="M5 3H3v18h18V3H5zm14 2v14H5V5h14zm-3 6H8v2h8v-2z"/></svg>
 );
 const IconBell = ({ hasUnread }) => (
     <div style={{ position: 'relative', cursor: 'pointer', display: 'flex' }}>
@@ -63,10 +61,10 @@ const IconPaperclip = () => (
     <svg width="24" height="24" viewBox="0 0 24 24" fill="#fff" xmlns="http://www.w3.org/2000/svg"><path d="M5 5h16v10H7V9h10v2H9v2h10V7H5v10h14v2H3V5h2z"/> </svg>
 );
 const IconPin = () => (
-    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24"><path fill="currentColor" d="M16 3a1 1 0 0 1 .117 1.993L16 5v4.764l1.894 3.789a1 1 0 0 1 .106.447V15a1 1 0 0 1-1 1h-4v4a1 1 0 0 1-2 0v-4H7a1 1 0 0 1-1-1v-1a1 1 0 0 1 .106-.447L8 9.764V5a1 1 0 0 1 .117-1.993L8 3h8Z"/></svg>
+<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"><path fill="#ffffff" d="M11 4h2v8h2v2h-2v2h-2v-2H9v-2h2V4zm-2 8H7v-2h2v2zm6 0v-2h2v2h-2zM4 18h16v2H4v-2z"/></svg>
 );
 const IconFolder = () => (
-    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24"><path fill="currentColor" d="M4 4h8l2 2h6v14H4V4zm0 2v12h14V8h-5l-2-2H4z"/></svg>
+<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"><path fill="#ffffff" d="M4 4h8v2h10v14H2V4h2zm16 4H10V6H4v12h16V8z"/></svg>
 );
 const IconCheckCircle = () => (
     <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"><path fill="#2b95ff" d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10s10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5l1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/></svg>
@@ -1796,7 +1794,7 @@ function Chat({ socket, username, room, setRoom, handleLogout }) {
                         placeholder="Опишите проблему, шаги воспроизведения..." 
                         value={bugDescription}
                         onChange={(e) => setBugDescription(e.target.value)}
-                        style={{border: '1px solid #444', borderRadius: 8, padding: 10, resize: 'none'}}
+                        style={{border: '1px solid #444', borderRadius: 8, padding: 10, resize: 'none', width: '-webkit-fill-available'}}
                     />
                     <input 
                         type="file" 
