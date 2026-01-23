@@ -1678,7 +1678,7 @@ function Chat({ socket, username, room, setRoom, handleLogout }) {
 
         {activeModal === "notifications" && (
             <Modal title="Уведомления" onClose={() => { setActiveModal(null); setHasUnreadNotifs(false); }}>
-                 <div className="settings-list" style={{padding: 0}}>
+                 <div className="settings-list" style={{padding: 0 , marginTop: '100px'}}>
                     {notifications.length === 0 && (<div style={{textAlign: 'center', padding: 20, color: '#888'}}>Нет уведомлений</div>)}
                     {notifications.map((notif) => (
                         <div key={notif.id} className="settings-item" style={{ backgroundColor: notif.is_read ? 'transparent' : 'rgba(43, 149, 255, 0.1)', borderBottom: '1px solid #333', flexDirection: 'column', alignItems: 'flex-start', gap: 5 }}>
@@ -1944,7 +1944,7 @@ function Chat({ socket, username, room, setRoom, handleLogout }) {
                 </div>
             )}
 
-            <div className="settings-list" style={{ padding: "0 15px" }}>
+            <div className="settings-list" style={{ padding: "0 15px"}}>
               <div style={{ color: "#8774e1", padding: "10px 0", fontSize: "14px", fontWeight: "bold" }}>Members</div>
               
               {groupMembers.map((m, i) => ( 
