@@ -541,7 +541,7 @@ padding: 0px !important;
   background-size: cover;
   box-shadow: 0 8px 20px rgba(0,0,0,0.4);
   border: 2px solid #2a2a2a;
-
+  margin-top: 100px;
   z-index: 100;
 }
 
