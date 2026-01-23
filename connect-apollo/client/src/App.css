@@ -1013,7 +1013,7 @@ span { align-items: center; }
 
 @media (max-width: 768px) {
  .modal-scroll-container { margin-top: 0px; }
- #search-input { margin-top: 100px; padding-inline: 15px;}
+ #search-input { margin-top: 100px; margin-inline: 15px;}
 }
 
 @media (max-width: 768px) {
