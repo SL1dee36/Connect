@@ -1840,10 +1840,25 @@ function Chat({ socket, username, room, setRoom, handleLogout }) {
         {activeModal === "settings" && (
           <Modal title="My Profile" onClose={() => setActiveModal(null)}>
             <div className="profile-hero"> 
-                <div className="profile-avatar-large" style={getAvatarStyle(myProfile.avatar_url)}>{!myProfile.avatar_url && username[0].toUpperCase()}</div> 
-                <div className="profile-name">{myProfile.display_name || username}</div> 
+                <div className="profile-avatar-background" style={getAvatarStyle(myProfile.avatar_url)}>{!myProfile.avatar_url && username[0].toUpperCase()}
+                    
+                <div className="ProfName">
+                    <div className="profile-name">{myProfile.display_name || username}</div> 
+                    <div className="profile-status"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="#1a7bd6"><path fill="#1a7bd6" d="M4 4h16v12H8V8h8v6h2V6H6v12h14v2H4V4zm10 10v-4h-4v4h4z"/></svg>{username}</div> 
+                </div>
+                <div className="btns">
+                    <button className="change-avatar-btn" onClick={() => avatarInputRef.current.click()}><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"><path fill="#ffffff" d="M4 4H2v16h20V4H4zm16 2v12H4V6h16zM8 8H6v2h2V8zm4 0h4v2h-4V8zm-2 2h2v4h-2v-4zm6 4h2v-4h-2v4zm0 0h-4v2h4v-2z"/></svg></button>
+                    <button className="change-avatar-btn" ><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"><path fill="#ffffff" d="M9 2h2v2H9V2zm4 4V4h-2v2H9v2H7v2H5v2H3v2h2v2h2v2h2v2h2v2h2v-2h2v-2h2v-2h2v6h2V12h-2v-2h-2V8h-2V6h-2zm0 0v2h2v2h2v2h2v2H5v-2h2v-2h2V8h2V6h2z"/></svg></button>
+                    <button className="change-avatar-btn" ><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"><path fill="#ffffff" d="M17 4h2v10h-2V4zm0 12h-2v2h2v2h2v-2h2v-2h-4zm-4-6h-2v10h2V10zm-8 2H3v2h2v6h2v-6h2v-2H5zm8-8h-2v2H9v2h6V6h-2V4zM5 4h2v6H5V4z"/></svg></button>
+                    <button className="change-avatar-btn" ><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"><path fill="#ffffff" d="M12 1h2v8h8v4h-2v-2h-8V5h-2V3h2V1zM8 7V5h2v2H8zM6 9V7h2v2H6zm-2 2V9h2v2H4zm10 8v2h-2v2h-2v-8H2v-4h2v2h8v6h2zm2-2v2h-2v-2h2zm2-2v2h-2v-2h2zm0 0h2v-2h-2v2z"/></svg></button>
+                </div>
+                </div>
+
+                {/* <div className="profile-avatar-large" style={getAvatarStyle(myProfile.avatar_url)}>{!myProfile.avatar_url && username[0].toUpperCase()}</div>  */}
+                {/* <div className="profile-name">{myProfile.display_name || username}</div> 
                 <div className="profile-status"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="#1a7bd6"><path fill="#1a7bd6" d="M4 4h16v12H8V8h8v6h2V6H6v12h14v2H4V4zm10 10v-4h-4v4h4z"/></svg>{username}</div> 
-                <button className="change-avatar-btn" onClick={() => avatarInputRef.current.click()}>Set Profile Photo</button> 
+                  */}
+                
             </div>
             
             <div className="settings-list">
@@ -1887,7 +1902,7 @@ function Chat({ socket, username, room, setRoom, handleLogout }) {
             </div>
             <div className="avatar-history" style={{ padding: "0 20px" }}>
               <h4>История аватаров</h4>
-              <div className="avatar-history-container"> {avatarHistory.map((avatar) => ( <div key={avatar.id} className="avatar-history-item"> <img src={avatar.avatar_url} alt="old avatar" onClick={() => setImageModalSrc(avatar.avatar_url)} /> <button className="delete-avatar-btn" onClick={() => socket.emit("delete_avatar", { avatarId: avatar.id })}>🗑</button> </div> ))} </div>
+              <div className="avatar-history-container"> {avatarHistory.map((avatar) => ( <div key={avatar.id} className="avatar-history-item"> <img src={avatar.avatar_url} alt="old avatar" onClick={() => setImageModalSrc(avatar.avatar_url)} /> <button className="delete-avatar-btn" onClick={() => socket.emit("delete_avatar", { avatarId: avatar.id })}>⨉</button> </div> ))} </div>
             </div>
             <div style={{ padding: "0 20px 20px 20px" }}> <button className="btn-primary" style={{ width: "100%" }} onClick={saveProfile}>Save Changes</button> <button className="btn-danger" style={{ marginTop: 10, textAlign: "center" }} onClick={handleLogout}>Log Out</button> </div>
           </Modal>
