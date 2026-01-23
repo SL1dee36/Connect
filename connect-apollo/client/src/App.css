@@ -665,6 +665,8 @@ padding: 0px !important;
 
 /* --- MOBILE RESPONSIVE (FULL SCREEN SHEET) --- */
 @media (max-width: 768px) {
+  .glass-chat-background{ display: none !important; }
+  .chat-input-background{ display: none !important; }
   .modal-overlay {
     align-items: flex-end; /* Прижимаем к низу */
     background: rgba(0,0,0,0.6);
