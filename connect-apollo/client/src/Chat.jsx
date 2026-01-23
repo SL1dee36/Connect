@@ -1707,7 +1707,7 @@ function Chat({ socket, username, room, setRoom, handleLogout }) {
         {/* --- MODAL FOR CREATING FOLDER --- */}
         {activeModal === "createFolder" && (
             <Modal title="Новая папка" onClose={() => setActiveModal(null)}>
-                <input 
+                <input id="search-input"
                     className="modal-input" 
                     placeholder="Название папки..." 
                     value={newFolderName} 
@@ -1720,14 +1720,14 @@ function Chat({ socket, username, room, setRoom, handleLogout }) {
         {/* --- MODAL FOR EDITING FOLDER --- */}
         {activeModal === "editFolder" && folderToEdit && (
             <Modal title={`Папка: ${folderToEdit.name}`} onClose={() => setActiveModal(null)}>
-                <button className="btn-danger" onClick={() => removeFolder(folderToEdit.id)}>Удалить папку</button>
+                <button className="btn-danger" id="search-input" onClick={() => removeFolder(folderToEdit.id)}>Удалить папку</button>
             </Modal>
         )}
 
         {/* --- MODAL FOR ADDING TO FOLDER --- */}
         {activeModal === "addToFolder" && (
             <Modal title="Добавить в папку" onClose={() => setActiveModal(null)}>
-                <div className="settings-list">
+                <div className="settings-list" id="search-input">
                     {folders.map(f => (
                         <div key={f.id} className="settings-item" onClick={() => handleAddToFolder(f.id)}>
                             <div className="settings-label">{f.name}</div>
@@ -1749,11 +1749,11 @@ function Chat({ socket, username, room, setRoom, handleLogout }) {
           </Modal>
         )}
 
-        {activeModal === "createGroup" && (<Modal title="Создать группу" onClose={() => setActiveModal(null)}> <input className="modal-input" placeholder="Название..." value={newChatName} onChange={(e) => setNewChatName(e.target.value)} /> <button className="btn-primary" onClick={() => { if (newChatName) socket.emit("create_group", { room: newChatName, username }); }}> Создать </button> </Modal>)}
+        {activeModal === "createGroup" && (<Modal title="Создать группу" onClose={() => setActiveModal(null)}> <input id="search-input" className="modal-input" placeholder="Название..." value={newChatName} onChange={(e) => setNewChatName(e.target.value)} /> <button className="btn-primary" onClick={() => { if (newChatName) socket.emit("create_group", { room: newChatName, username }); }}> Создать </button> </Modal>)}
 
         {activeModal === "searchGroup" && (
           <Modal title="Поиск групп" onClose={() => { setActiveModal(null); setSearchGroupResults([]); setSearchQuery(""); }}>
-            <input className="modal-input" placeholder="Название..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} />
+            <input id="search-input" className="modal-input" placeholder="Название..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} />
             {isSearching && (<div style={{ textAlign: "center", color: "#888", padding: 10 }}>Поиск...</div>)}
             <div className="search-results">
               {searchGroupResults.length === 0 && searchQuery && !isSearching && (<div style={{ textAlign: "center", color: "#666", padding: 10 }}>Ничего не найдено</div>)}
@@ -1766,14 +1766,14 @@ function Chat({ socket, username, room, setRoom, handleLogout }) {
 
         {activeModal === "addFriend" && (
           <Modal title="Поиск людей" onClose={() => { setActiveModal(null); setSearchResults([]); setSearchQuery(""); }}>
-            <input className="modal-input" placeholder="@nametag или имя..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} />
+            <input className="modal-input" id="search-input" placeholder="@nametag или имя..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} />
             {isSearching && (<div style={{ textAlign: "center", color: "#888", padding: 10 }}>Поиск...</div>)}
             <div className="search-results">
               {searchResults.length === 0 && searchQuery && !isSearching && (<div style={{ textAlign: "center", color: "#666", padding: 10 }}>Ничего не найдено</div>)}
               {searchResults.map((u, i) => (
                 <div key={i} className="search-item">
                   <div className="member-info"> <div className="friend-avatar" style={{ fontSize: 12, backgroundImage: `url(${u.avatar_url})` }}>{!u.avatar_url && u.username[0]}</div> 
-                    <div style={{display: 'flex', flexDirection: 'column', alignItems: 'flex-start', justifyContent: 'space-evenly'}}>
+                    <div style={{display: 'flex', flexDirection: 'column', alignItems: 'flex-start', justifyContent: 'space-evenly' }}>
                         <span style={{lineHeight: 1}}>{u.display_name}</span>
                         <span style={{fontSize: 11, color: '#888'}}>@{u.username}</span>
                     </div>
@@ -1787,7 +1787,7 @@ function Chat({ socket, username, room, setRoom, handleLogout }) {
 
         {activeModal === "reportBug" && (
             <Modal title="Сообщить о баге" onClose={() => setActiveModal(null)}>
-                <div style={{padding: 20, display: 'flex', flexDirection: 'column', gap: 15}}>
+                <div style={{padding: 20, display: 'flex', flexDirection: 'column', gap: 15, marginTop: '100px'}}>
                     <textarea 
                         className="modal-input" 
                         rows={5} 

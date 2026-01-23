@@ -673,7 +673,7 @@ padding: 0px !important;
 .btn-danger:hover { background: rgba(255, 89, 89, 0.1); }
 
 /* --- Grid кнопок действий --- */
-.action-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; padding: 24px;}
+.action-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; padding: 24px; margin-top: 80px;}
 .action-card {
     background: #2c2c2c;
     padding: 15px;
@@ -1003,12 +1003,14 @@ span { align-items: center; }
 .member-info { display: flex; gap: 8px; }
 .search-item button { height: 50px; border-radius: 12px; }
 
+
 .modal-input textarea {
   width: -webkit-fill-available;
 }
 
 @media (max-width: 768px) {
  .modal-scroll-container { margin-top: 0px; }
+ #search-input { margin-top: 100px; padding-inline: 15px;}
 }
 
 @media (max-width: 768px) {

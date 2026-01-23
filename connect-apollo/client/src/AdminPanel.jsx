@@ -90,7 +90,7 @@ const AdminPanel = ({ token, onClose, socket }) => {
 
     return (
         <Modal title="Admin Control Panel" onClose={onClose}>
-            <div style={{ display: 'flex', gap: 10, padding: '0 20px 20px' }}>
+            <div style={{ display: 'flex', gap: 10, padding: '0 20px 20px', marginTop: '100px'}}>
                 <button className={`folder-tab ${activeTab === 'users' ? 'active' : ''}`} onClick={() => setActiveTab('users')}>Users</button>
                 <button className={`folder-tab ${activeTab === 'badges' ? 'active' : ''}`} onClick={() => setActiveTab('badges')}>Badges</button>
             </div>
