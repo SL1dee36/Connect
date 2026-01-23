@@ -8,10 +8,21 @@ const DynamicWaveformPlayer = ({ src }) => {
     const [isLoading, setIsLoading] = useState(true);
     
     const audioRef = useRef(null);
+    const waveformRef = useRef(null); // Ref для контейнера волны
 
     useEffect(() => {
+        if (!src) return;
+
         const generateWaveform = async () => {
             setIsLoading(true);
+
+            // Ждем, пока контейнер волны не будет отрисован и не получит ширину благодаря CSS
+            if (!waveformRef.current || waveformRef.current.offsetWidth === 0) {
+                // Если ширина еще 0, попробуем еще раз через мгновение
+                setTimeout(generateWaveform, 50);
+                return;
+            }
+            
             try {
                 const response = await fetch(src);
                 const arrayBuffer = await response.arrayBuffer();
@@ -21,10 +32,21 @@ const DynamicWaveformPlayer = ({ src }) => {
                 const bufferDuration = audioBuffer.duration;
                 setDuration(bufferDuration);
 
-                // ВЫЧИСЛЯЕМ КОЛИЧЕСТВО ПОЛОСОК
-                // Минимум 25, максимум 100. Примерно 2.5 полоски на каждую секунду звука.
-                const calculatedBars = Math.min(100, Math.max(60, Math.floor(bufferDuration * 2.5)));
+                // --- ФИНАЛЬНАЯ ЛОГИКА РАСЧЕТА КОЛИЧЕСТВА СТОЛБИКОВ ---
+
+                // 1. Рассчитываем физический лимит столбиков, исходя из реальной ширины контейнера волны.
+                //    Каждый столбик = 2px ширина + 1px отступ = 3px
+                const availableWidth = waveformRef.current.offsetWidth - 24;
+                const maxBarsByWidth = Math.floor(availableWidth / 3);
                 
+                // 2. Рассчитываем желаемое кол-во столбиков по длине аудио (ваша улучшенная формула).
+                const desiredBarsByDuration = Math.min(120, 40 + Math.floor(bufferDuration * 2));
+                
+                // 3. Выбираем меньшее из двух значений. Это гарантирует, что мы НИКОГДА
+                //    не выйдем за пределы контейнера, но при этом волна будет расти с длиной аудио.
+                const calculatedBars = Math.max(1, Math.min(desiredBarsByDuration, maxBarsByWidth));
+
+
                 const rawData = audioBuffer.getChannelData(0); 
                 const samplesPerBar = Math.floor(rawData.length / calculatedBars);
                 const peaks = [];
@@ -32,26 +54,30 @@ const DynamicWaveformPlayer = ({ src }) => {
                 for (let i = 0; i < calculatedBars; i++) {
                     let max = 0;
                     for (let j = 0; j < samplesPerBar; j++) {
-                        const peak = Math.abs(rawData[i * samplesPerBar + j]);
-                        if (peak > max) max = peak;
+                        const sampleIndex = i * samplesPerBar + j;
+                        if (sampleIndex < rawData.length) {
+                             const peak = Math.abs(rawData[sampleIndex]);
+                             if (peak > max) max = peak;
+                        }
                     }
                     // Высота полоски от 4px до 24px
-                    peaks.push(Math.max(4, max * 30)); 
+                    peaks.push(Math.max(4, max * 24)); 
                 }
                 
                 setWaveform(peaks);
                 setIsLoading(false);
             } catch (err) {
                 console.error("Ошибка генерации волны:", err);
-                setWaveform(new Array(30).fill(5));
+                setWaveform(new Array(30).fill(5)); // Фоллбэк в случае ошибки
                 setIsLoading(false);
             }
         };
 
         generateWaveform();
-    }, [src]);
+    }, [src]); // Запускаем только при смене src
 
     const formatTime = (time) => {
+        if (isNaN(time) || time === Infinity) return '0:00';
         const mins = Math.floor(time / 60);
         const secs = Math.floor(time % 60);
         return `${mins}:${secs < 10 ? '0' : ''}${secs}`;
@@ -59,27 +85,32 @@ const DynamicWaveformPlayer = ({ src }) => {
 
     const togglePlay = (e) => {
         e.stopPropagation();
-        if (isPlaying) audioRef.current.pause();
-        else audioRef.current.play();
+        if (isPlaying) {
+            audioRef.current.pause();
+        } else {
+            audioRef.current.play();
+        }
         setIsPlaying(!isPlaying);
     };
 
     const handleSeek = (e) => {
-        const rect = e.currentTarget.getBoundingClientRect();
+        if (!waveformRef.current) return;
+        const rect = waveformRef.current.getBoundingClientRect();
         const x = e.clientX - rect.left;
         const percentage = x / rect.width;
-        if (audioRef.current.duration) {
+        if (audioRef.current && !isNaN(audioRef.current.duration)) {
             audioRef.current.currentTime = percentage * audioRef.current.duration;
         }
     };
 
     return (
-        <div className="tg-audio-player" style={{ width: 'fit-content' }}>
+        <div className="tg-audio-player">
             <audio 
                 ref={audioRef} 
                 src={src} 
                 onTimeUpdate={() => setCurrentTime(audioRef.current.currentTime)} 
                 onEnded={() => setIsPlaying(false)}
+                onLoadedData={() => setDuration(audioRef.current.duration)}
             />
             
             <button className="tg-play-btn" onClick={togglePlay}>
@@ -91,19 +122,18 @@ const DynamicWaveformPlayer = ({ src }) => {
             </button>
 
             <div className="tg-audio-info">
-                {/* Ширина контейнера волны зависит от количества баров */}
                 <div 
                     className="tg-waveform" 
+                    ref={waveformRef}
                     onClick={handleSeek} 
-                    style={{ width: waveform.length * 4 + 'px' }} 
                 >
                     {isLoading ? (
                         <div className="tg-loading-wave">...</div>
                     ) : (
                         waveform.map((height, i) => {
                             const barProgress = (i / waveform.length) * 100;
-                            const currentProgress = (currentTime / duration) * 100;
-                            const isActive = barProgress <= currentProgress;
+                            const currentProgress = (duration > 0 ? (currentTime / duration) : 0) * 100;
+                            const isActive = barProgress < currentProgress;
                             return (
                                 <div 
                                     key={i} 
@@ -115,7 +145,8 @@ const DynamicWaveformPlayer = ({ src }) => {
                     )}
                 </div>
                 <div className="tg-meta">
-                    {formatTime(currentTime || duration)} <span>Голосовое сообщение</span>
+                    <span>{formatTime(duration)}</span> 
+                    <span>Голосовое сообщение</span>
                 </div>
             </div>
         </div>
