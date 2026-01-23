@@ -826,7 +826,7 @@ padding: 0px !important;
     /* align-items: flex-start; */
     flex-direction: column;
     justify-content: flex-end;
-    margin-top: 80px;
+    /* margin-top: 80px; */
     /* padding: 20px; */
   }
   
@@ -1008,7 +1008,7 @@ span { align-items: center; }
 }
 
 @media (max-width: 768px) {
- .modal-scroll-container { margin-top: 80px; }
+ .modal-scroll-container { margin-top: 0px; }
 }
 
 @media (max-width: 768px) {
