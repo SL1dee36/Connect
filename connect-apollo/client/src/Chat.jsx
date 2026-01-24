@@ -1157,101 +1157,104 @@ function Chat({ socket, username, room, setRoom, handleLogout }) {
     // let mediaStream = null;
     // let recordedChunks = [];
 
-    // 2. Старт записи
+    // 2. Старт записи (ИСПРАВЛЕННАЯ ВЕРСИЯ)
     const startRecordingProcess = async () => {
-    try {
-        // Защита от двойного старта
-        if (mediaRecorder && mediaRecorder.state === "recording") return;
-
-        recordedChunks = [];
-
-        // 1. Получаем видео + аудио
-        mediaStream = await navigator.mediaDevices.getUserMedia({
-        video: {
-            facingMode: "user",
-            width: { ideal: 720 },
-            height: { ideal: 720 }
-        },
-        audio: {
-            echoCancellation: true,
-            noiseSuppression: true
-        }
-        });
-
-        // 2. Проверяем поддержку mimeType
-        const mimeType = MediaRecorder.isTypeSupported(
-        "video/webm;codecs=vp8,opus"
-        )
-        ? "video/webm;codecs=vp8,opus"
-        : "video/webm";
-
-        // 3. Создаём MediaRecorder
-        mediaRecorder = new MediaRecorder(mediaStream, {
-        mimeType,
-        videoBitsPerSecond: 2_500_000
-        });
-
-        // 4. Собираем чанки
-        mediaRecorder.ondataavailable = (event) => {
-        if (event.data && event.data.size > 0) {
-            recordedChunks.push(event.data);
-        }
-        };
-
-        // 5. Обработка завершения записи
-        mediaRecorder.onstop = async () => {
         try {
-            const videoBlob = new Blob(recordedChunks, { type: mimeType });
-            recordedChunks = [];
-
-            // Останавливаем ВСЕ треки
-            mediaStream.getTracks().forEach((t) => t.stop());
-            mediaStream = null;
-
-            // 6. Загрузка на сервер
-            const formData = new FormData();
-            formData.append("file", videoBlob, "video.webm");
-
-            const response = await fetch(`${BACKEND_URL}/upload`, {
-            method: "POST",
-            body: formData
-            });
-
-            if (!response.ok) throw new Error("Upload failed");
-
-            const { url, type } = await response.json();
-
-            // 7. Отправляем сообщение в чат
-            socket.emit("send_message", {
-            room: currentRoom,
-            message: url,
-            type: "video",
-            time: new Date().toISOString(),
-            tempId: crypto.randomUUID()
-            });
+            // Очищаем предыдущие данные
+            if (streamRef.current) {
+                streamRef.current.getTracks().forEach(track => track.stop());
+            }
+            audioChunksRef.current = [];
+    
+            // Устанавливаем правильные constraints в зависимости от режима
+            const constraints = inputMode === 'video'
+                ? {
+                    video: { facingMode: "user", width: { ideal: 480 }, height: { ideal: 480 } },
+                    audio: { echoCancellation: true, noiseSuppression: true }
+                }
+                : { audio: { echoCancellation: true, noiseSuppression: true } };
+    
+            const stream = await navigator.mediaDevices.getUserMedia(constraints);
+            streamRef.current = stream;
+    
+            // Показываем превью с камеры в реальном времени
+            if (inputMode === 'video' && liveVideoRef.current) {
+                liveVideoRef.current.srcObject = stream;
+            }
+            
+            // Определяем поддерживаемый mimeType для лучшей совместимости
+            const options = {};
+            const videoMimeType = ['video/webm;codecs=vp9,opus', 'video/webm;codecs=vp8,opus', 'video/webm'].find(type => MediaRecorder.isTypeSupported(type));
+            const audioMimeType = ['audio/webm', 'audio/ogg;codecs=opus'].find(type => MediaRecorder.isTypeSupported(type));
+            if (inputMode === 'video' && videoMimeType) {
+                options.mimeType = videoMimeType;
+            } else if (inputMode === 'audio' && audioMimeType) {
+                options.mimeType = audioMimeType;
+            }
+    
+            mediaRecorderRef.current = new MediaRecorder(stream, options);
+    
+            mediaRecorderRef.current.ondataavailable = (event) => {
+                if (event.data.size > 0) {
+                    audioChunksRef.current.push(event.data);
+                }
+            };
+    
+            mediaRecorderRef.current.onstop = () => {
+                const mimeType = mediaRecorderRef.current.mimeType || (inputMode === 'video' ? 'video/webm' : 'audio/webm');
+                const mediaBlob = new Blob(audioChunksRef.current, { type: mimeType });
+                const mediaUrl = URL.createObjectURL(mediaBlob);
+                
+                // Передаем blob в состояние для предпросмотра
+                setRecordedMedia({
+                    blob: mediaBlob,
+                    url: mediaUrl,
+                    type: inputMode, // 'audio' или 'video'
+                    duration: recordingTimeRef.current
+                });
+    
+                // Останавливаем превью и стрим
+                if (liveVideoRef.current) {
+                    liveVideoRef.current.srcObject = null;
+                }
+                if (streamRef.current) {
+                    streamRef.current.getTracks().forEach(track => track.stop());
+                    streamRef.current = null;
+                }
+            };
+    
+            mediaRecorderRef.current.start();
+            setIsRecording(true);
+            setRecordingTime(0);
+            recordingTimeRef.current = 0; // Используем ref для точного значения в onstop
+            timerIntervalRef.current = setInterval(() => {
+                setRecordingTime(prev => {
+                    const newTime = prev + 1;
+                    recordingTimeRef.current = newTime;
+                    return newTime;
+                });
+            }, 1000);
+    
         } catch (err) {
-            console.error("Video send error:", err);
+            console.error("Ошибка начала записи:", err);
+            alert("Не удалось получить доступ к камере или микрофону.");
+            setIsRecording(false);
+            setIsLocked(false);
         }
-        };
-
-        // 6. Старт записи
-        mediaRecorder.start();
-
-    } catch (err) {
-        console.error("startRecordingProcess error:", err);
-        alert("Не удалось получить доступ к камере или микрофону");
-    }
     };
 
 
     // 3. Стоп записи (переход к предпросмотру)
     const stopRecordingProcess = () => {
-        if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
-            mediaRecorderRef.current.stop();
-        }
+        // if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
+        //     mediaRecorderRef.current.stop();
+        // }
         setIsRecording(false);
         setIsLocked(false);
         clearInterval(timerIntervalRef.current);
+        if (mediaRecorderRef.current && mediaRecorderRef.current.state === 'recording') {
+            mediaRecorderRef.current.stop();
+        }
     };
 
     // 4. Отмена (удаление)
@@ -1259,21 +1262,24 @@ function Chat({ socket, username, room, setRoom, handleLogout }) {
         // Clear everything first to update UI
         setIsRecording(false);
         setIsLocked(false);
+        setRecordedMedia(null);
         clearInterval(timerIntervalRef.current);
         
         if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
+            mediaRecorderRef.current.onstop = null;
             mediaRecorderRef.current.stop();
         }
         
         setRecordedMedia(null);
-        
+        audioChunksRef.current = [];
+
+        // Stop stream and release camera/mic
         if (streamRef.current) {
             streamRef.current.getTracks().forEach(track => track.stop());
             streamRef.current = null;
         }
     };
 
-    // 5. Отправка медиа
     // 5. Отправка медиа
     const sendRecordedContent = async () => {
         if (!recordedMedia) return;
