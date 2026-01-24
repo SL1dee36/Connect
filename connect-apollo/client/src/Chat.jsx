@@ -1152,81 +1152,97 @@ function Chat({ socket, username, room, setRoom, handleLogout }) {
         }
     };
 
+    // Глобальные / useRef переменные, которые ДОЛЖНЫ существовать
+    // let mediaRecorder = null;
+    // let mediaStream = null;
+    // let recordedChunks = [];
+
     // 2. Старт записи
     const startRecordingProcess = async () => {
-        try {
-            // Фиксируем текущий режим в локальной переменной, чтобы onstop его не "потерял"
-            const currentMode = inputMode; 
-            
-            const constraints = currentMode === 'video' 
-                ? { audio: true, video: { facingMode: "user", width: { ideal: 480 }, height: { ideal: 480 } } }
-                : { audio: true };
-            
-            const stream = await navigator.mediaDevices.getUserMedia(constraints);
-            streamRef.current = stream;
+    try {
+        // Защита от двойного старта
+        if (mediaRecorder && mediaRecorder.state === "recording") return;
 
-            if (currentMode === 'video' && liveVideoRef.current) {
-                liveVideoRef.current.srcObject = stream;
-                // Для мобилок обязательно вызываем play() явно
-                liveVideoRef.current.play().catch(e => console.error("Live video play failed", e));
-            }
+        recordedChunks = [];
 
-            // Выбор поддерживаемого формата (iOS фикс)
-            let mimeType = currentMode === 'video' ? 'video/webm' : 'audio/webm';
-            if (currentMode === 'video' && !MediaRecorder.isTypeSupported(mimeType)) {
-                mimeType = 'video/mp4'; // Фоллбэк для Safari/iOS
-            }
-            if (!MediaRecorder.isTypeSupported(mimeType)) {
-                mimeType = ''; // Браузер сам выберет лучший
-            }
-            
-            const recorder = new MediaRecorder(stream, { mimeType });
-            mediaRecorderRef.current = recorder;
-            audioChunksRef.current = [];
-
-            recorder.ondataavailable = (event) => {
-                if (event.data.size > 0) audioChunksRef.current.push(event.data);
-            };
-
-            recorder.onstop = () => {
-                // Если streamRef пустой — значит запись была отменена (cancelRecording)
-                if (!streamRef.current && audioChunksRef.current.length === 0) return;
-
-                const finalBlob = new Blob(audioChunksRef.current, { type: recorder.mimeType });
-                const finalUrl = URL.createObjectURL(finalBlob);
-                const finalDuration = recordingTimeRef.current;
-
-                setRecordedMedia({
-                    blob: finalBlob,
-                    url: finalUrl,
-                    type: currentMode, // Используем зафиксированный currentMode
-                    duration: finalDuration
-                });
-                
-                // Останавливаем камеру/микрофон
-                if (streamRef.current) {
-                    streamRef.current.getTracks().forEach(track => track.stop());
-                    streamRef.current = null;
-                }
-            };
-
-            recorder.start();
-            setIsRecording(true);
-            setIsLocked(false);
-            setRecordingTime(0);
-            recordingTimeRef.current = 0;
-            
-            if (timerIntervalRef.current) clearInterval(timerIntervalRef.current);
-            timerIntervalRef.current = setInterval(() => {
-                recordingTimeRef.current += 1;
-                setRecordingTime(recordingTimeRef.current);
-            }, 1000);
-
-        } catch (err) {
-            console.error("Recording error:", err);
-            alert("Ошибка доступа: убедитесь, что камера/микрофон разрешены в настройках.");
+        // 1. Получаем видео + аудио
+        mediaStream = await navigator.mediaDevices.getUserMedia({
+        video: {
+            facingMode: "user",
+            width: { ideal: 720 },
+            height: { ideal: 720 }
+        },
+        audio: {
+            echoCancellation: true,
+            noiseSuppression: true
         }
+        });
+
+        // 2. Проверяем поддержку mimeType
+        const mimeType = MediaRecorder.isTypeSupported(
+        "video/webm;codecs=vp8,opus"
+        )
+        ? "video/webm;codecs=vp8,opus"
+        : "video/webm";
+
+        // 3. Создаём MediaRecorder
+        mediaRecorder = new MediaRecorder(mediaStream, {
+        mimeType,
+        videoBitsPerSecond: 2_500_000
+        });
+
+        // 4. Собираем чанки
+        mediaRecorder.ondataavailable = (event) => {
+        if (event.data && event.data.size > 0) {
+            recordedChunks.push(event.data);
+        }
+        };
+
+        // 5. Обработка завершения записи
+        mediaRecorder.onstop = async () => {
+        try {
+            const videoBlob = new Blob(recordedChunks, { type: mimeType });
+            recordedChunks = [];
+
+            // Останавливаем ВСЕ треки
+            mediaStream.getTracks().forEach((t) => t.stop());
+            mediaStream = null;
+
+            // 6. Загрузка на сервер
+            const formData = new FormData();
+            formData.append("file", videoBlob, "video.webm");
+
+            const response = await fetch(`${BACKEND_URL}/upload`, {
+            method: "POST",
+            body: formData
+            });
+
+            if (!response.ok) throw new Error("Upload failed");
+
+            const { url, type } = await response.json();
+
+            // 7. Отправляем сообщение в чат
+            socket.emit("send_message", {
+            room: currentRoom,
+            message: url,
+            type: "video",
+            time: new Date().toISOString(),
+            tempId: crypto.randomUUID()
+            });
+        } catch (err) {
+            console.error("Video send error:", err);
+        }
+        };
+
+        // 6. Старт записи
+        mediaRecorder.start();
+
+    } catch (err) {
+        console.error("startRecordingProcess error:", err);
+        alert("Не удалось получить доступ к камере или микрофону");
+    }
     };
+
 
     // 3. Стоп записи (переход к предпросмотру)
     const stopRecordingProcess = () => {

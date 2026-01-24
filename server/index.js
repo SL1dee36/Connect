@@ -339,17 +339,38 @@ const processImage = async (buf) => {
 
 app.post("/upload", upload.single("file"), async (req, res) => {
   if (!req.file) return res.status(400).json({ message: "No file" });
+
   try {
-    const url = req.file.mimetype.startsWith("image/")
-      ? await processImage(req.file.buffer)
-      : `${BACKEND_URL}/uploads/${Date.now()}.webm`;
-    if (!req.file.mimetype.startsWith("image/"))
-      fs.writeFileSync(path.join(uploadDir, path.basename(url)), req.file.buffer);
-    res.json({ url });
+    let url = "";
+    let type = "file";
+
+    if (req.file.mimetype.startsWith("image/")) {
+      url = await processImage(req.file.buffer);
+      type = "image";
+    } 
+    else if (req.file.mimetype.startsWith("video/")) {
+      const name = `${Date.now()}-${Math.round(Math.random() * 1e9)}.webm`;
+      fs.writeFileSync(path.join(uploadDir, name), req.file.buffer);
+      url = `${BACKEND_URL}/uploads/${name}`;
+      type = "video";
+    } 
+    else if (req.file.mimetype.startsWith("audio/")) {
+      const name = `${Date.now()}-${Math.round(Math.random() * 1e9)}.webm`;
+      fs.writeFileSync(path.join(uploadDir, name), req.file.buffer);
+      url = `${BACKEND_URL}/uploads/${name}`;
+      type = "audio";
+    } 
+    else {
+      return res.status(400).json({ message: "Unsupported file type" });
+    }
+
+    res.json({ url, type });
   } catch (e) {
+    console.error(e);
     res.status(500).json({ message: "Upload failed" });
   }
 });
+
 
 app.post("/upload-multiple", upload.array("files", 10), async (req, res) => {
   if (!req.files) return res.status(400).json({ message: "No files" });
