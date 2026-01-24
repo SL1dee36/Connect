@@ -3,11 +3,11 @@ import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import Modal from "./custom/Modal";
 import CustomAudioPlayer from "./custom/CustomAudioPlayer";
-import CustomVideoPlayer from "./custom/CustomVideoPlayer";
+import CustomVideoPlayer from "./custom/CustomVideoPlayer"; 
 import Cropper from 'react-easy-crop';
 import { registerPushNotifications } from "./custom/pushSubscription";
 import rehypeSanitize from 'rehype-sanitize';
-import AdminPanel from "./AdminPanel"; // Импорт панели администратора
+import AdminPanel from "./AdminPanel";
 
 const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || "http://localhost:3001";
 
@@ -128,11 +128,13 @@ const MessageItem = React.memo(({ msg, username, display_name, setImageModalSrc,
     if (msg.type === 'video') {
         let videoData = { url: msg.message, shape: 'circle' };
         try {
+            // Attempt to parse JSON. If it's a raw URL (old message or error), catch block handles it
             const parsed = JSON.parse(msg.message);
             if (parsed.url) videoData = parsed;
         } catch (e) {
             videoData.url = msg.message;
         }
+        
         content = (
             <CustomVideoPlayer 
                 src={videoData.url} 
@@ -1079,8 +1081,40 @@ function Chat({ socket, username, room, setRoom, handleLogout }) {
     // REFS FOR TOUCH/MOUSE HANDLING
     const lastTouchTimeRef = useRef(0); // Добавляем этот ref для фикса двойного клика
     const recordingTimeRef = useRef(0);
-    // 1. Нажатие на кнопку (Клик - переключение, Удержание - запись)
-    // --- 1. ЛОГИКА ЖЕСТОВ (МЫШЬ + ТАЧ) ---
+    
+    // FIX 2: Create a fake black video stream if camera is missing
+    const createFakeVideoStream = (audioStream) => {
+        const canvas = document.createElement('canvas');
+        canvas.width = 480;
+        canvas.height = 480;
+        const ctx = canvas.getContext('2d');
+        const stream = canvas.captureStream(30); // 30 FPS
+
+        // Add audio tracks if available
+        if (audioStream) {
+            audioStream.getAudioTracks().forEach(track => stream.addTrack(track));
+        }
+
+        // Draw black loop to keep the stream active
+        const draw = () => {
+            ctx.fillStyle = '#000'; // Black
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            requestAnimationFrame(draw);
+        };
+        draw();
+        return stream;
+    };
+
+    // --- EFFECT: Attach Stream to Video Preview when Recording Starts ---
+    // This fixes the mobile issue where the video element renders AFTER we tried to set srcObject
+    useEffect(() => {
+        if (isRecording && inputMode === 'video' && liveVideoRef.current && streamRef.current) {
+            liveVideoRef.current.srcObject = streamRef.current;
+            // Force mute for mobile autoplay policy
+            liveVideoRef.current.muted = true; 
+            liveVideoRef.current.play().catch(e => console.log("Preview play error:", e));
+        }
+    }, [isRecording, inputMode]);
 
     const handleRecordStart = (e) => {
         const now = Date.now();
@@ -1142,10 +1176,6 @@ function Chat({ socket, username, room, setRoom, handleLogout }) {
              }
         } else {
              // Таймер сработал -> Мы писали
-             
-             // ЛОГИКА ПК И МОБИЛОК:
-             // Если запись шла и НЕ залочена (на ПК она никогда не лочится сама)
-             // То при отпускании мы останавливаем запись и идем в превью.
              if (isRecording && !isLocked) {
                  stopRecordingProcess(); 
              }
@@ -1159,13 +1189,22 @@ function Chat({ socket, username, room, setRoom, handleLogout }) {
                 ? { audio: true, video: { facingMode: "user", aspectRatio: 1, width: 480, height: 480 } }
                 : { audio: true };
             
-            const stream = await navigator.mediaDevices.getUserMedia(constraints);
-            streamRef.current = stream;
-
-            if (inputMode === 'video' && liveVideoRef.current) {
-                liveVideoRef.current.srcObject = stream;
-                liveVideoRef.current.play();
+            let stream;
+            
+            try {
+                stream = await navigator.mediaDevices.getUserMedia(constraints);
+            } catch (cameraError) {
+                // FALLBACK FOR NO CAMERA: Request Audio Only + Fake Video
+                if (inputMode === 'video') {
+                    console.warn("Camera failed, using fallback black screen with audio.");
+                    const audioStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                    stream = createFakeVideoStream(audioStream);
+                } else {
+                    throw cameraError;
+                }
             }
+
+            streamRef.current = stream;
 
             const mimeType = inputMode === 'video' ? 'video/webm;codecs=vp8,opus' : 'audio/webm';
             const recorder = new MediaRecorder(stream, { mimeType });
