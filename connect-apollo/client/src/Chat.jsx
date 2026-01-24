@@ -1152,107 +1152,82 @@ function Chat({ socket, username, room, setRoom, handleLogout }) {
         }
     };
 
-    // Глобальные / useRef переменные, которые ДОЛЖНЫ существовать
-    // let mediaRecorder = null;
-    // let mediaStream = null;
-    // let recordedChunks = [];
-
-    // 2. Старт записи (ИСПРАВЛЕННАЯ ВЕРСИЯ)
+    // 2. Старт записи
     const startRecordingProcess = async () => {
         try {
-            // Очищаем предыдущие данные
-            if (streamRef.current) {
-                streamRef.current.getTracks().forEach(track => track.stop());
-            }
-            audioChunksRef.current = [];
-    
-            // Устанавливаем правильные constraints в зависимости от режима
-            const constraints = inputMode === 'video'
-                ? {
-                    // Устанавливаем разрешение 720x720
-                    video: { facingMode: "user", width: { ideal: 720 }, height: { ideal: 720 }, aspectRatio: 1 },
-                    audio: { echoCancellation: true, noiseSuppression: true }
-                }
-                : { audio: { echoCancellation: true, noiseSuppression: true } };
-    
+            const constraints = inputMode === 'video' 
+                ? { audio: true, video: { facingMode: "user", aspectRatio: 1, width: 480, height: 480 } }
+                : { audio: true };
+            
             const stream = await navigator.mediaDevices.getUserMedia(constraints);
             streamRef.current = stream;
-    
-            // Показываем превью с камеры в реальном времени
+
             if (inputMode === 'video' && liveVideoRef.current) {
                 liveVideoRef.current.srcObject = stream;
+                liveVideoRef.current.play();
             }
+
+            const mimeType = inputMode === 'video' ? 'video/webm;codecs=vp8,opus' : 'audio/webm';
+            const recorder = new MediaRecorder(stream, { mimeType });
             
-            // Определяем поддерживаемый mimeType для лучшей совместимости
-            const options = {};
-            const videoMimeType = ['video/webm;codecs=vp9,opus', 'video/webm;codecs=vp8,opus', 'video/webm'].find(type => MediaRecorder.isTypeSupported(type));
-            const audioMimeType = ['audio/webm', 'audio/ogg;codecs=opus'].find(type => MediaRecorder.isTypeSupported(type));
-            if (inputMode === 'video' && videoMimeType) {
-                options.mimeType = videoMimeType;
-            } else if (inputMode === 'audio' && audioMimeType) {
-                options.mimeType = audioMimeType;
-            }
-    
-            mediaRecorderRef.current = new MediaRecorder(stream, options);
-    
-            mediaRecorderRef.current.ondataavailable = (event) => {
-                if (event.data.size > 0) {
-                    audioChunksRef.current.push(event.data);
-                }
+            mediaRecorderRef.current = recorder;
+            audioChunksRef.current = [];
+
+            recorder.ondataavailable = (event) => {
+                if (event.data.size > 0) audioChunksRef.current.push(event.data);
             };
-    
-            mediaRecorderRef.current.onstop = () => {
-                const mimeType = mediaRecorderRef.current.mimeType || (inputMode === 'video' ? 'video/webm' : 'audio/webm');
-                const mediaBlob = new Blob(audioChunksRef.current, { type: mimeType });
-                const mediaUrl = URL.createObjectURL(mediaBlob);
+
+            recorder.onstop = () => {
+                if (!streamRef.current && !recordedMedia) return; // Была отмена
+
+                const blob = new Blob(audioChunksRef.current, { type: mimeType });
+                const url = URL.createObjectURL(blob);
                 
-                // Передаем blob в состояние для предпросмотра
+                // ВАЖНО: Берем длительность из REFA, а не из стейта (стейт внутри замыкания может быть старым)
+                const finalDuration = recordingTimeRef.current;
+
                 setRecordedMedia({
-                    blob: mediaBlob,
-                    url: mediaUrl,
-                    type: inputMode, // 'audio' или 'video'
-                    duration: recordingTimeRef.current
+                    blob,
+                    url,
+                    type: inputMode,
+                    duration: finalDuration 
                 });
-    
-                // Останавливаем превью и стрим
-                if (liveVideoRef.current) {
-                    liveVideoRef.current.srcObject = null;
-                }
+                
                 if (streamRef.current) {
                     streamRef.current.getTracks().forEach(track => track.stop());
                     streamRef.current = null;
                 }
+                if (liveVideoRef.current) liveVideoRef.current.srcObject = null;
             };
-    
-            mediaRecorderRef.current.start();
+
+            recorder.start();
             setIsRecording(true);
-            setRecordingTime(0);
-            recordingTimeRef.current = 0; // Используем ref для точного значения в onstop
-            timerIntervalRef.current = setInterval(() => {
-                setRecordingTime(prev => {
-                    const newTime = prev + 1;
-                    recordingTimeRef.current = newTime;
-                    return newTime;
-                });
-            }, 1000);
-    
-        } catch (err) {
-            console.error("Ошибка начала записи:", err);
-            alert("Не удалось получить доступ к камере или микрофону.");
-            setIsRecording(false);
             setIsLocked(false);
+            
+            // Сброс таймеров
+            setRecordingTime(0);
+            recordingTimeRef.current = 0;
+            
+            if (timerIntervalRef.current) clearInterval(timerIntervalRef.current);
+            timerIntervalRef.current = setInterval(() => {
+                recordingTimeRef.current += 1; // Обновляем ref
+                setRecordingTime(recordingTimeRef.current); // Обновляем UI
+            }, 1000);
+
+        } catch (err) {
+            console.error("Recording error:", err);
+            alert("Ошибка доступа к микрофону/камере. Проверьте разрешения.");
         }
     };
 
-
     // 3. Стоп записи (переход к предпросмотру)
     const stopRecordingProcess = () => {
+        if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
+            mediaRecorderRef.current.stop();
+        }
         setIsRecording(false);
         setIsLocked(false);
         clearInterval(timerIntervalRef.current);
-        if (mediaRecorderRef.current && mediaRecorderRef.current.state === 'recording') {
-            mediaRecorderRef.current.stop();
-        }
     };
 
     // 4. Отмена (удаление)
@@ -1260,17 +1235,14 @@ function Chat({ socket, username, room, setRoom, handleLogout }) {
         // Clear everything first to update UI
         setIsRecording(false);
         setIsLocked(false);
-        setRecordedMedia(null);
         clearInterval(timerIntervalRef.current);
-
-        // Stop recorder without triggering onstop preview
+        
         if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
-            mediaRecorderRef.current.onstop = null; // Prevent preview
             mediaRecorderRef.current.stop();
         }
-        audioChunksRef.current = [];
-
-        // Stop stream and release camera/mic
+        
+        setRecordedMedia(null);
+        
         if (streamRef.current) {
             streamRef.current.getTracks().forEach(track => track.stop());
             streamRef.current = null;
@@ -1281,44 +1253,42 @@ function Chat({ socket, username, room, setRoom, handleLogout }) {
     const sendRecordedContent = async () => {
         if (!recordedMedia) return;
 
-        // ВАЖНО: Сохраняем данные в константы ПЕРЕД обнулением стейта
-        const { blob, type } = recordedMedia;
-        const currentShape = videoShape; 
-
         const formData = new FormData();
-        // Бэкенд теперь всегда выдает mp4 для видео
-        const ext = type === 'video' ? 'mp4' : 'webm';
+        const ext = recordedMedia.type === 'video' ? 'webm' : 'webm'; // или mp4/ogg
         const fileName = `msg_${Date.now()}.${ext}`;
-        formData.append('file', blob, fileName);
+        formData.append('file', recordedMedia.blob, fileName);
 
+        // Optimistic UI
         const time = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
         const timestamp = Date.now();
         const tempId = timestamp;
-
-        // Сбрасываем UI сразу для отзывчивости
+        
+        // Для видео мы отправляем JSON с URL и формой
+        let optimisticContent = recordedMedia.url; 
+        
+        // Очистка UI сразу
         setRecordedMedia(null);
         setIsLocked(false);
 
         try {
             const response = await fetch(`${BACKEND_URL}/upload`, { method: 'POST', body: formData });
-            // Важно: получаем тип от сервера, так как он может измениться (webm -> mp4)
             const data = await response.json();
             
             if (data.url) {
                 let finalMessage = data.url;
-                 // Упаковываем в JSON для видео
-                if (data.type === 'video') {
+                if (recordedMedia.type === 'video') {
+                    // Упаковываем в JSON
                     finalMessage = JSON.stringify({
                         url: data.url,
-                        shape: currentShape
+                        shape: videoShape
                     });
                 }
 
                 const optimisticMsg = { 
                     room, 
                     author: username, 
-                    message: finalMessage, 
-                    type: data.type, // Используем тип от сервера
+                    message: recordedMedia.type === 'video' ? finalMessage : data.url, // Используем реальный формат 
+                    type: recordedMedia.type, 
                     time, 
                     timestamp, 
                     status: 'pending', 
@@ -1326,20 +1296,25 @@ function Chat({ socket, username, room, setRoom, handleLogout }) {
                     id: tempId 
                 };
                 
-                // Оптимистично добавляем в чат
-                setMessageList(prev => [...prev, optimisticMsg]);
+                // Для локального отображения
+                const localDisplayMsg = {
+                    ...optimisticMsg,
+                    message: recordedMedia.type === 'video' 
+                        ? JSON.stringify({ url: recordedMedia.url, shape: videoShape }) 
+                        : recordedMedia.url
+                };
+
+                setMessageList(prev => [...prev, localDisplayMsg]);
                 
-                // На сервер шлем сообщение с реальным URL и типом
+                // На сервер шлем реальный URL
                 socket.emit("send_message", optimisticMsg, (res) => { 
                     if (res && res.status === 'ok') {
-                        // Обновляем сообщение, присваивая ему ID от сервера
-                        setMessageList(prev => prev.map(m => m.tempId === tempId ? { ...m, id: res.id, status: 'sent' } : m)); 
+                        setMessageList(prev => prev.map(m => m.tempId === tempId ? { ...m, id: res.id, status: 'sent', message: finalMessage } : m)); 
                     }
                 });
             }
         } catch (err) {
             console.error("Upload failed", err);
-            alert("Не удалось отправить сообщение");
         }
     };
 
@@ -1367,20 +1342,16 @@ function Chat({ socket, username, room, setRoom, handleLogout }) {
                 const response = await fetch(`${BACKEND_URL}/upload-multiple`, { method: 'POST', body: formData });
                 const data = await response.json();
                 if (data.urls && data.urls.length > 0) {
-                    const msgType = data.urls.length === 1 ? 'image' : 'gallery';
-                    const msgContent = data.urls.length === 1 ? data.urls[0] : JSON.stringify(data.urls);
+                    let msgType = data.urls.length === 1 ? 'image' : 'gallery';
+                    let msgContent = data.urls.length === 1 ? data.urls[0] : JSON.stringify(data.urls);
                     const tempId = timestamp + Math.random();
                     const optimisticMsg = { room, author: username, message: msgContent, type: msgType, time, timestamp, status: 'pending', tempId, id: tempId, replyTo: replyData };
                     
-                    // Обновляем превью в списке чатов
                     setChatPreviews(prev => ({ ...prev, [room]: { text: '📷 Изображение', sender: username, time, timestamp, type: 'image' } }));
-                    
                     setMessageList(prev => [...prev, optimisticMsg]);
-                    socket.emit("send_message", optimisticMsg, (res) => { 
-                        if (res && res.status === 'ok') setMessageList(prev => prev.map(m => m.tempId === tempId ? { ...m, id: res.id, status: 'sent' } : m)); 
-                    });
+                    socket.emit("send_message", optimisticMsg, (res) => { if (res && res.status === 'ok') setMessageList(prev => prev.map(m => m.tempId === tempId ? { ...m, id: res.id, status: 'sent' } : m)); });
                 }
-            } catch (err) { console.error(err); }
+            } catch (err) {}
             setAttachedFiles([]);
         }
 
@@ -1391,9 +1362,7 @@ function Chat({ socket, username, room, setRoom, handleLogout }) {
             setChatPreviews(prev => ({ ...prev, [room]: { text: currentMessage, sender: username, time, timestamp, type: 'text' } }));
             setMessageList(prev => [...prev, optimisticMsg]);
             setCurrentMessage("");
-            socket.emit("send_message", optimisticMsg, (res) => { 
-                if (res && res.status === 'ok') setMessageList(prev => prev.map(m => m.tempId === tempId ? { ...m, id: res.id, status: 'sent' } : m)); 
-            });
+            socket.emit("send_message", optimisticMsg, (res) => { if (res && res.status === 'ok') setMessageList(prev => prev.map(m => m.tempId === tempId ? { ...m, id: res.id, status: 'sent' } : m)); });
         }
         setReplyingTo(null);
     };
@@ -2019,18 +1988,7 @@ function Chat({ socket, username, room, setRoom, handleLogout }) {
                                     overflow: 'hidden', border: '4px solid #ff4d4d', zIndex: 999,
                                     background: '#000', boxShadow: '0 4px 15px rgba(0,0,0,0.5)'
                                 }}>
-                                    <video 
-                                        ref={liveVideoRef} 
-                                        muted 
-                                        autoPlay 
-                                        playsInline // КРИТИЧНО
-                                        style={{
-                                            width: '100%', 
-                                            height: '100%', 
-                                            objectFit: 'cover', 
-                                            transform: 'scaleX(-1)' // Зеркало для фронталки
-                                        }} 
-                                    />
+                                    <video ref={liveVideoRef} muted autoPlay playsInline style={{width: '100%', height: '100%', objectFit: 'cover', transform: 'scaleX(-1)'}} />
                                 </div>
                             )}
 
