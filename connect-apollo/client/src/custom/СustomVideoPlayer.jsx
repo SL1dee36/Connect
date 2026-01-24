@@ -83,10 +83,12 @@ const CustomVideoPlayer = ({ src, shape = 'circle', width = '260px', className =
                     style={{
                         width: '100%',
                         height: '100%',
-                        objectFit: 'cover', // Важно: заполняет фигуру
-                        display: 'block'
+                        objectFit: 'cover',
+                        display: 'block',
+                        backgroundColor: '#000' // Чтобы не было белой вспышки
                     }}
-                    playsInline
+                    playsInline  // КРИТИЧНО ДЛЯ IOS
+                    webkit-playsinline="true" // ДЛЯ СТАРЫХ SAFARI
                     loop
                     muted={isMuted}
                     onPlay={() => setIsPlaying(true)}

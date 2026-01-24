@@ -1155,21 +1155,32 @@ function Chat({ socket, username, room, setRoom, handleLogout }) {
     // 2. Старт записи
     const startRecordingProcess = async () => {
         try {
-            const constraints = inputMode === 'video' 
-                ? { audio: true, video: { facingMode: "user", aspectRatio: 1, width: 480, height: 480 } }
+            // Фиксируем текущий режим в локальной переменной, чтобы onstop его не "потерял"
+            const currentMode = inputMode; 
+            
+            const constraints = currentMode === 'video' 
+                ? { audio: true, video: { facingMode: "user", width: { ideal: 480 }, height: { ideal: 480 } } }
                 : { audio: true };
             
             const stream = await navigator.mediaDevices.getUserMedia(constraints);
             streamRef.current = stream;
 
-            if (inputMode === 'video' && liveVideoRef.current) {
+            if (currentMode === 'video' && liveVideoRef.current) {
                 liveVideoRef.current.srcObject = stream;
-                liveVideoRef.current.play();
+                // Для мобилок обязательно вызываем play() явно
+                liveVideoRef.current.play().catch(e => console.error("Live video play failed", e));
             }
 
-            const mimeType = inputMode === 'video' ? 'video/webm;codecs=vp8,opus' : 'audio/webm';
-            const recorder = new MediaRecorder(stream, { mimeType });
+            // Выбор поддерживаемого формата (iOS фикс)
+            let mimeType = currentMode === 'video' ? 'video/webm' : 'audio/webm';
+            if (currentMode === 'video' && !MediaRecorder.isTypeSupported(mimeType)) {
+                mimeType = 'video/mp4'; // Фоллбэк для Safari/iOS
+            }
+            if (!MediaRecorder.isTypeSupported(mimeType)) {
+                mimeType = ''; // Браузер сам выберет лучший
+            }
             
+            const recorder = new MediaRecorder(stream, { mimeType });
             mediaRecorderRef.current = recorder;
             audioChunksRef.current = [];
 
@@ -1178,45 +1189,42 @@ function Chat({ socket, username, room, setRoom, handleLogout }) {
             };
 
             recorder.onstop = () => {
-                if (!streamRef.current && !recordedMedia) return; // Была отмена
+                // Если streamRef пустой — значит запись была отменена (cancelRecording)
+                if (!streamRef.current && audioChunksRef.current.length === 0) return;
 
-                const blob = new Blob(audioChunksRef.current, { type: mimeType });
-                const url = URL.createObjectURL(blob);
-                
-                // ВАЖНО: Берем длительность из REFA, а не из стейта (стейт внутри замыкания может быть старым)
+                const finalBlob = new Blob(audioChunksRef.current, { type: recorder.mimeType });
+                const finalUrl = URL.createObjectURL(finalBlob);
                 const finalDuration = recordingTimeRef.current;
 
                 setRecordedMedia({
-                    blob,
-                    url,
-                    type: inputMode,
-                    duration: finalDuration 
+                    blob: finalBlob,
+                    url: finalUrl,
+                    type: currentMode, // Используем зафиксированный currentMode
+                    duration: finalDuration
                 });
                 
+                // Останавливаем камеру/микрофон
                 if (streamRef.current) {
                     streamRef.current.getTracks().forEach(track => track.stop());
                     streamRef.current = null;
                 }
-                if (liveVideoRef.current) liveVideoRef.current.srcObject = null;
             };
 
             recorder.start();
             setIsRecording(true);
             setIsLocked(false);
-            
-            // Сброс таймеров
             setRecordingTime(0);
             recordingTimeRef.current = 0;
             
             if (timerIntervalRef.current) clearInterval(timerIntervalRef.current);
             timerIntervalRef.current = setInterval(() => {
-                recordingTimeRef.current += 1; // Обновляем ref
-                setRecordingTime(recordingTimeRef.current); // Обновляем UI
+                recordingTimeRef.current += 1;
+                setRecordingTime(recordingTimeRef.current);
             }, 1000);
 
         } catch (err) {
             console.error("Recording error:", err);
-            alert("Ошибка доступа к микрофону/камере. Проверьте разрешения.");
+            alert("Ошибка доступа: убедитесь, что камера/микрофон разрешены в настройках.");
         }
     };
 
@@ -1250,23 +1258,25 @@ function Chat({ socket, username, room, setRoom, handleLogout }) {
     };
 
     // 5. Отправка медиа
+    // 5. Отправка медиа
     const sendRecordedContent = async () => {
         if (!recordedMedia) return;
 
-        const formData = new FormData();
-        const ext = recordedMedia.type === 'video' ? 'webm' : 'webm'; // или mp4/ogg
-        const fileName = `msg_${Date.now()}.${ext}`;
-        formData.append('file', recordedMedia.blob, fileName);
+        // ВАЖНО: Сохраняем данные в константы ПЕРЕД обнулением стейта
+        const { blob, type, url } = recordedMedia;
+        const currentShape = videoShape; 
 
-        // Optimistic UI
+        const formData = new FormData();
+        // Используем mp4 для видео (лучшая совместимость), webm для аудио
+        const ext = type === 'video' ? 'mp4' : 'webm';
+        const fileName = `msg_${Date.now()}.${ext}`;
+        formData.append('file', blob, fileName);
+
         const time = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
         const timestamp = Date.now();
         const tempId = timestamp;
-        
-        // Для видео мы отправляем JSON с URL и формой
-        let optimisticContent = recordedMedia.url; 
-        
-        // Очистка UI сразу
+
+        // Сбрасываем UI сразу для отзывчивости
         setRecordedMedia(null);
         setIsLocked(false);
 
@@ -1276,19 +1286,19 @@ function Chat({ socket, username, room, setRoom, handleLogout }) {
             
             if (data.url) {
                 let finalMessage = data.url;
-                if (recordedMedia.type === 'video') {
-                    // Упаковываем в JSON
+                if (type === 'video') {
+                    // Упаковываем в JSON для видео
                     finalMessage = JSON.stringify({
                         url: data.url,
-                        shape: videoShape
+                        shape: currentShape
                     });
                 }
 
                 const optimisticMsg = { 
                     room, 
                     author: username, 
-                    message: recordedMedia.type === 'video' ? finalMessage : data.url, // Используем реальный формат 
-                    type: recordedMedia.type, 
+                    message: finalMessage, 
+                    type: type, // Здесь теперь точно 'video' или 'audio'
                     time, 
                     timestamp, 
                     status: 'pending', 
@@ -1296,12 +1306,12 @@ function Chat({ socket, username, room, setRoom, handleLogout }) {
                     id: tempId 
                 };
                 
-                // Для локального отображения
+                // Для локального отображения (используем blob-url пока грузится)
                 const localDisplayMsg = {
                     ...optimisticMsg,
-                    message: recordedMedia.type === 'video' 
-                        ? JSON.stringify({ url: recordedMedia.url, shape: videoShape }) 
-                        : recordedMedia.url
+                    message: type === 'video' 
+                        ? JSON.stringify({ url: url, shape: currentShape }) 
+                        : url
                 };
 
                 setMessageList(prev => [...prev, localDisplayMsg]);
@@ -1315,6 +1325,7 @@ function Chat({ socket, username, room, setRoom, handleLogout }) {
             }
         } catch (err) {
             console.error("Upload failed", err);
+            alert("Не удалось отправить сообщение");
         }
     };
 
@@ -1342,16 +1353,20 @@ function Chat({ socket, username, room, setRoom, handleLogout }) {
                 const response = await fetch(`${BACKEND_URL}/upload-multiple`, { method: 'POST', body: formData });
                 const data = await response.json();
                 if (data.urls && data.urls.length > 0) {
-                    let msgType = data.urls.length === 1 ? 'image' : 'gallery';
-                    let msgContent = data.urls.length === 1 ? data.urls[0] : JSON.stringify(data.urls);
+                    const msgType = data.urls.length === 1 ? 'image' : 'gallery';
+                    const msgContent = data.urls.length === 1 ? data.urls[0] : JSON.stringify(data.urls);
                     const tempId = timestamp + Math.random();
                     const optimisticMsg = { room, author: username, message: msgContent, type: msgType, time, timestamp, status: 'pending', tempId, id: tempId, replyTo: replyData };
                     
+                    // Обновляем превью в списке чатов
                     setChatPreviews(prev => ({ ...prev, [room]: { text: '📷 Изображение', sender: username, time, timestamp, type: 'image' } }));
+                    
                     setMessageList(prev => [...prev, optimisticMsg]);
-                    socket.emit("send_message", optimisticMsg, (res) => { if (res && res.status === 'ok') setMessageList(prev => prev.map(m => m.tempId === tempId ? { ...m, id: res.id, status: 'sent' } : m)); });
+                    socket.emit("send_message", optimisticMsg, (res) => { 
+                        if (res && res.status === 'ok') setMessageList(prev => prev.map(m => m.tempId === tempId ? { ...m, id: res.id, status: 'sent' } : m)); 
+                    });
                 }
-            } catch (err) {}
+            } catch (err) { console.error(err); }
             setAttachedFiles([]);
         }
 
@@ -1362,7 +1377,9 @@ function Chat({ socket, username, room, setRoom, handleLogout }) {
             setChatPreviews(prev => ({ ...prev, [room]: { text: currentMessage, sender: username, time, timestamp, type: 'text' } }));
             setMessageList(prev => [...prev, optimisticMsg]);
             setCurrentMessage("");
-            socket.emit("send_message", optimisticMsg, (res) => { if (res && res.status === 'ok') setMessageList(prev => prev.map(m => m.tempId === tempId ? { ...m, id: res.id, status: 'sent' } : m)); });
+            socket.emit("send_message", optimisticMsg, (res) => { 
+                if (res && res.status === 'ok') setMessageList(prev => prev.map(m => m.tempId === tempId ? { ...m, id: res.id, status: 'sent' } : m)); 
+            });
         }
         setReplyingTo(null);
     };
@@ -1988,7 +2005,18 @@ function Chat({ socket, username, room, setRoom, handleLogout }) {
                                     overflow: 'hidden', border: '4px solid #ff4d4d', zIndex: 999,
                                     background: '#000', boxShadow: '0 4px 15px rgba(0,0,0,0.5)'
                                 }}>
-                                    <video ref={liveVideoRef} muted autoPlay playsInline style={{width: '100%', height: '100%', objectFit: 'cover', transform: 'scaleX(-1)'}} />
+                                    <video 
+                                        ref={liveVideoRef} 
+                                        muted 
+                                        autoPlay 
+                                        playsInline // КРИТИЧНО
+                                        style={{
+                                            width: '100%', 
+                                            height: '100%', 
+                                            objectFit: 'cover', 
+                                            transform: 'scaleX(-1)' // Зеркало для фронталки
+                                        }} 
+                                    />
                                 </div>
                             )}
 
