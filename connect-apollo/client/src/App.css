@@ -1240,3 +1240,126 @@ p { margin: 0px; }
 .chat-list-scroll-container {
   gap: 0px !important;
 } 
+
+/* --- АНИМАЦИИ ДЛЯ ЗАПИСИ --- */
+
+/* Пульсация красной точки при записи */
+@keyframes pulse {
+    0% { transform: scale(1); opacity: 1; }
+    50% { transform: scale(1.2); opacity: 0.7; }
+    100% { transform: scale(1); opacity: 1; }
+}
+
+/* Анимация иконки замочка (движение вверх и затухание) */
+@keyframes slideUpFade {
+    0% { transform: translateY(0); opacity: 0; }
+    30% { opacity: 1; }
+    100% { transform: translateY(-30px); opacity: 0; }
+}
+
+/* Эффект при наведении на кнопки в превью */
+.tool-btn:active, .send-pill-btn:active {
+    transform: scale(0.95);
+}
+
+/* --- ПАНЕЛЬ ПРЕДПРОСМОТРА (Media Preview) --- */
+
+.media-preview-bar {
+    animation: fadeInQuick 0.2s ease-out;
+}
+
+@keyframes fadeInQuick {
+    from { opacity: 0; transform: translateY(10px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+/* Контейнер для выбора формы видео */
+.shape-selector {
+    box-shadow: 0 4px 15px rgba(0,0,0,0.4);
+    border: 1px solid #333;
+    z-index: 10;
+}
+
+.shape-selector div:hover {
+    background-color: #777 !important;
+}
+
+/* --- ВИДЕО СООБЩЕНИЯ (КРУЖОЧКИ) --- */
+
+.custom-video-wrapper {
+    display: inline-block;
+    vertical-align: middle;
+    /* Убираем лишние отступы */
+    line-height: 0; 
+    margin: 5px 0;
+}
+
+/* Чтобы видео внутри пузырька сообщения не выходило за границы */
+.bubble .custom-video-wrapper {
+    max-width: 100%;
+}
+
+/* Оверлей кнопки Play в видео */
+.custom-video-wrapper:hover .play-overlay {
+    background-color: rgba(0,0,0,0.2);
+}
+
+/* --- СТИЛИ КНОПКИ ЗАПИСИ --- */
+
+.record-btn-container {
+    -webkit-tap-highlight-color: transparent;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+/* Эффект "зажатой" кнопки */
+.record-btn-container:active .mic-btn:not(.recording) {
+    background-color: #444;
+}
+
+.recording-active .mic-btn {
+    background-color: #ff4d4d !important;
+    color: white !important;
+    box-shadow: 0 0 15px rgba(255, 77, 77, 0.4);
+}
+
+.recording-active .mic-btn svg {
+    fill: white !important;
+}
+
+/* --- ЖИВОЕ ПРЕВЬЮ КАМЕРЫ --- */
+
+.live-camera-preview video {
+    /* Зеркальное отображение для фронтальной камеры */
+    transform: scaleX(-1);
+}
+
+/* Скрываем стандартные контроли видео в превью */
+.preview-video video::-webkit-media-controls {
+    display: none !important;
+}
+
+/* --- АДАПТИВНОСТЬ --- */
+
+@media (max-width: 768px) {
+    /* На мобилках делаем превью чуть меньше, чтобы не перекрывало всё */
+    .live-camera-preview {
+        width: 120px !important;
+        height: 120px !important;
+        bottom: 80px !important;
+        right: 15px !important;
+    }
+    
+    .recording-status {
+        font-size: 15px !important;
+    }
+}
+
+/* Стили для Markdown внутри сообщений, чтобы не ломать высоту */
+.markdown-content p {
+    margin-bottom: 4px;
+}
+.markdown-content p:last-child {
+    margin-bottom: 0;
+}

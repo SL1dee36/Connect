@@ -3,6 +3,7 @@ import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import Modal from "./custom/Modal";
 import CustomAudioPlayer from "./custom/CustomAudioPlayer";
+import CustomVideoPlayer from "./custom/CustomAudioPlayer";
 import Cropper from 'react-easy-crop';
 import { registerPushNotifications } from "./custom/pushSubscription";
 import rehypeSanitize from 'rehype-sanitize';
@@ -74,6 +75,9 @@ const IconDrag = () => (
          <path d="M20 6V4H4v2h16zm0 14v-2H4v2h16zM17 8v8h-2V8h2zm-8 6v-4h6V8H7v8h8v-2H9z" />
     </svg>
 );
+const IconCamera = () => (
+    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"><path fill="#aaa" d="M17 10.5V7c0-.55-.45-1-1-1H4c-.55 0-1 .45-1 1v10c0 .55.45 1 1 1h12c.55 0 1-.45 1-1v-3.5l4 4v-11l-4 4z"/></svg>
+);
 
 // --- HELPER FUNCTION FOR TIMER ---
 const formatTime = (seconds) => {
@@ -121,7 +125,22 @@ const MessageItem = React.memo(({ msg, username, display_name, setImageModalSrc,
     const longPressTimerRef = useRef(null);
 
     let content;
-    if (msg.type === 'image') {
+    if (msg.type === 'video') {
+        let videoData = { url: msg.message, shape: 'circle' };
+        try {
+            const parsed = JSON.parse(msg.message);
+            if (parsed.url) videoData = parsed;
+        } catch (e) {
+            videoData.url = msg.message;
+        }
+        content = (
+            <CustomVideoPlayer 
+                src={videoData.url} 
+                shape={videoData.shape || 'circle'} 
+                width="240px" 
+            />
+        );
+    } else if (msg.type === 'image') {
         content = <img src={msg.message} alt="attachment" className="chat-image" loading="lazy" onClick={() => setImageModalSrc(msg.message)} />;
     } else if (msg.type === 'gallery') {
         const images = JSON.parse(msg.message);
@@ -305,8 +324,6 @@ function Chat({ socket, username, room, setRoom, handleLogout }) {
     const [contextMenu, setContextMenu] = useState(null);
     const [imageModalSrc, setImageModalSrc] = useState(null);
     const [attachedFiles, setAttachedFiles] = useState([]); 
-    const [isRecording, setIsRecording] = useState(false);
-    const [recordingTime, setRecordingTime] = useState(0);
     const [totalNetworkUsers, setTotalNetworkUsers] = useState(0);
 
     const [newChatName, setNewChatName] = useState("");
@@ -326,6 +343,27 @@ function Chat({ socket, username, room, setRoom, handleLogout }) {
     const [bugFiles, setBugFiles] = useState([]);
     const [adminBugList, setAdminBugList] = useState([]);
 
+    // --- RECORDING & INPUT STATE ---
+    const [inputMode, setInputMode] = useState('audio'); // 'audio' | 'video'
+    const [isRecording, setIsRecording] = useState(false);
+    const [isLocked, setIsLocked] = useState(false);
+    const [recordingTime, setRecordingTime] = useState(0);
+    const [recordedMedia, setRecordedMedia] = useState(null); // { blob, url, type, duration }
+    const [videoShape, setVideoShape] = useState('circle'); // 'circle', 'heart', 'triangle', 'square'
+    
+    const mediaRecorderRef = useRef(null);
+    const audioChunksRef = useRef([]);
+    const timerIntervalRef = useRef(null);
+    const longPressTimeoutRef = useRef(null);
+    
+    // REFS FOR SWIPE LOGIC
+    const startXRef = useRef(0);
+    const startYRef = useRef(0);
+    const isSwipingToCancelRef = useRef(false);
+    
+    const liveVideoRef = useRef(null); 
+    const streamRef = useRef(null);
+
     // --- State for In-App Notification ---
     const [inAppNotif, setInAppNotif] = useState({ visible: false, title: '', body: '', avatar: null, room: '' });
     const inAppNotifTimeoutRef = useRef(null);
@@ -337,9 +375,7 @@ function Chat({ socket, username, room, setRoom, handleLogout }) {
     const avatarInputRef = useRef(null);
     const previousScrollHeight = useRef(0);
     const textareaRef = useRef(null);
-    const mediaRecorderRef = useRef(null);
-    const audioChunksRef = useRef([]);
-    const timerIntervalRef = useRef(null);
+    
     const [activeMessageId, setActiveMessageId] = useState(null);
     const [swipeX, setSwipeX] = useState(0);
     const isSwiping = useRef(false);
@@ -551,6 +587,34 @@ function Chat({ socket, username, room, setRoom, handleLogout }) {
             } catch (e) { console.error(e); }
         }
     }, [triggerInAppNotification]); 
+
+    const requestMediaPermissions = async (type) => {
+        try {
+            // Запрашиваем доступ к камере и микрофону одновременно
+            const constraints = type === 'video' 
+                ? { audio: true, video: { facingMode: "user" } } 
+                : { audio: true };
+            
+            const stream = await navigator.mediaDevices.getUserMedia(constraints);
+            
+            // Если успешно — сразу выключаем, нам нужно было только разрешение
+            stream.getTracks().forEach(track => track.stop());
+            alert("Доступ к " + (type === 'video' ? "камере и микрофону" : "микрофону") + " получен!");
+        } catch (err) {
+            console.error("Permission denied:", err);
+            alert("Доступ отклонен или устройство не поддерживается.");
+        }
+    };
+
+    const requestFilePermission = () => {
+        // В браузерах нет отдельной кнопки "Разрешить файлы", 
+        // разрешение запрашивается в момент открытия выбора файла.
+        // Мы имитируем этот процесс, чтобы вызвать системный запрос.
+        const input = document.createElement('input');
+        input.type = 'file';
+        input.onchange = () => alert("Доступ к файлам подтвержден!");
+        input.click();
+    };
 
     const requestNotificationPermission = async () => {
         const token = localStorage.getItem("apollo_token");
@@ -1009,43 +1073,252 @@ function Chat({ socket, username, room, setRoom, handleLogout }) {
             }); 
         }
     };
-    const startRecording = async () => {
+
+    // --- NEW RECORDING LOGIC ---
+
+    // REFS FOR TOUCH/MOUSE HANDLING
+    const lastTouchTimeRef = useRef(0); // Добавляем этот ref для фикса двойного клика
+    const recordingTimeRef = useRef(0);
+    // 1. Нажатие на кнопку (Клик - переключение, Удержание - запись)
+    // --- 1. ЛОГИКА ЖЕСТОВ (МЫШЬ + ТАЧ) ---
+
+    const handleRecordStart = (e) => {
+        const now = Date.now();
+        // Блокируем эмуляцию мыши после тача
+        if (e.type === 'mousedown' && now - lastTouchTimeRef.current < 500) return;
+        if (e.type === 'touchstart') lastTouchTimeRef.current = now;
+
+        const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+        const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+        
+        startXRef.current = clientX;
+        startYRef.current = clientY;
+        isSwipingToCancelRef.current = false;
+
+        // Запускаем таймер долгого нажатия
+        longPressTimeoutRef.current = setTimeout(() => {
+            startRecordingProcess();
+        }, 250); 
+    };
+
+    const handleRecordMove = (e) => {
+        if (!isRecording || isLocked) return;
+
+        // --- ПК ФИКС ---
+        // Если это мышь, мы ИГНОРИРУЕМ движение. 
+        // На ПК нет свайпов для лока/отмены, только удержание.
+        if (e.type === 'mousemove') return;
+
+        // Дальше логика только для Touch
+        const clientX = e.touches ? e.touches[0].clientX : 0;
+        const clientY = e.touches ? e.touches[0].clientY : 0;
+
+        const diffY = startYRef.current - clientY; // Вверх
+        const diffX = startXRef.current - clientX; // Влево
+
+        // Порог блокировки (Только тач)
+        if (diffY > 80 && !isSwipingToCancelRef.current) {
+            setIsLocked(true);
+        }
+
+        // Порог отмены (Только тач)
+        if (diffX > 100 && !isLocked) {
+             isSwipingToCancelRef.current = true;
+             cancelRecording(); 
+        }
+    };
+
+    const handleRecordEnd = (e) => {
+        const now = Date.now();
+        if (e.type === 'mouseup' && now - lastTouchTimeRef.current < 500) return;
+
+        if (longPressTimeoutRef.current) {
+             // Таймер не сработал -> Это был Клик -> Переключаем режим
+             clearTimeout(longPressTimeoutRef.current);
+             longPressTimeoutRef.current = null;
+             
+             if (!isRecording) {
+                 setInputMode(prev => prev === 'audio' ? 'video' : 'audio');
+             }
+        } else {
+             // Таймер сработал -> Мы писали
+             
+             // ЛОГИКА ПК И МОБИЛОК:
+             // Если запись шла и НЕ залочена (на ПК она никогда не лочится сама)
+             // То при отпускании мы останавливаем запись и идем в превью.
+             if (isRecording && !isLocked) {
+                 stopRecordingProcess(); 
+             }
+        }
+    };
+
+    // 2. Старт записи
+    const startRecordingProcess = async () => {
         try {
-            const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-            mediaRecorderRef.current = new MediaRecorder(stream);
+            const constraints = inputMode === 'video' 
+                ? { audio: true, video: { facingMode: "user", aspectRatio: 1, width: 480, height: 480 } }
+                : { audio: true };
+            
+            const stream = await navigator.mediaDevices.getUserMedia(constraints);
+            streamRef.current = stream;
+
+            if (inputMode === 'video' && liveVideoRef.current) {
+                liveVideoRef.current.srcObject = stream;
+                liveVideoRef.current.play();
+            }
+
+            const mimeType = inputMode === 'video' ? 'video/webm;codecs=vp8,opus' : 'audio/webm';
+            const recorder = new MediaRecorder(stream, { mimeType });
+            
+            mediaRecorderRef.current = recorder;
             audioChunksRef.current = [];
-            mediaRecorderRef.current.ondataavailable = (event) => { if (event.data.size > 0) audioChunksRef.current.push(event.data); };
-            mediaRecorderRef.current.onstop = sendVoiceMessage;
-            mediaRecorderRef.current.start();
+
+            recorder.ondataavailable = (event) => {
+                if (event.data.size > 0) audioChunksRef.current.push(event.data);
+            };
+
+            recorder.onstop = () => {
+                if (!streamRef.current && !recordedMedia) return; // Была отмена
+
+                const blob = new Blob(audioChunksRef.current, { type: mimeType });
+                const url = URL.createObjectURL(blob);
+                
+                // ВАЖНО: Берем длительность из REFA, а не из стейта (стейт внутри замыкания может быть старым)
+                const finalDuration = recordingTimeRef.current;
+
+                setRecordedMedia({
+                    blob,
+                    url,
+                    type: inputMode,
+                    duration: finalDuration 
+                });
+                
+                if (streamRef.current) {
+                    streamRef.current.getTracks().forEach(track => track.stop());
+                    streamRef.current = null;
+                }
+                if (liveVideoRef.current) liveVideoRef.current.srcObject = null;
+            };
+
+            recorder.start();
             setIsRecording(true);
+            setIsLocked(false);
+            
+            // Сброс таймеров
             setRecordingTime(0);
-            timerIntervalRef.current = setInterval(() => setRecordingTime(prev => prev + 1), 1000);
-        } catch (err) { alert("Mic Error"); }
+            recordingTimeRef.current = 0;
+            
+            if (timerIntervalRef.current) clearInterval(timerIntervalRef.current);
+            timerIntervalRef.current = setInterval(() => {
+                recordingTimeRef.current += 1; // Обновляем ref
+                setRecordingTime(recordingTimeRef.current); // Обновляем UI
+            }, 1000);
+
+        } catch (err) {
+            console.error("Recording error:", err);
+            alert("Ошибка доступа к микрофону/камере. Проверьте разрешения.");
+        }
     };
-    const stopRecording = () => {
-        if (mediaRecorderRef.current) { mediaRecorderRef.current.stop(); setIsRecording(false); clearInterval(timerIntervalRef.current); mediaRecorderRef.current.stream.getTracks().forEach(track => track.stop()); }
+
+    // 3. Стоп записи (переход к предпросмотру)
+    const stopRecordingProcess = () => {
+        if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
+            mediaRecorderRef.current.stop();
+        }
+        setIsRecording(false);
+        setIsLocked(false);
+        clearInterval(timerIntervalRef.current);
     };
-    const sendVoiceMessage = async () => {
-        const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/webm' });
+
+    // 4. Отмена (удаление)
+    const cancelRecording = () => {
+        // Clear everything first to update UI
+        setIsRecording(false);
+        setIsLocked(false);
+        clearInterval(timerIntervalRef.current);
+        
+        if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
+            mediaRecorderRef.current.stop();
+        }
+        
+        setRecordedMedia(null);
+        
+        if (streamRef.current) {
+            streamRef.current.getTracks().forEach(track => track.stop());
+            streamRef.current = null;
+        }
+    };
+
+    // 5. Отправка медиа
+    const sendRecordedContent = async () => {
+        if (!recordedMedia) return;
+
         const formData = new FormData();
-        formData.append('file', audioBlob, 'voice_message.webm');
+        const ext = recordedMedia.type === 'video' ? 'webm' : 'webm'; // или mp4/ogg
+        const fileName = `msg_${Date.now()}.${ext}`;
+        formData.append('file', recordedMedia.blob, fileName);
+
+        // Optimistic UI
+        const time = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+        const timestamp = Date.now();
+        const tempId = timestamp;
+        
+        // Для видео мы отправляем JSON с URL и формой
+        let optimisticContent = recordedMedia.url; 
+        
+        // Очистка UI сразу
+        setRecordedMedia(null);
+        setIsLocked(false);
+
         try {
             const response = await fetch(`${BACKEND_URL}/upload`, { method: 'POST', body: formData });
             const data = await response.json();
+            
             if (data.url) {
-                const time = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-                const timestamp = Date.now();
-                const tempId = timestamp;
-                const optimisticMsg = { room, author: username, message: data.url, type: 'audio', time, timestamp, status: 'pending', tempId, id: tempId, replyTo: replyingTo ? { id: replyingTo.id, author: replyingTo.author, message: replyingTo.message } : null };
+                let finalMessage = data.url;
+                if (recordedMedia.type === 'video') {
+                    // Упаковываем в JSON
+                    finalMessage = JSON.stringify({
+                        url: data.url,
+                        shape: videoShape
+                    });
+                }
+
+                const optimisticMsg = { 
+                    room, 
+                    author: username, 
+                    message: recordedMedia.type === 'video' ? finalMessage : data.url, // Используем реальный формат 
+                    type: recordedMedia.type, 
+                    time, 
+                    timestamp, 
+                    status: 'pending', 
+                    tempId, 
+                    id: tempId 
+                };
                 
-                // Manually update preview for sent message
-                setChatPreviews(prev => ({ ...prev, [room]: { text: '🎤 Голосовое сообщение', sender: username, time, timestamp, type: 'audio' } }));
-                setMessageList(prev => [...prev, optimisticMsg]);
-                setReplyingTo(null);
-                socket.emit("send_message", optimisticMsg, (res) => { if (res && res.status === 'ok') setMessageList(prev => prev.map(m => m.tempId === tempId ? { ...m, id: res.id, status: 'sent' } : m)); });
+                // Для локального отображения
+                const localDisplayMsg = {
+                    ...optimisticMsg,
+                    message: recordedMedia.type === 'video' 
+                        ? JSON.stringify({ url: recordedMedia.url, shape: videoShape }) 
+                        : recordedMedia.url
+                };
+
+                setMessageList(prev => [...prev, localDisplayMsg]);
+                
+                // На сервер шлем реальный URL
+                socket.emit("send_message", optimisticMsg, (res) => { 
+                    if (res && res.status === 'ok') {
+                        setMessageList(prev => prev.map(m => m.tempId === tempId ? { ...m, id: res.id, status: 'sent', message: finalMessage } : m)); 
+                    }
+                });
             }
-        } catch (err) {}
+        } catch (err) {
+            console.error("Upload failed", err);
+        }
     };
+
+
     const handleFileSelect = (e) => {
         const files = Array.from(e.target.files);
         if (attachedFiles.length + files.length > 10) return;
@@ -1541,6 +1814,7 @@ function Chat({ socket, username, room, setRoom, handleLogout }) {
                             let text = chat.preview.text;
                             if (chat.preview.type === 'image' || chat.preview.type === 'gallery') text = "📷 Изображение";
                             if (chat.preview.type === 'audio') text = "🎤 Голосовое сообщение";
+                            if (chat.preview.type === 'video') text = "📹 Видео сообщение";
                             return <><span className="preview-sender">{sender}</span><span className="preview-text">{text}</span></>;
                         };
 
@@ -1650,23 +1924,153 @@ function Chat({ socket, username, room, setRoom, handleLogout }) {
 
             <div className="chat-input-background"></div>
 
-            {/* MESSAGE INPUT AREA - CHECK PERMISSIONS */}
+            {/* INPUT AREA REPLACEMENT */}
+            {/* INPUT AREA */}
             {(room === "General" || isPrivateChat || myRole !== 'guest' || globalRole === 'mod') ? (
                 <div className="chat-input-wrapper">
-                {replyingTo && (<div className="reply-bar"><div><div style={{ color: "#8774e1", fontSize: 13, fontWeight: "bold" }}>В ответ {replyingTo.author}</div><div style={{ fontSize: 14, color: "#ccc", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", maxWidth: "250px" }}>{replyingTo.message}</div></div><button onClick={() => setReplyingTo(null)} style={{ background: "none", border: "none", color: "#888", cursor: "pointer", fontSize: 24 }}>&times;</button></div>)}
-                {attachedFiles.length > 0 && (<div className="attachments-preview"> {attachedFiles.map((f, i) => (<div key={i} className="attachment-thumb"> <img src={URL.createObjectURL(f)} alt="preview" /> <button onClick={() => removeAttachment(i)}>&times;</button> </div>))} </div>)}
-                <textarea ref={textareaRef} value={currentMessage} placeholder="Написать сообщение..." className="chat-textarea" onChange={(e) => { setCurrentMessage(e.target.value); socket.emit("typing", { room, username }); }} onKeyDown={handleKeyDown} rows={1} />
-                <div className="input-toolbar">
-                    <div className="toolbar-left">
-                    <input type="file" className="hidden-input" multiple ref={fileInputRef} onChange={handleFileSelect} accept="image/*" />
-                    <button className="tool-btn" onClick={() => fileInputRef.current.click()} title="Прикрепить фото"><IconPaperclip></IconPaperclip></button>
-                    </div>
-                    <div className="toolbar-right">
-                    {currentMessage.trim() || attachedFiles.length > 0 ? (<button className="send-pill-btn" onClick={sendMessage}> Отправить ↵ </button>) : (<button className={`mic-btn ${isRecording ? "recording" : ""}`} style={{ fontSize: isRecording ? '18px' : '0' }} onClick={isRecording ? stopRecording : startRecording}>{isRecording ? formatTime(recordingTime) : (
-                        <IconMic> </IconMic>
-                    )}</button>)}
-                    </div>
-                </div>
+                    
+                    {/* --- 1. PREVIEW MODE (Предпросмотр перед отправкой) --- */}
+                    {recordedMedia ? (
+                        <div className="media-preview-bar" style={{display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%', gap: 10}}>
+                            {/* Кнопка Удалить */}
+                            <button className="tool-btn" onClick={cancelRecording} style={{color: '#ff4d4d', background: 'transparent'}}>
+                                <IconTrash />
+                            </button>
+                            
+                            {/* Центральная часть: Плеер или Видео */}
+                            <div style={{flex: 1, display: 'flex', justifyContent: 'center', alignItems: 'center', overflow: 'hidden'}}>
+                                {recordedMedia.type === 'audio' ? (
+                                     /* ПЛЕЕР ДЛЯ ПРЕДПРОСЛУШИВАНИЯ */
+                                     <div style={{width: '100%', maxWidth: '300px'}}>
+                                        <CustomAudioPlayer src={recordedMedia.url} /> 
+                                     </div>
+                                ) : (
+                                    /* ПРЕВЬЮ ВИДЕО + ВЫБОР ФОРМЫ */
+                                    <div style={{display: 'flex', alignItems: 'center', gap: 15}}>
+                                        <CustomVideoPlayer 
+                                            src={recordedMedia.url} 
+                                            shape={videoShape} 
+                                            width="100px" 
+                                            className="preview-video"
+                                        />
+                                        <div className="shape-selector" style={{display: 'flex', flexDirection:'column', gap: 8, background: '#222', padding: 8, borderRadius: 20}}>
+                                            {['circle', 'heart', 'triangle', 'square'].map(s => (
+                                                <div 
+                                                    key={s}
+                                                    onClick={() => setVideoShape(s)}
+                                                    style={{
+                                                        width: 24, height: 24, background: '#555', cursor: 'pointer',
+                                                        border: videoShape === s ? '2px solid #2b95ff' : '2px solid transparent',
+                                                        borderRadius: s === 'circle' ? '50%' : (s === 'square' ? '4px' : '0'),
+                                                        clipPath: s === 'triangle' ? 'polygon(50% 0%, 0% 100%, 100% 100%)' : 'none',
+                                                        transition: '0.2s'
+                                                    }}
+                                                />
+                                            ))}
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
+
+                            {/* Кнопка Отправить */}
+                            <button className="send-pill-btn" onClick={sendRecordedContent} style={{borderRadius: '50%', width: 45, height: 45, padding: 0, justifyContent: 'center'}}>
+                                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"><path fill="#ffffff" d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/></svg>
+                            </button>
+                        </div>
+                    ) : (
+                        /* --- 2. NORMAL & RECORDING MODE --- */
+                        <>
+                            {/* Live Camera Preview */}
+                            {inputMode === 'video' && isRecording && (
+                                <div className="live-camera-preview" style={{
+                                    position: 'absolute', bottom: 85, right: 20, 
+                                    width: 140, height: 140, borderRadius: '50%', 
+                                    overflow: 'hidden', border: '4px solid #ff4d4d', zIndex: 999,
+                                    background: '#000', boxShadow: '0 4px 15px rgba(0,0,0,0.5)'
+                                }}>
+                                    <video ref={liveVideoRef} muted autoPlay playsInline style={{width: '100%', height: '100%', objectFit: 'cover', transform: 'scaleX(-1)'}} />
+                                </div>
+                            )}
+
+                            {/* Lock Indicator */}
+                            {isRecording && !isLocked && (
+                                <div className="lock-indicator" style={{
+                                    position: 'absolute', right: 30, bottom: 100, 
+                                    display: 'flex', flexDirection: 'column', alignItems: 'center', 
+                                    color: '#aaa', animation: 'slideUpFade 1.5s infinite', zIndex: 90
+                                }}>
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"><path fill="currentColor" d="M12 2c-4.42 0-8 3.58-8 8v4h16v-4c0-4.42-3.58-8-8-8zm4 12H8v-4c0-2.21 1.79-4 4-4s4 1.79 4 4v4z"/></svg>
+                                    <span style={{fontSize: 10, marginTop: 2}}>Lock</span>
+                                </div>
+                            )}
+
+                            {replyingTo && (<div className="reply-bar"><div><div style={{ color: "#8774e1", fontSize: 13, fontWeight: "bold" }}>В ответ {replyingTo.author}</div><div style={{ fontSize: 14, color: "#ccc", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", maxWidth: "250px" }}>{replyingTo.message}</div></div><button onClick={() => setReplyingTo(null)} style={{ background: "none", border: "none", color: "#888", cursor: "pointer", fontSize: 24 }}>&times;</button></div>)}
+                            {attachedFiles.length > 0 && (<div className="attachments-preview"> {attachedFiles.map((f, i) => (<div key={i} className="attachment-thumb"> <img src={URL.createObjectURL(f)} alt="preview" /> <button onClick={() => removeAttachment(i)}>&times;</button> </div>))} </div>)}
+                            
+                            {/* Hide Input when Recording */}
+                            {!isRecording ? (
+                                <textarea ref={textareaRef} value={currentMessage} placeholder="Написать сообщение..." className="chat-textarea" onChange={(e) => { setCurrentMessage(e.target.value); socket.emit("typing", { room, username }); }} onKeyDown={handleKeyDown} rows={1} />
+                            ) : (
+                                <div className="recording-status" style={{flex: 1, display: 'flex', alignItems: 'center', color: '#ff4d4d', fontWeight: 'bold', fontSize: 16, paddingLeft: 10}}>
+                                    <span style={{marginRight: 10, animation: 'pulse 1s infinite'}}>●</span>
+                                    {formatTime(recordingTime)}
+                                    
+                                    {/* Показываем подсказку про свайп ТОЛЬКО на мобильных */}
+                                    {isMobile && (
+                                        <span style={{marginLeft: 20, color: '#666', fontSize: 13, fontWeight: 'normal'}}>
+                                            {isLocked ? "Запись закреплена" : "< Свайп для отмены"}
+                                        </span>
+                                    )}
+                                </div>
+                            )}
+
+                            <div className="input-toolbar">
+                                <div className="toolbar-left" style={{opacity: isRecording ? 0 : 1, pointerEvents: isRecording ? 'none' : 'auto', transition: '0.2s'}}>
+                                    <input type="file" className="hidden-input" multiple ref={fileInputRef} onChange={handleFileSelect} accept="image/*" />
+                                    <button className="tool-btn" onClick={() => fileInputRef.current.click()} title="Прикрепить фото"><IconPaperclip></IconPaperclip></button>
+                                </div>
+                                
+                                <div className="toolbar-right">
+                                    {(currentMessage.trim() || attachedFiles.length > 0) && !isRecording ? (
+                                        <button className="send-pill-btn" onClick={sendMessage}> Отправить ↵ </button>
+                                    ) : (
+                                        // DYNAMIC RECORD BUTTON
+                                        <div 
+                                            className={`record-btn-container ${isRecording ? 'recording-active' : ''}`}
+                                            // Mouse Events
+                                            onMouseDown={handleRecordStart}
+                                            onMouseMove={handleRecordMove}
+                                            onMouseUp={handleRecordEnd}
+                                            onMouseLeave={handleRecordEnd}
+                                            // Touch Events
+                                            onTouchStart={handleRecordStart}
+                                            onTouchMove={handleRecordMove}
+                                            onTouchEnd={handleRecordEnd}
+                                            onTouchCancel={handleRecordEnd}
+                                            
+                                            style={{position: 'relative', touchAction: 'none', cursor: 'pointer', padding: 5}} 
+                                        >
+                                            {isLocked ? (
+                                                <button className="send-pill-btn" onClick={stopRecordingProcess} style={{borderRadius: '50%', width: 50, height: 50, padding: 0, justifyContent: 'center'}}>
+                                                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"><path fill="#fff" d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 14H9V8h2v8zm4 0h-2V8h2v8z"/></svg>
+                                                </button>
+                                            ) : (
+                                                <button className={`mic-btn ${isRecording ? "recording" : ""}`} style={{
+                                                    transform: isRecording ? 'scale(1.8)' : 'scale(1)', 
+                                                    transition: 'transform 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275)',
+                                                    pointerEvents: 'none' // Events are handled by container
+                                                }}>
+                                                    {inputMode === 'audio' ? <IconMic /> : (
+                                                        <IconCamera />
+                                                    )}
+                                                </button>
+                                            )}
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+                        </>
+                    )}
                 </div>
             ) : (
                 <div style={{ padding: 20, textAlign: 'center', color: '#666', fontSize: 13 }}>
@@ -1851,14 +2255,11 @@ function Chat({ socket, username, room, setRoom, handleLogout }) {
                     <button className="change-avatar-btn" ><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"><path fill="#ffffff" d="M12 1h2v8h8v4h-2v-2h-8V5h-2V3h2V1zM8 7V5h2v2H8zM6 9V7h2v2H6zm-2 2V9h2v2H4zm10 8v2h-2v2h-2v-8H2v-4h2v2h8v6h2zm2-2v2h-2v-2h2zm2-2v2h-2v-2h2zm0 0h2v-2h-2v2z"/></svg></button>
                 </div>
                 </div>
-
-                {/* <div className="profile-avatar-large" style={getAvatarStyle(myProfile.avatar_url)}>{!myProfile.avatar_url && username[0].toUpperCase()}</div>  */}
-                {/* <div className="profile-name">{myProfile.display_name || username}</div> 
-                <div className="profile-status"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="#1a7bd6"><path fill="#1a7bd6" d="M4 4h16v12H8V8h8v6h2V6H6v12h14v2H4V4zm10 10v-4h-4v4h4z"/></svg>{username}</div> 
-                  */}
                 
             </div>
-            
+            <div style={{ color: "#2b95ff", padding: "15px 10px 5px 10px", fontSize: "13px", fontWeight: "bold", textTransform: "uppercase" }}>
+                  Аккаунт
+            </div>
             <div className="settings-list">
               <div className="settings-item"> 
                 <div className="form-container" style={{ flex: 1, padding: 0, margin: 0 }}> 
@@ -1882,15 +2283,43 @@ function Chat({ socket, username, room, setRoom, handleLogout }) {
               <div className="settings-item"> <div className="settings-icon"><svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 24 24"><path fill="#ffffff" d="M1 2h8.58l1.487 6.69l-1.86 1.86a14.08 14.08 0 0 0 4.243 4.242l1.86-1.859L22 14.42V23h-1a19.91 19.91 0 0 1-10.85-3.196a20.101 20.101 0 0 1-5.954-5.954A19.91 19.91 0 0 1 1 3V2Zm2.027 2a17.893 17.893 0 0 0 2.849 8.764a18.102 18.102 0 0 0 5.36 5.36A17.892 17.892 0 0 0 20 20.973v-4.949l-4.053-.9l-2.174 2.175l-.663-.377a16.073 16.073 0 0 1-6.032-6.032l-.377-.663l2.175-2.174L7.976 4H3.027Z"/></svg></div> <div className="form-container" style={{ flex: 1, padding: 0, margin: 0 }}> <div className="input-group"> <label>Mobile</label> <input className="modal-input" style={{ padding: "5px 0", borderBottom: "none" }} value={profileForm.phone} onChange={(e) => setProfileForm({ ...profileForm, phone: e.target.value })} placeholder="Add phone number" /> </div> </div> </div>
               <div className="settings-item"> <div className="settings-icon"><svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 24 24"><path fill="#ffffff" d="M21 1v22H3V1h18Zm-8 2v6.5l-3-2.25L7 9.5V3H5v18h14V3h-6ZM9 3v2.5l1-.75l1 .75V3H9Zm-2 9h10v2H7v-2Zm0 4h8v2H7v-2Z"/></svg></div> <div className="form-container" style={{ flex: 1, padding: 0, margin: 0 }}> <div className="input-group"> <label>Bio</label> <input className="modal-input" style={{ padding: "5px 0", borderBottom: "none" }} value={profileForm.bio} onChange={(e) => setProfileForm({ ...profileForm, bio: e.target.value })} placeholder="Add a few words about yourself" /> </div> </div> </div>
               
+              <div style={{ color: "#2b95ff", padding: "15px 10px 5px 10px", fontSize: "13px", fontWeight: "bold", textTransform: "uppercase" }}>
+                  Настройки
+              </div>
+
+              {/* Уведомления */}
               <div className="settings-item" onClick={requestNotificationPermission}> 
                 <div className="settings-icon"><IconBell hasUnread={false}/></div> 
                 <div style={{ flex: 1, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                     <div className="settings-label">Notifications</div>
-                     <div className={`toggle-switch ${profileForm.notifications_enabled ? 'on' : ''}`} onClick={(e) => { e.stopPropagation(); requestNotificationPermission(); }}>
+                     <div className="settings-label">Push-уведомления</div>
+                     <div className={`toggle-switch ${profileForm.notifications_enabled ? 'on' : ''}`}>
                          <div className="knob"></div>
                      </div>
                 </div>
               </div>
+
+              {/* Камера и Микрофон */}
+              <div className="settings-item" onClick={() => requestMediaPermissions('video')}> 
+                <div className="settings-icon"><IconCamera /></div> 
+                <div className="settings-label">Доступ к камере и микрофону</div>
+                <div style={{fontSize: 12, color: '#2b95ff'}}>Запросить</div>
+              </div>
+
+              {/* Микрофон (отдельно) */}
+              <div className="settings-item" onClick={() => requestMediaPermissions('audio')}> 
+                <div className="settings-icon"><IconMic /></div> 
+                <div className="settings-label">Доступ к микрофону</div>
+                <div style={{fontSize: 12, color: '#2b95ff'}}>Запросить</div>
+              </div>
+
+              {/* Файлы */}
+              <div className="settings-item" onClick={requestFilePermission}> 
+                <div className="settings-icon"><IconFolder /></div> 
+                <div className="settings-label">Доступ к галерее и файлам</div>
+                <div style={{fontSize: 12, color: '#2b95ff'}}>Запросить</div>
+              </div>
+
+              <div style={{ marginBottom: 20 }}></div> {/* Отступ снизу */}
               
                <div className="settings-item" onClick={() => copyProfileLink(username)}> 
                 <div className="settings-icon"><IconShare/></div> 
