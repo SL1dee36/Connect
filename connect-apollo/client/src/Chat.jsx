@@ -1169,7 +1169,8 @@ function Chat({ socket, username, room, setRoom, handleLogout }) {
             // Устанавливаем правильные constraints в зависимости от режима
             const constraints = inputMode === 'video'
                 ? {
-                    video: { facingMode: "user", width: { ideal: 480 }, height: { ideal: 480 } },
+                    // Устанавливаем разрешение 720x720
+                    video: { facingMode: "user", width: { ideal: 720 }, height: { ideal: 720 }, aspectRatio: 1 },
                     audio: { echoCancellation: true, noiseSuppression: true }
                 }
                 : { audio: { echoCancellation: true, noiseSuppression: true } };
@@ -1246,9 +1247,6 @@ function Chat({ socket, username, room, setRoom, handleLogout }) {
 
     // 3. Стоп записи (переход к предпросмотру)
     const stopRecordingProcess = () => {
-        // if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
-        //     mediaRecorderRef.current.stop();
-        // }
         setIsRecording(false);
         setIsLocked(false);
         clearInterval(timerIntervalRef.current);
@@ -1264,13 +1262,12 @@ function Chat({ socket, username, room, setRoom, handleLogout }) {
         setIsLocked(false);
         setRecordedMedia(null);
         clearInterval(timerIntervalRef.current);
-        
+
+        // Stop recorder without triggering onstop preview
         if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
-            mediaRecorderRef.current.onstop = null;
+            mediaRecorderRef.current.onstop = null; // Prevent preview
             mediaRecorderRef.current.stop();
         }
-        
-        setRecordedMedia(null);
         audioChunksRef.current = [];
 
         // Stop stream and release camera/mic
@@ -1285,11 +1282,11 @@ function Chat({ socket, username, room, setRoom, handleLogout }) {
         if (!recordedMedia) return;
 
         // ВАЖНО: Сохраняем данные в константы ПЕРЕД обнулением стейта
-        const { blob, type, url } = recordedMedia;
+        const { blob, type } = recordedMedia;
         const currentShape = videoShape; 
 
         const formData = new FormData();
-        // Используем mp4 для видео (лучшая совместимость), webm для аудио
+        // Бэкенд теперь всегда выдает mp4 для видео
         const ext = type === 'video' ? 'mp4' : 'webm';
         const fileName = `msg_${Date.now()}.${ext}`;
         formData.append('file', blob, fileName);
@@ -1304,12 +1301,13 @@ function Chat({ socket, username, room, setRoom, handleLogout }) {
 
         try {
             const response = await fetch(`${BACKEND_URL}/upload`, { method: 'POST', body: formData });
+            // Важно: получаем тип от сервера, так как он может измениться (webm -> mp4)
             const data = await response.json();
             
             if (data.url) {
                 let finalMessage = data.url;
-                if (type === 'video') {
-                    // Упаковываем в JSON для видео
+                 // Упаковываем в JSON для видео
+                if (data.type === 'video') {
                     finalMessage = JSON.stringify({
                         url: data.url,
                         shape: currentShape
@@ -1320,7 +1318,7 @@ function Chat({ socket, username, room, setRoom, handleLogout }) {
                     room, 
                     author: username, 
                     message: finalMessage, 
-                    type: type, // Здесь теперь точно 'video' или 'audio'
+                    type: data.type, // Используем тип от сервера
                     time, 
                     timestamp, 
                     status: 'pending', 
@@ -1328,20 +1326,14 @@ function Chat({ socket, username, room, setRoom, handleLogout }) {
                     id: tempId 
                 };
                 
-                // Для локального отображения (используем blob-url пока грузится)
-                const localDisplayMsg = {
-                    ...optimisticMsg,
-                    message: type === 'video' 
-                        ? JSON.stringify({ url: url, shape: currentShape }) 
-                        : url
-                };
-
-                setMessageList(prev => [...prev, localDisplayMsg]);
+                // Оптимистично добавляем в чат
+                setMessageList(prev => [...prev, optimisticMsg]);
                 
-                // На сервер шлем реальный URL
+                // На сервер шлем сообщение с реальным URL и типом
                 socket.emit("send_message", optimisticMsg, (res) => { 
                     if (res && res.status === 'ok') {
-                        setMessageList(prev => prev.map(m => m.tempId === tempId ? { ...m, id: res.id, status: 'sent', message: finalMessage } : m)); 
+                        // Обновляем сообщение, присваивая ему ID от сервера
+                        setMessageList(prev => prev.map(m => m.tempId === tempId ? { ...m, id: res.id, status: 'sent' } : m)); 
                     }
                 });
             }

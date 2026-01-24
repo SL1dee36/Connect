@@ -12,6 +12,7 @@ const { Server } = require("socket.io");
 const sqlite3 = require("sqlite3");
 const { open } = require("sqlite");
 const multer = require("multer");
+const ffmpeg = require("fluent-ffmpeg"); // <--- ДОБАВЛЕНО
 const path = require("path");
 const fs = require("fs");
 const sharp = require("sharp");
@@ -337,40 +338,72 @@ const processImage = async (buf) => {
   return `${BACKEND_URL}/uploads/${name}`;
 };
 
+// --- ИЗМЕНЕННЫЙ БЛОК ---
 app.post("/upload", upload.single("file"), async (req, res) => {
-  if (!req.file) return res.status(400).json({ message: "No file" });
-
-  try {
-    let url = "";
-    let type = "file";
-
-    if (req.file.mimetype.startsWith("image/")) {
-      url = await processImage(req.file.buffer);
-      type = "image";
-    } 
-    else if (req.file.mimetype.startsWith("video/")) {
-      const name = `${Date.now()}-${Math.round(Math.random() * 1e9)}.webm`;
-      fs.writeFileSync(path.join(uploadDir, name), req.file.buffer);
-      url = `${BACKEND_URL}/uploads/${name}`;
-      type = "video";
-    } 
-    else if (req.file.mimetype.startsWith("audio/")) {
-      const name = `${Date.now()}-${Math.round(Math.random() * 1e9)}.webm`;
-      fs.writeFileSync(path.join(uploadDir, name), req.file.buffer);
-      url = `${BACKEND_URL}/uploads/${name}`;
-      type = "audio";
-    } 
-    else {
-      return res.status(400).json({ message: "Unsupported file type" });
+    if (!req.file) return res.status(400).json({ message: "No file" });
+  
+    try {
+      let url = "";
+      let type = "file";
+  
+      if (req.file.mimetype.startsWith("image/")) {
+        url = await processImage(req.file.buffer);
+        type = "image";
+      } 
+      else if (req.file.mimetype.startsWith("video/")) {
+        const tempInputName = `${Date.now()}-temp.webm`;
+        const finalOutputName = `${Date.now()}-final.mp4`;
+        const tempInputPath = path.join(uploadDir, tempInputName);
+        const finalOutputPath = path.join(uploadDir, finalOutputName);
+  
+        // 1. Сохраняем временный webm
+        await fs.promises.writeFile(tempInputPath, req.file.buffer);
+  
+        // 2. Конвертируем в MP4 720x720
+        await new Promise((resolve, reject) => {
+          ffmpeg(tempInputPath)
+            .outputOptions([
+                "-c:v libx264",       // Видео кодек H.264
+                "-preset veryfast",   // Скорость кодирования
+                "-crf 23",            // Качество (чем ниже, тем лучше)
+                "-c:a aac",           // Аудио кодек AAC
+                "-movflags +faststart"// Оптимизация для веба
+            ])
+            .toFormat("mp4")
+            .on("end", () => {
+                console.log('FFmpeg processing finished.');
+                resolve();
+            })
+            .on("error", (err) => {
+                console.error('FFmpeg error:', err);
+                reject(err);
+            })
+            .save(finalOutputPath);
+        });
+        
+        // 3. Удаляем временный файл
+        await fs.promises.unlink(tempInputPath);
+  
+        url = `${BACKEND_URL}/uploads/${finalOutputName}`;
+        type = "video";
+      } 
+      else if (req.file.mimetype.startsWith("audio/")) {
+        const name = `${Date.now()}-${Math.round(Math.random() * 1e9)}.webm`;
+        fs.writeFileSync(path.join(uploadDir, name), req.file.buffer);
+        url = `${BACKEND_URL}/uploads/${name}`;
+        type = "audio";
+      } 
+      else {
+        return res.status(400).json({ message: "Unsupported file type" });
+      }
+  
+      res.json({ url, type });
+    } catch (e) {
+      console.error("Upload or conversion failed:", e);
+      res.status(500).json({ message: "Upload or conversion failed" });
     }
-
-    res.json({ url, type });
-  } catch (e) {
-    console.error(e);
-    res.status(500).json({ message: "Upload failed" });
-  }
 });
-
+// --- КОНЕЦ ИЗМЕНЕННОГО БЛОКА ---
 
 app.post("/upload-multiple", upload.array("files", 10), async (req, res) => {
   if (!req.files) return res.status(400).json({ message: "No files" });
