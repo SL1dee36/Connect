@@ -74,9 +74,15 @@
 }
 .video-state-icon.visible { opacity: 1; }
 
+@media (max-width: 768px) {
+    .global-video-player {
+        top: 80px !important;
+    }
+}
+
 .global-video-player {
     position: absolute;
-    top: 80px; /* Сразу под chat-header */
+    top: 100px; /* Сразу под chat-header */
     left: 0;
     right: 0;
     height: 44px;
