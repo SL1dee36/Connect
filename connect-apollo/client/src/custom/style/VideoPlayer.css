@@ -1,0 +1,152 @@
+.video-msg-wrapper {
+    transition: margin-bottom 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+    display: block;
+    width: fit-content;
+}
+
+.video-msg-container {
+    position: relative;
+    display: inline-block;
+    transition: transform 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+    cursor: pointer;
+}
+
+.video-msg-container.focused {
+    transform: scale(1.5);
+    z-index: 1001;
+}
+
+.video-seek-svg {
+    position: absolute;
+    top: 0; left: 0;
+    width: 100%; height: 100%;
+    pointer-events: auto; 
+    z-index: 10;
+    opacity: 0; /* Скрыто */
+    transition: opacity 0.3s; /* Плавное появление */
+}
+
+.video-msg-container.focused .video-seek-svg {
+    opacity: 1;
+}
+
+.video-seek-bg {
+    fill: none;
+    stroke: rgba(255, 255, 255, 0.15);
+    stroke-width: 0.5;
+}
+
+.video-seek-progress {
+    fill: none;
+    stroke: #2b95ff;
+    stroke-width: .7; /* Чуть толще основной линии для акцента */
+    stroke-linecap: round;
+    /* Убираем все переходы, чтобы движение было линейным и плавным */
+    transition: none; 
+}
+
+/* Видео контейнер */
+.video-clipper {
+    width: 100%; height: 100%;
+    overflow: hidden;
+    position: relative;
+    z-index: 1;
+    background: #000;
+}
+
+.video-element {
+    width: 100%; height: 100%;
+    object-fit: cover;
+    display: block;
+}
+
+/* Иконка паузы/плея при клике (опционально) */
+.video-state-icon {
+    position: absolute;
+    top: 50%; left: 50%;
+    transform: translate(-50%, -50%);
+    background: rgba(0,0,0,0.4);
+    border-radius: 50%;
+    padding: 10px;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.2s;
+}
+.video-state-icon.visible { opacity: 1; }
+
+.global-video-player {
+    position: absolute;
+    top: 80px; /* Сразу под chat-header */
+    left: 0;
+    right: 0;
+    height: 44px;
+    background: #111111cc;
+    backdrop-filter: blur(10px);
+    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+    z-index: 90;
+    display: flex;
+    align-items: center;
+    padding: 0 15px;
+    gap: 15px;
+    animation: slideDown 0.3s ease-out;
+}
+
+@keyframes slideDown {
+    from { transform: translateY(-100%); opacity: 0; }
+    to { transform: translateY(0); opacity: 1; }
+}
+
+.player-controls {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.player-btn {
+    background: none;
+    border: none;
+    color: #aaa;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    transition: color 0.2s;
+}
+
+.player-btn:hover { color: #fff; }
+
+.player-info {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+
+.player-author {
+    font-size: 13px;
+    font-weight: 600;
+    color: #2b95ff;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.player-status {
+    font-size: 11px;
+    color: #666;
+}
+
+.player-right-meta {
+    display: flex;
+    align-items: center;
+    gap: 15px;
+    color: #666;
+    font-size: 13px;
+}
+
+.speed-btn {
+    font-weight: bold;
+    font-size: 12px;
+    border: 1px solid #444;
+    padding: 2px 4px;
+    border-radius: 4px;
+}

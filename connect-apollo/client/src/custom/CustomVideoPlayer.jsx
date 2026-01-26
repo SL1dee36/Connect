@@ -1,114 +1,314 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
+import './style/VideoPlayer.css';
 
-const CustomVideoPlayer = ({ src, shape = 'circle', width = '240px' }) => {
+const CustomVideoPlayer = ({ src, shape = 'circle', width = '240px', align = 'left', author, time }) => {
     const videoRef = useRef(null);
+    const pathRef = useRef(null);
+    const svgRef = useRef(null);
+    const lastGlobalUpdate = useRef(0);
+
     const [isPlaying, setIsPlaying] = useState(false);
-    const [isMuted, setIsMuted] = useState(true);
+    const [progress, setProgress] = useState(0);
+    const [isFocused, setIsFocused] = useState(false);
+    const [pathLength, setPathLength] = useState(0);
+    const [isDragging, setIsDragging] = useState(false);
+
+    const shapePaths = {
+        circle: "M 50, 4 A 46, 46 0 1, 1 49.9, 4", 
+        square: "M 50, 4 H 96 V 96 H 4 V 4 H 50",
+        triangle: "M 50, 6 L 94, 94 L 6, 94 Z",
+        heart: "M 50, 25 C 50, 10 30, 4 15, 4 C 4, 4 4, 20 4, 35 C 4, 65 50, 96 50, 96 C 50, 96 96, 65 96, 35 C 96, 20 96, 4 85, 4 C 70, 4 50, 10 50, 25"
+    };
+
+    useEffect(() => {
+        if (pathRef.current) setPathLength(pathRef.current.getTotalLength());
+    }, [shape]);
+
+    useEffect(() => {
+        const handleGlobalStateChange = (e) => {
+            const activeData = e.detail;
+            
+            if (!activeData) return;
+
+            if (activeData.id !== src) {
+                if (isFocused) {
+                    setIsFocused(false);
+                    if (videoRef.current) {
+                        videoRef.current.muted = true;
+                        videoRef.current.currentTime = 0;
+                        videoRef.current.pause();
+                        videoRef.current.playbackRate = 1;
+                    }
+                } else {
+                    if (videoRef.current && !videoRef.current.paused) {
+                        videoRef.current.pause();
+                    }
+                }
+            }
+        };
+
+        window.addEventListener('video-update-state', handleGlobalStateChange);
+        
+        return () => {
+            window.removeEventListener('video-update-state', handleGlobalStateChange);
+        };
+    }, [src, isFocused]);
 
     useEffect(() => {
         const video = videoRef.current;
-        if (video) {
-            // Autoplay muted on load for preview effect
-            video.muted = true;
-            video.playsInline = true;
-            video.loop = true;
-            video.play().catch(() => {}); // Autoplay might be blocked, that's okay
-        }
-    }, [src]);
+        if (!video) return;
 
-    const getClipPath = () => {
-        switch (shape) {
-            case 'circle': return 'circle(50% at 50% 50%)';
-            case 'square': return 'none';
-            // This is an example path, you might need to adjust it
-            case 'heart': return 'path("M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z")';
-            case 'triangle': return 'polygon(50% 0%, 0% 100%, 100% 100%)';
-            default: return 'circle(50% at 50% 50%)';
-        }
-    };
-    
-    const wrapperStyle = {
-        position: 'relative',
-        width: width,
-        aspectRatio: '1 / 1',
-        overflow: 'hidden',
-        cursor: 'pointer',
-        clipPath: getClipPath(),
-        backgroundColor: '#111',
-        borderRadius: shape === 'circle' ? '50%' : '12px', // So container matches shape
-    };
-    
-    const videoStyle = {
-        width: '100%',
-        height: '100%',
-        objectFit: 'cover',
-        display: 'block',
-    };
+        let frameId;
 
-    const handleClick = () => {
+        const update = () => {
+            if (!isDragging && video.duration) {
+                setProgress(video.currentTime / video.duration);
+            }
+
+            if (isFocused) {
+                const now = Date.now();
+                if (now - lastGlobalUpdate.current > 500 || video.paused) { 
+                    window.dispatchEvent(new CustomEvent('video-update-state', {
+                        detail: {
+                            id: src,
+                            author: author || 'User',
+                            time: time || '00:00',
+                            isPlaying: !video.paused,
+                            currentTime: video.currentTime,
+                            speed: video.playbackRate
+                        }
+                    }));
+                    lastGlobalUpdate.current = now;
+                }
+            }
+
+            if (!video.paused) {
+                frameId = requestAnimationFrame(update);
+            }
+        };
+
+        if (isPlaying) {
+            frameId = requestAnimationFrame(update);
+        } else {
+            update();
+        }
+
+        return () => cancelAnimationFrame(frameId);
+    }, [isPlaying, isDragging, isFocused, src, author, time]);
+
+    const performSeek = useCallback((e) => {
+        if (!svgRef.current || !videoRef.current || !isFocused) return;
+
+        const rect = svgRef.current.getBoundingClientRect();
+        const centerX = rect.left + rect.width / 2;
+        const centerY = rect.top + rect.height / 2;
+        const clientX = e.clientX || e.touches?.[0]?.clientX;
+        const clientY = e.clientY || e.touches?.[0]?.clientY;
+
+        const x = clientX - centerX;
+        const y = clientY - centerY;
+
+        let newProgress;
+        if (shape === 'circle') {
+            let angle = Math.atan2(y, x) * (180 / Math.PI) + 90;
+            if (angle < 0) angle += 360;
+            newProgress = angle / 360;
+        } else {
+            const clickX = clientX - rect.left;
+            newProgress = Math.max(0, Math.min(1, clickX / rect.width));
+        }
+
+        setProgress(newProgress);
+        videoRef.current.currentTime = newProgress * videoRef.current.duration;
+    }, [isFocused, shape]);
+
+    const handleToggleFocus = (e) => {
+        e.stopPropagation();
         const video = videoRef.current;
         if (!video) return;
-        
-        if (video.paused) {
-            video.play().catch(e => console.error("Play failed", e));
+
+        if (!isFocused) {
+            setIsFocused(true);
+            video.muted = false;
+            video.play().catch(() => {});
+
+            window.dispatchEvent(new CustomEvent('video-update-state', {
+                detail: {
+                    id: src,
+                    author: author || 'User',
+                    time: time || '00:00',
+                    isPlaying: true,
+                    currentTime: video.currentTime,
+                    speed: video.playbackRate
+                }
+            }));
         } else {
-            // Toggle mute on click if it's already playing
-            video.muted = !video.muted;
-            setIsMuted(video.muted);
+            if (video.paused) video.play();
+            else video.pause();
         }
     };
-    
+
+    const dragStartTime = useRef(0);
+    const hasMoved = useRef(false);
+
+    const onStart = (e) => {
+        if (!isFocused) {
+            handleToggleFocus(e);
+            return;
+        }
+        dragStartTime.current = Date.now();
+        hasMoved.current = false;
+        setIsDragging(true);
+    };
+
+    const onMove = (e) => {
+        if (isDragging) {
+            hasMoved.current = true;
+            performSeek(e);
+        }
+    };
+
+    const onEnd = (e) => {
+        if (!isDragging) return;
+        const duration = Date.now() - dragStartTime.current;
+        if (!hasMoved.current && duration < 200) {
+            if (videoRef.current.paused) videoRef.current.play();
+            else videoRef.current.pause();
+        }
+        setIsDragging(false);
+    };
+
+    useEffect(() => {
+        if (isDragging) {
+            window.addEventListener('mousemove', onMove);
+            window.addEventListener('mouseup', onEnd);
+            window.addEventListener('touchmove', onMove);
+            window.addEventListener('touchend', onEnd);
+        }
+        return () => {
+            window.removeEventListener('mousemove', onMove);
+            window.removeEventListener('mouseup', onEnd);
+            window.removeEventListener('touchmove', onMove);
+            window.removeEventListener('touchend', onEnd);
+        };
+    }, [isDragging]);
+
+    const closeFocusHandler = useCallback(() => {
+        setIsFocused(false);
+        const video = videoRef.current;
+        if (video) {
+            video.pause();
+            video.currentTime = 0;
+            video.muted = true;
+            video.playbackRate = 1;
+        }
+        window.dispatchEvent(new CustomEvent('video-update-state', { detail: null }));
+    }, []);
+
+    useEffect(() => {
+        const toggle = () => {
+            if (!isFocused || !videoRef.current) return;
+            if (videoRef.current.paused) videoRef.current.play();
+            else videoRef.current.pause();
+        };
+        const seek = (e) => {
+            if (!isFocused || !videoRef.current) return;
+            videoRef.current.currentTime += e.detail;
+        };
+        const changeSpeed = () => {
+            if (!isFocused || !videoRef.current) return;
+            const rates = [1, 1.5, 2];
+            const currentRate = videoRef.current.playbackRate;
+            const nextRate = rates[(rates.indexOf(currentRate) + 1) % rates.length];
+            videoRef.current.playbackRate = nextRate;
+            lastGlobalUpdate.current = 0; 
+        };
+
+        window.addEventListener('video-toggle-play', toggle);
+        window.addEventListener('video-seek', seek);
+        window.addEventListener('video-change-speed', changeSpeed);
+        window.addEventListener('video-close-focus', closeFocusHandler);
+
+        return () => {
+            window.removeEventListener('video-toggle-play', toggle);
+            window.removeEventListener('video-seek', seek);
+            window.removeEventListener('video-change-speed', changeSpeed);
+            window.removeEventListener('video-close-focus', closeFocusHandler);
+        };
+    }, [isFocused, closeFocusHandler]);
+
     useEffect(() => {
         const video = videoRef.current;
         const handlePlay = () => setIsPlaying(true);
         const handlePause = () => setIsPlaying(false);
-        if(video) {
+        
+        if (video) {
             video.addEventListener('play', handlePlay);
             video.addEventListener('pause', handlePause);
         }
         return () => {
-            if(video) {
+            if (video) {
                 video.removeEventListener('play', handlePlay);
                 video.removeEventListener('pause', handlePause);
             }
         };
     }, []);
 
+    const extraSpace = isFocused ? (parseInt(width) * 0.45) : 0;
+    const tOrigin = align === 'right' ? 'top right' : 'top left';
+
     return (
-        <div 
-            className="custom-video-wrapper"
-            style={wrapperStyle}
-            onClick={handleClick}
-        >
-            <video
-                ref={videoRef}
-                src={src}
-                playsInline
-                controls={false}
-                style={videoStyle}
+        <div className="video-msg-wrapper" style={{ marginBottom: `${extraSpace}px` }}>
+            <div 
+                className={`video-focus-overlay ${isFocused ? 'active' : ''}`} 
+                onClick={(e) => {
+                    e.stopPropagation();
+                    closeFocusHandler();
+                }} 
             />
-            {(!isPlaying || isMuted) && (
-                 <div className="play-overlay" style={{
-                    position: 'absolute',
-                    bottom: '10px',
-                    right: '10px',
-                    width: '30px',
-                    height: '30px',
-                    borderRadius: '50%',
-                    background: 'rgba(0,0,0,0.5)',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    color: 'white',
-                    transition: 'background-color 0.2s',
-                    pointerEvents: 'none',
-                 }}>
-                    {isMuted && isPlaying ? 
-                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24"><path fill="currentColor" d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02zM14 3.23v2.06c2.89.86 5 3.54 5 6.71s-2.11 5.85-5 6.71v2.06c4.01-.91 7-4.49 7-8.77s-2.99-7.86-7-8.77z"/></svg>
-                        : <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24"><path fill="currentColor" d="M8 5v14l11-7z"/></svg>
-                    }
-                 </div>
-            )}
+            
+            <div 
+                className={`video-msg-container ${isFocused ? 'focused' : ''}`}
+                style={{ width: width, transformOrigin: tOrigin }}
+            >
+                <svg 
+                    ref={svgRef}
+                    className="video-seek-svg" 
+                    viewBox="0 0 100 100"
+                    onMouseDown={onStart}
+                    onTouchStart={onStart}
+                >
+                    <path 
+                        className="video-seek-bg"
+                        d={shapePaths[shape] || shapePaths.circle}
+                        style={{ opacity: isFocused ? 1 : 0 }}
+                    />
+                    <path 
+                        ref={pathRef}
+                        className="video-seek-progress"
+                        d={shapePaths[shape] || shapePaths.circle}
+                        strokeDasharray={pathLength}
+                        strokeDashoffset={pathLength - (pathLength * progress)}
+                        style={{ opacity: isFocused || isPlaying ? 1 : 0 }}
+                    />
+                </svg>
+
+                <div className="video-clipper" style={{
+                    clipPath: shape === 'circle' ? 'circle(48.5% at 50% 50%)' :
+                              shape === 'triangle' ? 'polygon(50% 2%, 98% 98%, 2% 98%)' :
+                              shape === 'heart' ? `path("${shapePaths.heart}")` : 'none',
+                    borderRadius: shape === 'square' ? '12px' : '0'
+                }}>
+                    <video
+                        ref={videoRef}
+                        className="video-element"
+                        src={src}
+                        playsInline
+                        muted
+                        onClick={handleToggleFocus}
+                    />
+                </div>
+            </div>
         </div>
     );
 };

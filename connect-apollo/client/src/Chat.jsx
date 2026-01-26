@@ -4,6 +4,7 @@ import remarkGfm from 'remark-gfm';
 import Modal from "./custom/Modal";
 import CustomAudioPlayer from "./custom/CustomAudioPlayer";
 import CustomVideoPlayer from "./custom/CustomVideoPlayer"; 
+import GlobalVideoPlayer from "./custom/GlobalVideoPlayer";
 import Cropper from 'react-easy-crop';
 import { registerPushNotifications } from "./custom/pushSubscription";
 import rehypeSanitize from 'rehype-sanitize';
@@ -11,7 +12,6 @@ import AdminPanel from "./AdminPanel";
 
 const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || "http://localhost:3001";
 
-// --- SVG Icons ---
 const IconClock = () => (
     <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="currentColor" style={{marginLeft: 4, display: 'inline-block', verticalAlign: 'middle'}}>
         <path fill="currentColor" d="M12 21a9 9 0 1 0 0-18a9 9 0 0 0 0 18Zm11-9c0 6.075-4.925 11-11 11S1 18.075 1 12S5.925 1 12 1s11 4.925 11 11Zm-8 4.414l-4-4V5.5h2v6.086L16.414 15L15 16.414Z"/>
@@ -76,17 +76,15 @@ const IconDrag = () => (
     </svg>
 );
 const IconCamera = () => (
-    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"><path fill="#aaa" d="M17 10.5V7c0-.55-.45-1-1-1H4c-.55 0-1 .45-1 1v10c0 .55.45 1 1 1h12c.55 0 1-.45 1-1v-3.5l4 4v-11l-4 4z"/></svg>
+    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="#fff"><path d="M2 5h14v4h2V7h2V5h2v14h-2v-2h-2v-2h-2v4H2V5zm2 12h10V7H4v10z"/></svg>
 );
 
-// --- HELPER FUNCTION FOR TIMER ---
 const formatTime = (seconds) => {
     const mins = Math.floor(seconds / 60);
     const secs = seconds % 60;
     return `${mins}:${secs < 10 ? '0' : ''}${secs}`;
 };
 
-// --- Context Menu Component ---
 const ContextMenu = ({ x, y, msg, onClose, onReply, onCopy, onDelete, canDelete }) => {
     return (
         <div 
@@ -114,7 +112,6 @@ const ContextMenu = ({ x, y, msg, onClose, onReply, onCopy, onDelete, canDelete 
     );
 };
 
-// --- Message Item ---
 const MessageItem = React.memo(({ msg, username, display_name, setImageModalSrc, onContextMenu, onReplyTrigger, scrollToMessage, onMentionClick }) => {
     const isMine = msg.author === username;
     const [translateX, setTranslateX] = useState(0);
@@ -128,7 +125,6 @@ const MessageItem = React.memo(({ msg, username, display_name, setImageModalSrc,
     if (msg.type === 'video') {
         let videoData = { url: msg.message, shape: 'circle' };
         try {
-            // Attempt to parse JSON. If it's a raw URL (old message or error), catch block handles it
             const parsed = JSON.parse(msg.message);
             if (parsed.url) videoData = parsed;
         } catch (e) {
@@ -140,6 +136,9 @@ const MessageItem = React.memo(({ msg, username, display_name, setImageModalSrc,
                 src={videoData.url} 
                 shape={videoData.shape || 'circle'} 
                 width="240px" 
+                align={isMine ? 'right' : 'left'}
+                author={msg.author_display_name || msg.author}
+                time={msg.time}
             />
         );
     } else if (msg.type === 'image') {
@@ -255,7 +254,7 @@ const MessageItem = React.memo(({ msg, username, display_name, setImageModalSrc,
             </div>
 
             <div className={`bubble-container ${isLongPress ? 'long-press-active' : ''}`} style={{ transform: `translateX(${translateX}px)`, transition: translateX === 0 ? 'transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275)' : 'none' }}>
-                <div className="bubble">
+                <div className={`bubble ${msg.type === 'video' ? 'video-bubble' : ''}`}>
                     <span className="meta-name" style={{display:'flex', alignItems:'center', gap: '4px'}}>
                         {msg.author_display_name || msg.author}
                         {msg.author_badges && msg.author_badges.map((b, i) => (
@@ -285,24 +284,19 @@ function Chat({ socket, username, room, setRoom, handleLogout }) {
     const [myChats, setMyChats] = useState(() => { try { return JSON.parse(localStorage.getItem("apollo_my_chats")) || []; } catch { return []; } });
     const [friends, setFriends] = useState(() => { try { return JSON.parse(localStorage.getItem("apollo_friends")) || []; } catch { return []; } });
     const [myProfile, setMyProfile] = useState(() => { try { return JSON.parse(localStorage.getItem("apollo_my_profile")) || { bio: "", phone: "", avatar_url: "", display_name: "", notifications_enabled: 1 }; } catch { return { bio: "", phone: "", avatar_url: "", display_name: "", notifications_enabled: 1 }; } });
-    // NEW STATE: For storing last message previews
     const [chatPreviews, setChatPreviews] = useState(() => { try { return JSON.parse(localStorage.getItem("apollo_chat_previews")) || {}; } catch { return {}; } });
 
-    // --- State for Roles & Settings ---
-    const [globalRole, setGlobalRole] = useState('member'); // 'mod' or 'member'
+    const [globalRole, setGlobalRole] = useState('member'); 
     const [roomSettings, setRoomSettings] = useState({ is_private: 0, slow_mode: 0, avatar_url: '' });
     
-    // --- State for Sidebar Management ---
     const [pinnedChats, setPinnedChats] = useState(() => { try { return JSON.parse(localStorage.getItem("apollo_pinned_chats")) || []; } catch { return []; } });
     const [folders, setFolders] = useState(() => { try { return JSON.parse(localStorage.getItem("apollo_folders")) || [{id: 'all', name: 'All', chatIds: []}]; } catch { return [{id: 'all', name: 'All', chatIds: []}]; } });
     const [activeFolderId, setActiveFolderId] = useState('all');
     const [customChatOrder, setCustomChatOrder] = useState(() => { try { return JSON.parse(localStorage.getItem("apollo_chat_order")) || []; } catch { return []; } });
     
-    // Selection Mode State
     const [isSelectionMode, setIsSelectionMode] = useState(false);
     const [selectedChats, setSelectedChats] = useState([]);
     
-    // Folder Management State
     const [newFolderName, setNewFolderName] = useState("");
     const [folderToEdit, setFolderToEdit] = useState(null);
 
@@ -345,20 +339,18 @@ function Chat({ socket, username, room, setRoom, handleLogout }) {
     const [bugFiles, setBugFiles] = useState([]);
     const [adminBugList, setAdminBugList] = useState([]);
 
-    // --- RECORDING & INPUT STATE ---
-    const [inputMode, setInputMode] = useState('audio'); // 'audio' | 'video'
+    const [inputMode, setInputMode] = useState('audio');
     const [isRecording, setIsRecording] = useState(false);
     const [isLocked, setIsLocked] = useState(false);
     const [recordingTime, setRecordingTime] = useState(0);
-    const [recordedMedia, setRecordedMedia] = useState(null); // { blob, url, type, duration }
-    const [videoShape, setVideoShape] = useState('circle'); // 'circle', 'heart', 'triangle', 'square'
+    const [recordedMedia, setRecordedMedia] = useState(null);
+    const [videoShape, setVideoShape] = useState('circle');
     
     const mediaRecorderRef = useRef(null);
     const audioChunksRef = useRef([]);
     const timerIntervalRef = useRef(null);
     const longPressTimeoutRef = useRef(null);
     
-    // REFS FOR SWIPE LOGIC
     const startXRef = useRef(0);
     const startYRef = useRef(0);
     const isSwipingToCancelRef = useRef(false);
@@ -366,7 +358,6 @@ function Chat({ socket, username, room, setRoom, handleLogout }) {
     const liveVideoRef = useRef(null); 
     const streamRef = useRef(null);
 
-    // --- State for In-App Notification ---
     const [inAppNotif, setInAppNotif] = useState({ visible: false, title: '', body: '', avatar: null, room: '' });
     const inAppNotifTimeoutRef = useRef(null);
 
@@ -383,29 +374,32 @@ function Chat({ socket, username, room, setRoom, handleLogout }) {
     const isSwiping = useRef(false);
     const startTouchX = useRef(0);
     
-    // Sidebar DnD refs
     const dragItemRef = useRef(null);
     const dragOverItemRef = useRef(null);
-    // Selection long-press ref
     const chatLongPressTimer = useRef(null);
-    // Mobile Drag State
     const [isMobileDragging, setIsMobileDragging] = useState(false);
     const [draggedItemId, setDraggedItemId] = useState(null);
 
-    // --- EFFECT: Persist Sidebar State ---
+    const [activeVideoState, setActiveVideoState] = useState(null);
+
+    useEffect(() => {
+        const handleVideoUpdate = (e) => {
+            setActiveVideoState(e.detail);
+        };
+
+        window.addEventListener('video-update-state', handleVideoUpdate);
+        return () => window.removeEventListener('video-update-state', handleVideoUpdate);
+    }, []);
+
     useEffect(() => { localStorage.setItem("apollo_pinned_chats", JSON.stringify(pinnedChats)); }, [pinnedChats]);
     useEffect(() => { localStorage.setItem("apollo_folders", JSON.stringify(folders)); }, [folders]);
     useEffect(() => { localStorage.setItem("apollo_chat_order", JSON.stringify(customChatOrder)); }, [customChatOrder]);
-    // NEW: Persist chat previews
     useEffect(() => { localStorage.setItem("apollo_chat_previews", JSON.stringify(chatPreviews)); }, [chatPreviews]);
 
-
-    // --- COMPUTED: Unified Chat List for Sidebar ---
     const unifiedChatList = useMemo(() => {
-        // 1. Create base list with consistent IDs (room IDs) and original IDs
         let all = [
             ...myChats.map(c => ({ 
-                id: c, // room ID is the name for groups
+                id: c,
                 originalId: c,
                 type: 'group', 
                 name: c === 'General' ? 'Community Bot' : c, 
@@ -416,7 +410,7 @@ function Chat({ socket, username, room, setRoom, handleLogout }) {
                 const roomId = [username, friendUsername].sort().join("_");
                 return { 
                     id: roomId, 
-                    originalId: friendUsername, // This is what's stored in folders/pins
+                    originalId: friendUsername,
                     type: 'dm', 
                     name: f.display_name || friendUsername, 
                     avatar: f.avatar_url 
@@ -424,13 +418,11 @@ function Chat({ socket, username, room, setRoom, handleLogout }) {
             })
         ];
 
-        // 2. Augment with preview data
         all = all.map(chat => ({
             ...chat,
             preview: chatPreviews[chat.id] || null
         }));
         
-        // 3. Filter by active folder
         if (activeFolderId !== 'all') {
             const currentFolder = folders.find(f => f.id === activeFolderId);
             if (currentFolder) {
@@ -438,7 +430,6 @@ function Chat({ socket, username, room, setRoom, handleLogout }) {
             }
         }
 
-        // 4. Sort
         all.sort((a, b) => {
             const isPinnedA = pinnedChats.includes(a.originalId);
             const isPinnedB = pinnedChats.includes(b.originalId);
@@ -460,8 +451,6 @@ function Chat({ socket, username, room, setRoom, handleLogout }) {
         return all;
     }, [myChats, friends, pinnedChats, activeFolderId, folders, customChatOrder, chatPreviews, username]);
 
-
-    // --- 1. ЛОГИКА КНОПКИ "НАЗАД" (HISTORY API) ---
     useEffect(() => {
         if (isMobile && showMobileChat) {
             window.history.pushState({ type: 'chat' }, '');
@@ -545,7 +534,7 @@ function Chat({ socket, username, room, setRoom, handleLogout }) {
         
         inAppNotifTimeoutRef.current = setTimeout(() => {
             setInAppNotif(prev => ({ ...prev, visible: false }));
-        }, 3500); // Hide after 3.5s
+        }, 3500); 
     }, []);
 
     const handleInAppNotifClick = () => {
@@ -592,14 +581,12 @@ function Chat({ socket, username, room, setRoom, handleLogout }) {
 
     const requestMediaPermissions = async (type) => {
         try {
-            // Запрашиваем доступ к камере и микрофону одновременно
             const constraints = type === 'video' 
                 ? { audio: true, video: { facingMode: "user" } } 
                 : { audio: true };
             
             const stream = await navigator.mediaDevices.getUserMedia(constraints);
             
-            // Если успешно — сразу выключаем, нам нужно было только разрешение
             stream.getTracks().forEach(track => track.stop());
             alert("Доступ к " + (type === 'video' ? "камере и микрофону" : "микрофону") + " получен!");
         } catch (err) {
@@ -609,9 +596,6 @@ function Chat({ socket, username, room, setRoom, handleLogout }) {
     };
 
     const requestFilePermission = () => {
-        // В браузерах нет отдельной кнопки "Разрешить файлы", 
-        // разрешение запрашивается в момент открытия выбора файла.
-        // Мы имитируем этот процесс, чтобы вызвать системный запрос.
         const input = document.createElement('input');
         input.type = 'file';
         input.onchange = () => alert("Доступ к файлам подтвержден!");
@@ -779,7 +763,7 @@ function Chat({ socket, username, room, setRoom, handleLogout }) {
         if (swipeX > window.innerWidth * 0.25) {
             setSwipeX(window.innerWidth);
             setTimeout(() => {
-                window.history.back(); // This triggers handlePopState -> handleCloseMobileChat
+                window.history.back(); 
             }, 100);
         } else {
             setSwipeX(0);
@@ -790,7 +774,6 @@ function Chat({ socket, username, room, setRoom, handleLogout }) {
         if (isSelectionMode) return; 
         if (!targetName || typeof targetName !== 'string') return;
         
-        // targetName here is the ROOM ID
         const roomId = targetName;
         
         if (roomId !== room) { 
@@ -852,10 +835,8 @@ function Chat({ socket, username, room, setRoom, handleLogout }) {
         
         socket.on("global_role", (role) => setGlobalRole(role));
         
-        // Listen for settings and update
         socket.on("room_settings", (settings) => {
             setRoomSettings(settings);
-            // Also update myRole for the current room logic
             setMyRole(settings.myRole);
         });
 
@@ -865,7 +846,6 @@ function Chat({ socket, username, room, setRoom, handleLogout }) {
             }
         });
         
-        // NEW: Listen for chat previews
         socket.on("chat_previews_data", (data) => {
             if (typeof data === 'object' && data !== null) setChatPreviews(data);
         });
@@ -952,7 +932,7 @@ function Chat({ socket, username, room, setRoom, handleLogout }) {
         setCurrentMessage("");
         setReplyingTo(null);
         setIsLoadingHistory(true);
-        setRoomSettings({ is_private: 0, slow_mode: 0, avatar_url: '' }); // Reset
+        setRoomSettings({ is_private: 0, slow_mode: 0, avatar_url: '' }); 
         
         socket.emit("join_room", { username, room });
         
@@ -961,7 +941,6 @@ function Chat({ socket, username, room, setRoom, handleLogout }) {
         }
 
         const handleReceiveMessage = (data) => {
-            // Update preview for the chat list (simulating backend push)
             setChatPreviews(prev => ({
                 ...prev,
                 [data.room]: {
@@ -1006,7 +985,7 @@ function Chat({ socket, username, room, setRoom, handleLogout }) {
             } 
         });
         
-        socket.on("group_info_data", (d) => { if(d.room === room) { setGroupMembers(d.members); } }); // myRole handled by room_settings now for consistency
+        socket.on("group_info_data", (d) => { if(d.room === room) { setGroupMembers(d.members); } });
         socket.on("group_info_updated", (data) => { if(room === data.members?.[0]?.room) setGroupMembers(data.members); });
         socket.on("message_deleted", (id) => setMessageList((prev) => prev.filter((msg) => msg.id !== id)));
 
@@ -1023,11 +1002,14 @@ function Chat({ socket, username, room, setRoom, handleLogout }) {
     }, [room, socket, username, playNotificationSound, sendSystemNotification]);
 
     useEffect(() => {
-        if (!isLoadingHistory && messageList.length > 0) {
+        if (previousScrollHeight.current === 0 && messageList.length > 0) {
             const lastMsg = messageList[messageList.length - 1];
-            if(lastMsg && (lastMsg.author === username || !isLoadingHistory)) messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+            messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
         }
-    }, [messageList, username, isLoadingHistory]);
+        if (previousScrollHeight.current > 0) {
+            setTimeout(() => { previousScrollHeight.current = 0; }, 100);
+        }
+    }, [messageList]);
 
     useLayoutEffect(() => {
         if (chatBodyRef.current && previousScrollHeight.current !== 0) {
@@ -1076,28 +1058,22 @@ function Chat({ socket, username, room, setRoom, handleLogout }) {
         }
     };
 
-    // --- NEW RECORDING LOGIC ---
-
-    // REFS FOR TOUCH/MOUSE HANDLING
-    const lastTouchTimeRef = useRef(0); // Добавляем этот ref для фикса двойного клика
+    const lastTouchTimeRef = useRef(0);
     const recordingTimeRef = useRef(0);
     
-    // FIX 2: Create a fake black video stream if camera is missing
     const createFakeVideoStream = (audioStream) => {
         const canvas = document.createElement('canvas');
         canvas.width = 480;
         canvas.height = 480;
         const ctx = canvas.getContext('2d');
-        const stream = canvas.captureStream(30); // 30 FPS
+        const stream = canvas.captureStream(30);
 
-        // Add audio tracks if available
         if (audioStream) {
             audioStream.getAudioTracks().forEach(track => stream.addTrack(track));
         }
 
-        // Draw black loop to keep the stream active
         const draw = () => {
-            ctx.fillStyle = '#000'; // Black
+            ctx.fillStyle = '#000';
             ctx.fillRect(0, 0, canvas.width, canvas.height);
             requestAnimationFrame(draw);
         };
@@ -1105,12 +1081,9 @@ function Chat({ socket, username, room, setRoom, handleLogout }) {
         return stream;
     };
 
-    // --- EFFECT: Attach Stream to Video Preview when Recording Starts ---
-    // This fixes the mobile issue where the video element renders AFTER we tried to set srcObject
     useEffect(() => {
         if (isRecording && inputMode === 'video' && liveVideoRef.current && streamRef.current) {
             liveVideoRef.current.srcObject = streamRef.current;
-            // Force mute for mobile autoplay policy
             liveVideoRef.current.muted = true; 
             liveVideoRef.current.play().catch(e => console.log("Preview play error:", e));
         }
@@ -1118,7 +1091,6 @@ function Chat({ socket, username, room, setRoom, handleLogout }) {
 
     const handleRecordStart = (e) => {
         const now = Date.now();
-        // Блокируем эмуляцию мыши после тача
         if (e.type === 'mousedown' && now - lastTouchTimeRef.current < 500) return;
         if (e.type === 'touchstart') lastTouchTimeRef.current = now;
 
@@ -1129,7 +1101,6 @@ function Chat({ socket, username, room, setRoom, handleLogout }) {
         startYRef.current = clientY;
         isSwipingToCancelRef.current = false;
 
-        // Запускаем таймер долгого нажатия
         longPressTimeoutRef.current = setTimeout(() => {
             startRecordingProcess();
         }, 250); 
@@ -1138,24 +1109,18 @@ function Chat({ socket, username, room, setRoom, handleLogout }) {
     const handleRecordMove = (e) => {
         if (!isRecording || isLocked) return;
 
-        // --- ПК ФИКС ---
-        // Если это мышь, мы ИГНОРИРУЕМ движение. 
-        // На ПК нет свайпов для лока/отмены, только удержание.
         if (e.type === 'mousemove') return;
 
-        // Дальше логика только для Touch
         const clientX = e.touches ? e.touches[0].clientX : 0;
         const clientY = e.touches ? e.touches[0].clientY : 0;
 
-        const diffY = startYRef.current - clientY; // Вверх
-        const diffX = startXRef.current - clientX; // Влево
+        const diffY = startYRef.current - clientY;
+        const diffX = startXRef.current - clientX;
 
-        // Порог блокировки (Только тач)
         if (diffY > 80 && !isSwipingToCancelRef.current) {
             setIsLocked(true);
         }
 
-        // Порог отмены (Только тач)
         if (diffX > 100 && !isLocked) {
              isSwipingToCancelRef.current = true;
              cancelRecording(); 
@@ -1167,7 +1132,6 @@ function Chat({ socket, username, room, setRoom, handleLogout }) {
         if (e.type === 'mouseup' && now - lastTouchTimeRef.current < 500) return;
 
         if (longPressTimeoutRef.current) {
-             // Таймер не сработал -> Это был Клик -> Переключаем режим
              clearTimeout(longPressTimeoutRef.current);
              longPressTimeoutRef.current = null;
              
@@ -1175,14 +1139,12 @@ function Chat({ socket, username, room, setRoom, handleLogout }) {
                  setInputMode(prev => prev === 'audio' ? 'video' : 'audio');
              }
         } else {
-             // Таймер сработал -> Мы писали
              if (isRecording && !isLocked) {
                  stopRecordingProcess(); 
              }
         }
     };
 
-    // 2. Старт записи
     const startRecordingProcess = async () => {
         try {
             const constraints = inputMode === 'video' 
@@ -1194,7 +1156,6 @@ function Chat({ socket, username, room, setRoom, handleLogout }) {
             try {
                 stream = await navigator.mediaDevices.getUserMedia(constraints);
             } catch (cameraError) {
-                // FALLBACK FOR NO CAMERA: Request Audio Only + Fake Video
                 if (inputMode === 'video') {
                     console.warn("Camera failed, using fallback black screen with audio.");
                     const audioStream = await navigator.mediaDevices.getUserMedia({ audio: true });
@@ -1217,12 +1178,11 @@ function Chat({ socket, username, room, setRoom, handleLogout }) {
             };
 
             recorder.onstop = () => {
-                if (!streamRef.current && !recordedMedia) return; // Была отмена
+                if (!streamRef.current && !recordedMedia) return;
 
                 const blob = new Blob(audioChunksRef.current, { type: mimeType });
                 const url = URL.createObjectURL(blob);
                 
-                // ВАЖНО: Берем длительность из REFA, а не из стейта (стейт внутри замыкания может быть старым)
                 const finalDuration = recordingTimeRef.current;
 
                 setRecordedMedia({
@@ -1243,14 +1203,13 @@ function Chat({ socket, username, room, setRoom, handleLogout }) {
             setIsRecording(true);
             setIsLocked(false);
             
-            // Сброс таймеров
             setRecordingTime(0);
             recordingTimeRef.current = 0;
             
             if (timerIntervalRef.current) clearInterval(timerIntervalRef.current);
             timerIntervalRef.current = setInterval(() => {
-                recordingTimeRef.current += 1; // Обновляем ref
-                setRecordingTime(recordingTimeRef.current); // Обновляем UI
+                recordingTimeRef.current += 1;
+                setRecordingTime(recordingTimeRef.current);
             }, 1000);
 
         } catch (err) {
@@ -1259,7 +1218,6 @@ function Chat({ socket, username, room, setRoom, handleLogout }) {
         }
     };
 
-    // 3. Стоп записи (переход к предпросмотру)
     const stopRecordingProcess = () => {
         if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
             mediaRecorderRef.current.stop();
@@ -1269,9 +1227,7 @@ function Chat({ socket, username, room, setRoom, handleLogout }) {
         clearInterval(timerIntervalRef.current);
     };
 
-    // 4. Отмена (удаление)
     const cancelRecording = () => {
-        // Clear everything first to update UI
         setIsRecording(false);
         setIsLocked(false);
         clearInterval(timerIntervalRef.current);
@@ -1288,24 +1244,20 @@ function Chat({ socket, username, room, setRoom, handleLogout }) {
         }
     };
 
-    // 5. Отправка медиа
     const sendRecordedContent = async () => {
         if (!recordedMedia) return;
 
         const formData = new FormData();
-        const ext = recordedMedia.type === 'video' ? 'webm' : 'webm'; // или mp4/ogg
+        const ext = recordedMedia.type === 'video' ? 'webm' : 'webm';
         const fileName = `msg_${Date.now()}.${ext}`;
         formData.append('file', recordedMedia.blob, fileName);
 
-        // Optimistic UI
         const time = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
         const timestamp = Date.now();
         const tempId = timestamp;
         
-        // Для видео мы отправляем JSON с URL и формой
         let optimisticContent = recordedMedia.url; 
         
-        // Очистка UI сразу
         setRecordedMedia(null);
         setIsLocked(false);
 
@@ -1316,7 +1268,6 @@ function Chat({ socket, username, room, setRoom, handleLogout }) {
             if (data.url) {
                 let finalMessage = data.url;
                 if (recordedMedia.type === 'video') {
-                    // Упаковываем в JSON
                     finalMessage = JSON.stringify({
                         url: data.url,
                         shape: videoShape
@@ -1326,7 +1277,7 @@ function Chat({ socket, username, room, setRoom, handleLogout }) {
                 const optimisticMsg = { 
                     room, 
                     author: username, 
-                    message: recordedMedia.type === 'video' ? finalMessage : data.url, // Используем реальный формат 
+                    message: recordedMedia.type === 'video' ? finalMessage : data.url, 
                     type: recordedMedia.type, 
                     time, 
                     timestamp, 
@@ -1335,7 +1286,6 @@ function Chat({ socket, username, room, setRoom, handleLogout }) {
                     id: tempId 
                 };
                 
-                // Для локального отображения
                 const localDisplayMsg = {
                     ...optimisticMsg,
                     message: recordedMedia.type === 'video' 
@@ -1345,7 +1295,6 @@ function Chat({ socket, username, room, setRoom, handleLogout }) {
 
                 setMessageList(prev => [...prev, localDisplayMsg]);
                 
-                // На сервер шлем реальный URL
                 socket.emit("send_message", optimisticMsg, (res) => { 
                     if (res && res.status === 'ok') {
                         setMessageList(prev => prev.map(m => m.tempId === tempId ? { ...m, id: res.id, status: 'sent', message: finalMessage } : m)); 
@@ -1406,7 +1355,6 @@ function Chat({ socket, username, room, setRoom, handleLogout }) {
         setReplyingTo(null);
     };
 
-    // --- Bug Reporting Functions ---
     const handleBugSubmit = async () => {
         if (!bugDescription) return alert("Опишите проблему");
         const formData = new FormData();
@@ -1439,17 +1387,15 @@ function Chat({ socket, username, room, setRoom, handleLogout }) {
             headers: {'Content-Type': 'application/json'},
             body: JSON.stringify({id})
         });
-        fetchBugReports(); // Refresh
+        fetchBugReports(); 
     }
 
     const openGroupInfo = () => {
         if (!myChats.includes(room) && room !== "General") { 
-            // Private Chat Info
             socket.emit("get_user_profile", room.replace(username, "").replace("_", "") || room); 
             setShowMenu(false); 
         }
         else { 
-            // Group Chat Info
             socket.emit("get_group_info", room); 
             setActiveModal("groupInfo"); 
             setShowMenu(false); 
@@ -1507,7 +1453,6 @@ function Chat({ socket, username, room, setRoom, handleLogout }) {
     const displayRoomName = currentChatInfo?.name || (isPrivateChat ? room.replace(username, "").replace("_", "") : room);
     
     
-    // Use room avatar from settings if available
     const roomAvatar = roomSettings.avatar_url || (room === "General" ? '' : '');
     const getAvatarStyle = (imgUrl) => imgUrl ? { backgroundImage: `url(${imgUrl})`, backgroundSize: 'cover', backgroundPosition: 'center', backgroundColor: '#333', color: 'transparent', } : { backgroundColor: '#333' };
 
@@ -1526,7 +1471,6 @@ function Chat({ socket, username, room, setRoom, handleLogout }) {
         return isAuthor || (canManage && !msg.room.includes('_'));
     }
 
-    // --- Sidebar Drag & Drop Handlers ---
     const onDragStart = (e, index) => {
         if (isSelectionMode) { e.preventDefault(); return; }
         dragItemRef.current = index;
@@ -1568,7 +1512,6 @@ function Chat({ socket, username, room, setRoom, handleLogout }) {
         dragOverItemRef.current = null;
     };
 
-    // --- Custom Touch Drag Logic (Mobile) ---
     const handleTouchDragStart = (e, chat) => {
         e.stopPropagation();
         if (e.cancelable) e.preventDefault();
@@ -1621,7 +1564,6 @@ function Chat({ socket, username, room, setRoom, handleLogout }) {
     };
 
 
-    // --- Sidebar Selection Handlers ---
     const handleChatLongPress = (chatId) => {
         if (isSelectionMode) return;
         setIsSelectionMode(true);
@@ -1647,7 +1589,6 @@ function Chat({ socket, username, room, setRoom, handleLogout }) {
         }
     };
 
-    // --- Sidebar Actions ---
     const handlePinSelected = () => {
         const newPinned = [...pinnedChats];
         const chatsToToggle = unifiedChatList.filter(c => selectedChats.includes(c.id));
@@ -1672,7 +1613,7 @@ function Chat({ socket, username, room, setRoom, handleLogout }) {
         chatsToDelete.forEach(chat => {
             if (chat.type === 'group') {
                  if (chat.originalId !== 'General') socket.emit("leave_group", { room: chat.originalId });
-            } else { // 'dm'
+            } else { 
                  socket.emit("remove_friend", chat.originalId);
             }
         });
@@ -1722,7 +1663,6 @@ function Chat({ socket, username, room, setRoom, handleLogout }) {
     return (
       <div className={`main-layout ${isMobile ? "mobile-mode" : ""} ${isSelectionMode ? "selection-mode-active" : ""}`} style={{ touchAction: "pan-y" }}>
         
-        {/* --- TELEGRAM STYLE IN-APP NOTIFICATION --- */}
         <div 
             className={`tg-in-app-notification ${inAppNotif.visible ? 'visible' : ''}`}
             onClick={handleInAppNotifClick}
@@ -1760,7 +1700,6 @@ function Chat({ socket, username, room, setRoom, handleLogout }) {
 
         <input type="file" ref={avatarInputRef} className="hidden-input" onChange={onFileChange} accept="image/*" />
 
-        {/* --- ADMIN PANEL MODAL --- */}
         {activeModal === "adminPanel" && (
             <AdminPanel 
                 token={localStorage.getItem("apollo_token")} 
@@ -1771,13 +1710,10 @@ function Chat({ socket, username, room, setRoom, handleLogout }) {
 
         <div 
             className={`left-panel ${isMobile && showMobileChat ? "hidden" : ""}`}
-            // Event listener for touch move needs to be high up to catch movement over other items
             onTouchMove={handleTouchDragMove}
             onTouchEnd={handleTouchDragEnd}
         >
           
-          {/* --- SIDEBAR HEADER / ACTION BAR --- */}
-
             <div className="sidebar-top">
                 <div className="sidebar-header-content">
                   <div className="my-avatar" style={getAvatarStyle(myProfile.avatar_url)} onClick={openSettings}>{!myProfile.avatar_url && username[0].toUpperCase()}</div>
@@ -1786,7 +1722,6 @@ function Chat({ socket, username, room, setRoom, handleLogout }) {
                 <div className="actMenu" style={{display: 'flex', gap: 15, alignItems: 'center'}}>
                      <div onClick={() => setActiveModal("notifications")} title="notifications"><IconBell hasUnread={hasUnreadNotifs} /></div>
                      
-                     {/* Global Mod Admin Button */}
                      {globalRole === 'mod' && (
                         <button className="fab-btn" style={{backgroundColor: '#444', width: 40, height: 40}} onClick={() => setActiveModal("adminPanel")}>
                             <IconShield />
@@ -1814,7 +1749,6 @@ function Chat({ socket, username, room, setRoom, handleLogout }) {
           )}
 
             <div className="friends-list">
-                {/* --- FOLDER TABS --- */}
                 {!isSelectionMode && (
                     <div className="folder-tabs">
                         {folders.map(f => (
@@ -1832,7 +1766,6 @@ function Chat({ socket, username, room, setRoom, handleLogout }) {
                     </div>
                 )}
                 
-                {/* NEW WRAPPER FOR SCROLLING */}
                 <div className="chat-list-scroll-container">
                     {unifiedChatList.length === 0 && (
                         <div style={{ padding: 20, textAlign: 'center', color: '#666', fontSize: 13 }}>Нет чатов в этой папке</div>
@@ -1844,7 +1777,6 @@ function Chat({ socket, username, room, setRoom, handleLogout }) {
                         const isPinned = pinnedChats.includes(chat.originalId);
                         const isBeingDragged = isMobileDragging && draggedItemId === chat.id;
 
-                        // Helper for message preview
                         const renderPreview = () => {
                             if (!chat.preview) {
                                 return chat.id === "General" ? "Новости и обновления" : "Нет сообщений";
@@ -1905,7 +1837,6 @@ function Chat({ socket, username, room, setRoom, handleLogout }) {
                                     </div>
                                 </div>
 
-                                {/* DRAG HANDLE ICON */}
                                 <div 
                                     className="drag-handle"
                                     onTouchStart={(e) => handleTouchDragStart(e, chat)}
@@ -1955,6 +1886,19 @@ function Chat({ socket, username, room, setRoom, handleLogout }) {
               </div>
             </div>
 
+            {activeVideoState && (
+                <GlobalVideoPlayer 
+                    activeVideo={activeVideoState}
+                    onTogglePlay={() => window.dispatchEvent(new CustomEvent('video-toggle-play'))}
+                    onClose={() => {
+                        setActiveVideoState(null);
+                        window.dispatchEvent(new CustomEvent('video-close-focus'));
+                    }}
+                    onSeek={(val) => window.dispatchEvent(new CustomEvent('video-seek', { detail: val }))}
+                    onSpeedChange={() => window.dispatchEvent(new CustomEvent('video-change-speed'))}
+                />
+            )}
+
             <div className="chat-body" ref={chatBodyRef} onScroll={handleScroll}>
               {isLoadingHistory && (<div style={{ textAlign: "center", fontSize: 12, color: "#666", padding: 10 }}>Загрузка истории...</div>)}
               {messageList.map((msg, index) => (<MessageItem key={msg.id || index} msg={msg} username={username} display_name={msg.author_display_name} setImageModalSrc={setImageModalSrc} onContextMenu={handleContextMenu} onReplyTrigger={handleReply} scrollToMessage={handleScrollToReply} onMentionClick={onMentionClick} />))}
@@ -1963,34 +1907,29 @@ function Chat({ socket, username, room, setRoom, handleLogout }) {
 
             <div className="chat-input-background"></div>
 
-            {/* INPUT AREA REPLACEMENT */}
-            {/* INPUT AREA */}
             {(room === "General" || isPrivateChat || myRole !== 'guest' || globalRole === 'mod') ? (
                 <div className="chat-input-wrapper">
                     
-                    {/* --- 1. PREVIEW MODE (Предпросмотр перед отправкой) --- */}
                     {recordedMedia ? (
                         <div className="media-preview-bar" style={{display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%', gap: 10}}>
-                            {/* Кнопка Удалить */}
                             <button className="tool-btn" onClick={cancelRecording} style={{color: '#ff4d4d', background: 'transparent'}}>
                                 <IconTrash />
                             </button>
                             
-                            {/* Центральная часть: Плеер или Видео */}
                             <div style={{flex: 1, display: 'flex', justifyContent: 'center', alignItems: 'center', overflow: 'hidden'}}>
                                 {recordedMedia.type === 'audio' ? (
-                                     /* ПЛЕЕР ДЛЯ ПРЕДПРОСЛУШИВАНИЯ */
                                      <div style={{width: '100%', maxWidth: '300px'}}>
                                         <CustomAudioPlayer src={recordedMedia.url} /> 
                                      </div>
                                 ) : (
-                                    /* ПРЕВЬЮ ВИДЕО + ВЫБОР ФОРМЫ */
                                     <div style={{display: 'flex', alignItems: 'center', gap: 15}}>
                                         <CustomVideoPlayer 
                                             src={recordedMedia.url} 
                                             shape={videoShape} 
-                                            width="100px" 
-                                            className="preview-video"
+                                            width="240px"
+                                            align="right"
+                                            author={username}
+                                            time="Сейчас"
                                         />
                                         <div className="shape-selector" style={{display: 'flex', flexDirection:'column', gap: 8, background: '#222', padding: 8, borderRadius: 20}}>
                                             {['circle', 'heart', 'triangle', 'square'].map(s => (
@@ -2011,15 +1950,12 @@ function Chat({ socket, username, room, setRoom, handleLogout }) {
                                 )}
                             </div>
 
-                            {/* Кнопка Отправить */}
                             <button className="send-pill-btn" onClick={sendRecordedContent} style={{borderRadius: '50%', width: 45, height: 45, padding: 0, justifyContent: 'center'}}>
                                 <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"><path fill="#ffffff" d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/></svg>
                             </button>
                         </div>
                     ) : (
-                        /* --- 2. NORMAL & RECORDING MODE --- */
                         <>
-                            {/* Live Camera Preview */}
                             {inputMode === 'video' && isRecording && (
                                 <div className="live-camera-preview" style={{
                                     position: 'absolute', bottom: 85, right: 20, 
@@ -2031,7 +1967,6 @@ function Chat({ socket, username, room, setRoom, handleLogout }) {
                                 </div>
                             )}
 
-                            {/* Lock Indicator */}
                             {isRecording && !isLocked && (
                                 <div className="lock-indicator" style={{
                                     position: 'absolute', right: 30, bottom: 100, 
@@ -2046,7 +1981,6 @@ function Chat({ socket, username, room, setRoom, handleLogout }) {
                             {replyingTo && (<div className="reply-bar"><div><div style={{ color: "#8774e1", fontSize: 13, fontWeight: "bold" }}>В ответ {replyingTo.author}</div><div style={{ fontSize: 14, color: "#ccc", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", maxWidth: "250px" }}>{replyingTo.message}</div></div><button onClick={() => setReplyingTo(null)} style={{ background: "none", border: "none", color: "#888", cursor: "pointer", fontSize: 24 }}>&times;</button></div>)}
                             {attachedFiles.length > 0 && (<div className="attachments-preview"> {attachedFiles.map((f, i) => (<div key={i} className="attachment-thumb"> <img src={URL.createObjectURL(f)} alt="preview" /> <button onClick={() => removeAttachment(i)}>&times;</button> </div>))} </div>)}
                             
-                            {/* Hide Input when Recording */}
                             {!isRecording ? (
                                 <textarea ref={textareaRef} value={currentMessage} placeholder="Написать сообщение..." className="chat-textarea" onChange={(e) => { setCurrentMessage(e.target.value); socket.emit("typing", { room, username }); }} onKeyDown={handleKeyDown} rows={1} />
                             ) : (
@@ -2054,7 +1988,6 @@ function Chat({ socket, username, room, setRoom, handleLogout }) {
                                     <span style={{marginRight: 10, animation: 'pulse 1s infinite'}}>●</span>
                                     {formatTime(recordingTime)}
                                     
-                                    {/* Показываем подсказку про свайп ТОЛЬКО на мобильных */}
                                     {isMobile && (
                                         <span style={{marginLeft: 20, color: '#666', fontSize: 13, fontWeight: 'normal'}}>
                                             {isLocked ? "Запись закреплена" : "< Свайп для отмены"}
@@ -2073,15 +2006,12 @@ function Chat({ socket, username, room, setRoom, handleLogout }) {
                                     {(currentMessage.trim() || attachedFiles.length > 0) && !isRecording ? (
                                         <button className="send-pill-btn" onClick={sendMessage}> Отправить ↵ </button>
                                     ) : (
-                                        // DYNAMIC RECORD BUTTON
                                         <div 
                                             className={`record-btn-container ${isRecording ? 'recording-active' : ''}`}
-                                            // Mouse Events
                                             onMouseDown={handleRecordStart}
                                             onMouseMove={handleRecordMove}
                                             onMouseUp={handleRecordEnd}
                                             onMouseLeave={handleRecordEnd}
-                                            // Touch Events
                                             onTouchStart={handleRecordStart}
                                             onTouchMove={handleRecordMove}
                                             onTouchEnd={handleRecordEnd}
@@ -2097,7 +2027,7 @@ function Chat({ socket, username, room, setRoom, handleLogout }) {
                                                 <button className={`mic-btn ${isRecording ? "recording" : ""}`} style={{
                                                     transform: isRecording ? 'scale(1.8)' : 'scale(1)', 
                                                     transition: 'transform 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275)',
-                                                    pointerEvents: 'none' // Events are handled by container
+                                                    pointerEvents: 'none' 
                                                 }}>
                                                     {inputMode === 'audio' ? <IconMic /> : (
                                                         <IconCamera />
@@ -2118,396 +2048,6 @@ function Chat({ socket, username, room, setRoom, handleLogout }) {
             )}
           </div>
         </div>
-
-        {activeModal === "notifications" && (
-            <Modal title="Уведомления" onClose={() => { setActiveModal(null); setHasUnreadNotifs(false); }}>
-                 <div className="settings-list" style={{padding: 0 , marginTop: '100px'}}>
-                    {notifications.length === 0 && (<div style={{textAlign: 'center', padding: 20, color: '#888'}}>Нет уведомлений</div>)}
-                    {notifications.map((notif) => (
-                        <div key={notif.id} className="settings-item" style={{ backgroundColor: notif.is_read ? 'transparent' : 'rgba(43, 149, 255, 0.1)', borderBottom: '1px solid #333', flexDirection: 'column', alignItems: 'flex-start', gap: 5 }}>
-                             <div style={{display: 'flex', width: '100%', justifyContent: 'space-between', alignItems: 'center'}}>
-                                 <span style={{fontWeight: 'bold', fontSize: 14}}>{notif.type === 'friend_request' ? "Заявка в друзья" : (notif.type === 'mention' ? "Упоминание" : "Уведомление")}</span>
-                                 <button onClick={() => { socket.emit("delete_notification", {id: notif.id}); setNotifications(prev => prev.filter(n => n.id !== notif.id)); }} style={{background: 'none', border: 'none', color: '#666', cursor: 'pointer'}}>&times;</button>
-                             </div>
-                             <div style={{fontSize: 14, color: '#ddd'}}>
-                                 {notif.type === 'friend_request' ? `Пользователь ${notif.content} хочет добавить вас в друзья.` : notif.content}
-                             </div>
-                             {notif.type === 'mention' && (
-                                <button className="btn-accept" style={{marginTop: 5, padding: '5px 10px', fontSize: 12}} onClick={() => switchChat(notif.data)}>Перейти к чату</button>
-                             )}
-                             {notif.type === 'friend_request' && (
-                                 <div className="notification-actions" style={{marginTop: 5, display: 'flex', gap: 10}}>
-                                      <button className="btn-accept" onClick={() => { socket.emit("accept_friend_request", { notifId: notif.id, fromUsername: notif.content }); setNotifications(prev => prev.filter(n => n.id !== notif.id)); }}>Принять</button>
-                                      <button className="btn-decline" onClick={() => { socket.emit("decline_friend_request", { notifId: notif.id }); setNotifications(prev => prev.filter(n => n.id !== notif.id)); }}>Отклонить</button>
-                                 </div>
-                             )}
-                        </div>
-                    ))}
-                 </div>
-            </Modal>
-        )}
-
-        {/* --- MODAL FOR CREATING FOLDER --- */}
-        {activeModal === "createFolder" && (
-            <Modal title="Новая папка" onClose={() => setActiveModal(null)}>
-                <input id="search-input"
-                    className="modal-input" 
-                    placeholder="Название папки..." 
-                    value={newFolderName} 
-                    onChange={(e) => setNewFolderName(e.target.value)} 
-                />
-                <button className="btn-primary" onClick={createNewFolder}>Создать</button>
-            </Modal>
-        )}
-
-        {/* --- MODAL FOR EDITING FOLDER --- */}
-        {activeModal === "editFolder" && folderToEdit && (
-            <Modal title={`Папка: ${folderToEdit.name}`} onClose={() => setActiveModal(null)}>
-                <button className="btn-danger" id="search-input" onClick={() => removeFolder(folderToEdit.id)}>Удалить папку</button>
-            </Modal>
-        )}
-
-        {/* --- MODAL FOR ADDING TO FOLDER --- */}
-        {activeModal === "addToFolder" && (
-            <Modal title="Добавить в папку" onClose={() => setActiveModal(null)}>
-                <div className="settings-list" id="search-input">
-                    {folders.map(f => (
-                        <div key={f.id} className="settings-item" onClick={() => handleAddToFolder(f.id)}>
-                            <div className="settings-label">{f.name}</div>
-                        </div>
-                    ))}
-                </div>
-            </Modal>
-        )}
-
-        {activeModal === "actionMenu" && (
-          <Modal title="CONNECT" onClose={() => setActiveModal(null)}>
-            <div className="action-grid">
-              <div className="action-card" onClick={() => setActiveModal("createGroup")}> <span style={{ fontSize: 12}}><svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24"><path fill="#ffffff" d="M11 4h2v7h7v2h-7v7h-2v-7H4v-2h7V4z"/></svg></span> <div><div style={{ fontWeight: "bold" }}>Новая группа</div></div> </div>
-              <div className="action-card" onClick={() => setActiveModal("searchGroup")}> <span style={{ fontSize: 24 }}><svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24"><path fill="#ffffff" d="M6 2h8v2H6V2zM4 6V4h2v2H4zm0 8H2V6h2v8zm2 2H4v-2h2v2zm8 0v2H6v-2h8zm2-2h-2v2h2v2h2v2h2v2h2v-2h-2v-2h-2v-2h-2v-2zm0-8h2v8h-2V6zm0 0V4h-2v2h2z"/></svg></span> <div><div style={{ fontWeight: "bold" }}>Найти группу</div></div> </div>
-              <div className="action-card" onClick={() => setActiveModal("addFriend")}> <span style={{ fontSize: 24 }}><svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24"><path fill="#ffffff" d="M18 2h-6v2h-2v6h2V4h6V2zm0 8h-6v2h6v-2zm0-6h2v6h-2V4zM7 16h2v-2h12v2H9v4h12v-4h2v6H7v-6zM3 8h2v2h2v2H5v2H3v-2H1v-2h2V8z"/></svg></span> <div><div style={{ fontWeight: "bold" }}>Поиск людей</div></div> </div>
-              <div className="action-card" onClick={() => setActiveModal("reportBug")}> <span style={{ fontSize: 24 }}><IconBug/></span> <div><div style={{ fontWeight: "bold" }}>Report Bug</div></div> </div>
-              {(username === 'slide36' || myRole === 'admin' || globalRole === 'mod') && (<div className="action-card" onClick={() => { setActiveModal("adminBugs"); fetchBugReports(); }}> <span style={{ fontSize: 24 }}><IconShield/></span> <div><div style={{ fontWeight: "bold" }}>Admin Bugs</div></div> </div>)}
-            </div>
-          </Modal>
-        )}
-
-        {activeModal === "createGroup" && (<Modal title="Создать группу" onClose={() => setActiveModal(null)}> <input id="search-input" className="modal-input" placeholder="Название..." value={newChatName} onChange={(e) => setNewChatName(e.target.value)} /> <button className="btn-primary" onClick={() => { if (newChatName) socket.emit("create_group", { room: newChatName, username }); }}> Создать </button> </Modal>)}
-
-        {activeModal === "searchGroup" && (
-          <Modal title="Поиск групп" onClose={() => { setActiveModal(null); setSearchGroupResults([]); setSearchQuery(""); }}>
-            <input id="search-input" className="modal-input" placeholder="Название..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} />
-            {isSearching && (<div style={{ textAlign: "center", color: "#888", padding: 10 }}>Поиск...</div>)}
-            <div className="search-results">
-              {searchGroupResults.length === 0 && searchQuery && !isSearching && (<div style={{ textAlign: "center", color: "#666", padding: 10 }}>Ничего не найдено</div>)}
-              {searchGroupResults.map((g, i) => (
-                <div key={i} className="search-item"> <span>{g.room}</span> {!myChats.includes(g.room) && (<button className="add-btn-small" onClick={() => socket.emit("join_existing_group", { room: g.room, username })}>➜</button>)} </div>
-              ))}
-            </div>
-          </Modal>
-        )}
-
-        {activeModal === "addFriend" && (
-          <Modal title="Поиск людей" onClose={() => { setActiveModal(null); setSearchResults([]); setSearchQuery(""); }}>
-            <input className="modal-input" id="search-input" placeholder="@nametag или имя..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} />
-            {isSearching && (<div style={{ textAlign: "center", color: "#888", padding: 10 }}>Поиск...</div>)}
-            <div className="search-results">
-              {searchResults.length === 0 && searchQuery && !isSearching && (<div style={{ textAlign: "center", color: "#666", padding: 10 }}>Ничего не найдено</div>)}
-              {searchResults.map((u, i) => (
-                <div key={i} className="search-item">
-                  <div className="member-info"> <div className="friend-avatar" style={{ fontSize: 12, backgroundImage: `url(${u.avatar_url})` }}>{!u.avatar_url && u.username[0]}</div> 
-                    <div style={{display: 'flex', flexDirection: 'column', alignItems: 'flex-start', justifyContent: 'space-evenly' }}>
-                        <span style={{lineHeight: 1}}>{u.display_name}</span>
-                        <span style={{fontSize: 11, color: '#888'}}>@{u.username}</span>
-                    </div>
-                  </div>
-                  {!friends.includes(u.username) && (<button className="add-btn-small" onClick={() => { socket.emit("send_friend_request_by_name", { toUsername: u.username }); alert("Заявка отправлена!"); }}>+</button>)}
-                </div>
-              ))}
-            </div>
-          </Modal>
-        )}
-
-        {activeModal === "reportBug" && (
-            <Modal title="Сообщить о баге" onClose={() => setActiveModal(null)}>
-                <div style={{padding: 20, display: 'flex', flexDirection: 'column', gap: 15, marginTop: '100px'}}>
-                    <textarea 
-                        className="modal-input" 
-                        rows={5} 
-                        placeholder="Опишите проблему, шаги воспроизведения..." 
-                        value={bugDescription}
-                        onChange={(e) => setBugDescription(e.target.value)}
-                        style={{border: '1px solid #444', borderRadius: 8, padding: 10, resize: 'none', width: '-webkit-fill-available'}}
-                    />
-                    <input 
-                        type="file" 
-                        multiple 
-                        onChange={(e) => setBugFiles(Array.from(e.target.files))}
-                        style={{color: '#aaa'}}
-                    />
-                    <button className="btn-primary" onClick={handleBugSubmit}>Отправить отчет</button>
-                </div>
-            </Modal>
-        )}
-
-        {activeModal === "adminBugs" && (
-            <Modal title="Bug Reports" onClose={() => setActiveModal(null)}>
-                <div className="settings-list">
-                    {adminBugList.length === 0 && <div style={{padding:20, textAlign:'center'}}>Нет репортов</div>}
-                    {adminBugList.map(bug => (
-                        <div key={bug.id} className="settings-item" style={{flexDirection: 'column', alignItems: 'flex-start', borderBottom: '1px solid #333', opacity: bug.status === 'resolved' ? 0.5 : 1}}>
-                            <div style={{display:'flex', justifyContent:'space-between', width:'100%', marginBottom: 5}}>
-                                <span style={{color: '#2b95ff', fontWeight:'bold'}}>@{bug.reporter}</span>
-                                <span style={{fontSize: 12, color: '#666'}}>{new Date(bug.created_at).toLocaleDateString()}</span>
-                            </div>
-                            <div style={{whiteSpace: 'pre-wrap', marginBottom: 10}}>{bug.description}</div>
-                            {bug.media_urls && JSON.parse(bug.media_urls).length > 0 && (
-                                <div className="gallery-grid" style={{marginBottom: 10}}>
-                                    {JSON.parse(bug.media_urls).map((url, i) => (
-                                        <img key={i} src={url} className="gallery-image" onClick={() => setImageModalSrc(url)} />
-                                    ))}
-                                </div>
-                            )}
-                            {bug.status !== 'resolved' && (
-                                <button className="btn-accept" onClick={() => resolveBug(bug.id)} style={{width:'100%', marginTop: 5}}>Отметить решенным</button>
-                            )}
-                            {bug.status === 'resolved' && <span style={{color: '#4caf50', fontSize: 12}}>✔ Решено</span>}
-                        </div>
-                    ))}
-                </div>
-            </Modal>
-        )}
-
-        {activeModal === "settings" && (
-          <Modal title="My Profile" onClose={() => setActiveModal(null)}>
-            <div className="profile-hero"> 
-                <div className="profile-avatar-background" style={getAvatarStyle(myProfile.avatar_url)}>{!myProfile.avatar_url && username[0].toUpperCase()}
-                    
-                <div className="ProfName">
-                    <div className="profile-name">{myProfile.display_name || username}</div> 
-                    <div className="profile-status"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="#1a7bd6"><path fill="#1a7bd6" d="M4 4h16v12H8V8h8v6h2V6H6v12h14v2H4V4zm10 10v-4h-4v4h4z"/></svg>{username}</div> 
-                </div>
-                <div className="btns">
-                    <button className="change-avatar-btn" onClick={() => avatarInputRef.current.click()}><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"><path fill="#ffffff" d="M4 4H2v16h20V4H4zm16 2v12H4V6h16zM8 8H6v2h2V8zm4 0h4v2h-4V8zm-2 2h2v4h-2v-4zm6 4h2v-4h-2v4zm0 0h-4v2h4v-2z"/></svg></button>
-                    <button className="change-avatar-btn" ><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"><path fill="#ffffff" d="M9 2h2v2H9V2zm4 4V4h-2v2H9v2H7v2H5v2H3v2h2v2h2v2h2v2h2v2h2v-2h2v-2h2v-2h2v6h2V12h-2v-2h-2V8h-2V6h-2zm0 0v2h2v2h2v2h2v2H5v-2h2v-2h2V8h2V6h2z"/></svg></button>
-                    <button className="change-avatar-btn" ><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"><path fill="#ffffff" d="M17 4h2v10h-2V4zm0 12h-2v2h2v2h2v-2h2v-2h-4zm-4-6h-2v10h2V10zm-8 2H3v2h2v6h2v-6h2v-2H5zm8-8h-2v2H9v2h6V6h-2V4zM5 4h2v6H5V4z"/></svg></button>
-                    <button className="change-avatar-btn" ><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"><path fill="#ffffff" d="M12 1h2v8h8v4h-2v-2h-8V5h-2V3h2V1zM8 7V5h2v2H8zM6 9V7h2v2H6zm-2 2V9h2v2H4zm10 8v2h-2v2h-2v-8H2v-4h2v2h8v6h2zm2-2v2h-2v-2h2zm2-2v2h-2v-2h2zm0 0h2v-2h-2v2z"/></svg></button>
-                </div>
-                </div>
-                
-            </div>
-            <div style={{ color: "#2b95ff", padding: "15px 10px 5px 10px", fontSize: "13px", fontWeight: "bold", textTransform: "uppercase" }}>
-                  Аккаунт
-            </div>
-            <div className="settings-list">
-              <div className="settings-item"> 
-                <div className="form-container" style={{ flex: 1, padding: 0, margin: 0 }}> 
-                    <div className="input-group"> 
-                        <label>Display Name</label> 
-                        <input className="modal-input" style={{ padding: "5px 0", borderBottom: "none" }} value={profileForm.display_name} onChange={(e) => setProfileForm({ ...profileForm, display_name: e.target.value })} placeholder="Your Name" /> 
-                    </div> 
-                </div> 
-              </div>
-
-              <div className="settings-item"> 
-                <div className="settings-icon"><svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 24 24" fill="#ffffff"><path fill="#ffffff" d="M4 4h16v12H8V8h8v6h2V6H6v12h14v2H4V4zm10 10v-4h-4v4h4z"/></svg></div> 
-                <div className="form-container" style={{ flex: 1, padding: 0, margin: 0 }}> 
-                    <div className="input-group"> 
-                        <label>Nametag</label> 
-                        <input className="modal-input" style={{ padding: "5px 0", borderBottom: "none" }} value={profileForm.username} onChange={(e) => setProfileForm({ ...profileForm, username: e.target.value })} placeholder="@username" /> 
-                    </div> 
-                </div> 
-              </div>
-
-              <div className="settings-item"> <div className="settings-icon"><svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 24 24"><path fill="#ffffff" d="M1 2h8.58l1.487 6.69l-1.86 1.86a14.08 14.08 0 0 0 4.243 4.242l1.86-1.859L22 14.42V23h-1a19.91 19.91 0 0 1-10.85-3.196a20.101 20.101 0 0 1-5.954-5.954A19.91 19.91 0 0 1 1 3V2Zm2.027 2a17.893 17.893 0 0 0 2.849 8.764a18.102 18.102 0 0 0 5.36 5.36A17.892 17.892 0 0 0 20 20.973v-4.949l-4.053-.9l-2.174 2.175l-.663-.377a16.073 16.073 0 0 1-6.032-6.032l-.377-.663l2.175-2.174L7.976 4H3.027Z"/></svg></div> <div className="form-container" style={{ flex: 1, padding: 0, margin: 0 }}> <div className="input-group"> <label>Mobile</label> <input className="modal-input" style={{ padding: "5px 0", borderBottom: "none" }} value={profileForm.phone} onChange={(e) => setProfileForm({ ...profileForm, phone: e.target.value })} placeholder="Add phone number" /> </div> </div> </div>
-              <div className="settings-item"> <div className="settings-icon"><svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 24 24"><path fill="#ffffff" d="M21 1v22H3V1h18Zm-8 2v6.5l-3-2.25L7 9.5V3H5v18h14V3h-6ZM9 3v2.5l1-.75l1 .75V3H9Zm-2 9h10v2H7v-2Zm0 4h8v2H7v-2Z"/></svg></div> <div className="form-container" style={{ flex: 1, padding: 0, margin: 0 }}> <div className="input-group"> <label>Bio</label> <input className="modal-input" style={{ padding: "5px 0", borderBottom: "none" }} value={profileForm.bio} onChange={(e) => setProfileForm({ ...profileForm, bio: e.target.value })} placeholder="Add a few words about yourself" /> </div> </div> </div>
-              
-              <div style={{ color: "#2b95ff", padding: "15px 10px 5px 10px", fontSize: "13px", fontWeight: "bold", textTransform: "uppercase" }}>
-                  Настройки
-              </div>
-
-              {/* Уведомления */}
-              <div className="settings-item" onClick={requestNotificationPermission}> 
-                <div className="settings-icon"><IconBell hasUnread={false}/></div> 
-                <div style={{ flex: 1, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                     <div className="settings-label">Push-уведомления</div>
-                     <div className={`toggle-switch ${profileForm.notifications_enabled ? 'on' : ''}`}>
-                         <div className="knob"></div>
-                     </div>
-                </div>
-              </div>
-
-              {/* Камера и Микрофон */}
-              <div className="settings-item" onClick={() => requestMediaPermissions('video')}> 
-                <div className="settings-icon"><IconCamera /></div> 
-                <div className="settings-label">Доступ к камере и микрофону</div>
-                <div style={{fontSize: 12, color: '#2b95ff'}}>Запросить</div>
-              </div>
-
-              {/* Микрофон (отдельно) */}
-              <div className="settings-item" onClick={() => requestMediaPermissions('audio')}> 
-                <div className="settings-icon"><IconMic /></div> 
-                <div className="settings-label">Доступ к микрофону</div>
-                <div style={{fontSize: 12, color: '#2b95ff'}}>Запросить</div>
-              </div>
-
-              {/* Файлы */}
-              <div className="settings-item" onClick={requestFilePermission}> 
-                <div className="settings-icon"><IconFolder /></div> 
-                <div className="settings-label">Доступ к галерее и файлам</div>
-                <div style={{fontSize: 12, color: '#2b95ff'}}>Запросить</div>
-              </div>
-
-              <div style={{ marginBottom: 20 }}></div> {/* Отступ снизу */}
-              
-               <div className="settings-item" onClick={() => copyProfileLink(username)}> 
-                <div className="settings-icon"><IconShare/></div> 
-                <div className="settings-label">Поделиться профилем</div>
-              </div>
-
-            </div>
-            <div className="avatar-history" style={{ padding: "0 20px" }}>
-              <h4>История аватаров</h4>
-              <div className="avatar-history-container"> {avatarHistory.map((avatar) => ( <div key={avatar.id} className="avatar-history-item"> <img src={avatar.avatar_url} alt="old avatar" onClick={() => setImageModalSrc(avatar.avatar_url)} /> <button className="delete-avatar-btn" onClick={() => socket.emit("delete_avatar", { avatarId: avatar.id })}>⨉</button> </div> ))} </div>
-            </div>
-            <div style={{ padding: "0 20px 20px 20px" }}> <button className="btn-primary" style={{ width: "100%" }} onClick={saveProfile}>Save Changes</button> <button className="btn-danger" style={{ marginTop: 10, textAlign: "center" }} onClick={handleLogout}>Log Out</button> </div>
-          </Modal>
-        )}
-
-        {avatarEditor.isOpen && (
-          <Modal title="Редактор Аватара" onClose={() => setAvatarEditor({ ...avatarEditor, isOpen: false })}>
-            <div className="avatar-editor-content">
-              <div className="crop-container"> <Cropper image={avatarEditor.image} crop={avatarEditor.crop} zoom={avatarEditor.zoom} aspect={1} onCropChange={(crop) => setAvatarEditor((p) => ({ ...p, crop }))} onZoomChange={(zoom) => setAvatarEditor((p) => ({ ...p, zoom }))} onCropComplete={(_, croppedAreaPixels) => setAvatarEditor((p) => ({ ...p, croppedAreaPixels }))} imageStyle={{ filter: `brightness(${avatarEditor.filters.brightness}%) contrast(${avatarEditor.filters.contrast}%) saturate(${avatarEditor.filters.saturate}%) blur(${avatarEditor.filters.blur}px)` }} /> </div>
-              <div className="editor-controls"> <div className="slider-group"> <label>Zoom</label> <input type="range" min={1} max={3} step={0.1} value={avatarEditor.zoom} onChange={(e) => setAvatarEditor((p) => ({ ...p, zoom: e.target.value }))} /> </div> <div className="slider-group"> <label>Яркость</label> <input type="range" min={0} max={200} value={avatarEditor.filters.brightness} onChange={(e) => setAvatarEditor((p) => ({ ...p, filters: { ...p.filters, brightness: e.target.value }, }))} /> </div> <div className="slider-group"> <label>Контраст</label> <input type="range" min={0} max={200} value={avatarEditor.filters.contrast} onChange={(e) => setAvatarEditor((p) => ({ ...p, filters: { ...p.filters, contrast: e.target.value }, }))} /> </div> <div className="slider-group"> <label>Насыщ.</label> <input type="range" min={0} max={200} value={avatarEditor.filters.saturate} onChange={(e) => setAvatarEditor((p) => ({ ...p, filters: { ...p.filters, saturate: e.target.value }, }))} /> </div> <div className="slider-group"> <label>Размытие</label> <input type="range" min={0} max={10} step={0.1} value={avatarEditor.filters.blur} onChange={(e) => setAvatarEditor((p) => ({ ...p, filters: { ...p.filters, blur: e.target.value }, }))} /> </div> </div>
-              <button className="btn-primary" onClick={handleSaveAvatar}>Применить</button>
-            </div>
-          </Modal>
-        )}
-
-        {activeModal === "groupInfo" && (
-          <Modal title="Group Info" onClose={() => setActiveModal(null)}>
-            <div className="profile-hero"> 
-                <div className="profile-avatar-large" style={getAvatarStyle(roomSettings.avatar_url || '')}>{!roomSettings.avatar_url && room.substring(0, 2)}</div> 
-                <div className="profile-name">{room}</div> 
-                <div className="profile-status">{groupMembers.length} members</div>
-            </div>
-            
-            {/* CHAT SETTINGS FOR OWNER/MOD */}
-            {(myRole === 'owner' || globalRole === 'mod') && room !== "General" && (
-                <div style={{padding: '0 20px', marginBottom: 20}}>
-                     <div className="settings-item">
-                        <label>Приватный чат (только по приглашению)</label>
-                        <div className={`toggle-switch ${roomSettings.is_private ? 'on' : ''}`} onClick={() => socket.emit("update_group_settings", { room, is_private: !roomSettings.is_private, slow_mode: roomSettings.slow_mode, avatar_url: roomSettings.avatar_url })}>
-                            <div className="knob"></div>
-                        </div>
-                    </div>
-                    <div className="settings-item" style={{flexDirection: 'column', alignItems: 'flex-start'}}>
-                        <label style={{marginBottom: 5}}>Slow Mode (секунды): {roomSettings.slow_mode}</label>
-                        <input type="range" min="0" max="60" value={roomSettings.slow_mode} onChange={(e) => socket.emit("update_group_settings", { room, is_private: roomSettings.is_private, slow_mode: parseInt(e.target.value), avatar_url: roomSettings.avatar_url })} style={{width: '100%'}} />
-                    </div>
-                    <button className="btn-primary" onClick={() => {
-                       const url = prompt("Введите URL аватарки чата:");
-                       if(url) socket.emit("update_group_settings", { room, is_private: roomSettings.is_private, slow_mode: roomSettings.slow_mode, avatar_url: url });
-                    }}>Сменить аватарку чата</button>
-                </div>
-            )}
-
-            <div className="settings-list" style={{ padding: "0 15px"}}>
-              <div style={{ color: "#8774e1", padding: "10px 0", fontSize: "14px", fontWeight: "bold" }}>Members</div>
-              
-              {groupMembers.map((m, i) => ( 
-                  <div 
-                    key={i} 
-                    className="settings-item" 
-                    onClick={(e) => {
-                        e.stopPropagation();
-                        if(m.username !== username) {
-                            socket.emit("get_user_profile", m.username);
-                        }
-                    }}
-                  > 
-                    <div className="friend-avatar" style={{ 
-                        fontSize: 12, 
-                        marginRight: 15,
-                        backgroundImage: m.avatar_url ? `url(${m.avatar_url})` : 'none',
-                        backgroundSize: 'cover',
-                        backgroundPosition: 'center',
-                        color: m.avatar_url ? 'transparent' : 'white',
-                        backgroundColor: '#333'
-                    }}>
-                        {m.username[0].toUpperCase()}
-                    </div> 
-                    
-                    <div className="settings-label" style={{flex: 1}}> 
-                        <div style={{ fontSize: "16px", display: 'flex', alignItems: 'center', gap: 5 }}>
-                            {m.display_name || m.username}
-                            {m.badges && m.badges.map((b, i) => (
-                                <span key={i} title={b.name} style={{width: '14px', height: '14px', display:'inline-flex'}} dangerouslySetInnerHTML={{__html: b.svg_content}} />
-                            ))}
-                        </div> 
-                        <div style={{ fontSize: "12px", color: "#888" }}>
-                            {m.role === "owner" ? "owner" : m.role}
-                            {m.username !== username && <span style={{marginLeft: 5, color: '#1a7bd6'}}>• Профиль</span>}
-                        </div> 
-                    </div> 
-                    
-                    {/* ROLE MANAGEMENT */}
-                    {(myRole === "owner" || globalRole === 'mod') && m.username !== username && room !== "General" && (
-                        <div style={{display:'flex', gap: 5}}>
-                             {m.role !== 'owner' && (
-                                <>
-                                    {m.role !== 'editor' && <button className="add-btn-small" title="Сделать редактором" onClick={(e) => {e.stopPropagation(); socket.emit("assign_chat_role", { room, targetUsername: m.username, newRole: 'editor' })}}>↑</button>}
-                                    {m.role === 'editor' && <button className="add-btn-small" title="Разжаловать" onClick={(e) => {e.stopPropagation(); socket.emit("assign_chat_role", { room, targetUsername: m.username, newRole: 'member' })}}>↓</button>}
-                                    <button className="add-btn-small" style={{background:'#ff4d4d'}} title="Выгнать" onClick={(e) => {e.stopPropagation(); socket.emit("assign_chat_role", { room, targetUsername: m.username, newRole: 'kick' })}}>✕</button>
-                                </>
-                             )}
-                        </div>
-                    )} 
-                  </div> 
-              ))}
-            </div>
-            <div style={{ padding: "20px" }}>
-              {(myRole === "owner" || myRole === "editor" || globalRole === "mod") && (<div className="action-card" onClick={() => { const n = prompt("Ник:"); if (n) socket.emit("add_group_member", { room, username: n }); }} style={{ marginBottom: 10, height: "auto", display: "flex", alignItems: "center", justifyContent: "center", flexDirection: "row" }}><svg xmlns="http://www.w3.org/2000/svg" width="32" height="24" viewBox="0 0 24 24"><path fill="#ffffff" d="M18 2h-6v2h-2v6h2V4h6V2zm0 8h-6v2h6v-2zm0-6h2v6h-2V4zM7 16h2v-2h12v2H9v4h12v-4h2v6H7v-6zM3 8h2v2h2v2H5v2H3v-2H1v-2h2V8z"/></svg> Добавить участника</div>)}
-              <button className="btn-danger" style={{ textAlign: "center" }} onClick={leaveGroup}>{myRole === "owner" && room !== "General" ? "Delete Group" : "Leave Group"}</button>
-            </div>
-          </Modal>
-        )}
-
-        {activeModal === "userProfile" && viewProfileData && (
-          <Modal title="Info" onClose={() => setActiveModal(null)}>
-            <div className="profile-hero"> 
-                <div className="profile-avatar-large" style={getAvatarStyle(viewProfileData.avatar_url)}>{!viewProfileData.avatar_url && viewProfileData.username[0]?.toUpperCase()}</div> 
-                <div className="profile-name">
-                    {viewProfileData.display_name || viewProfileData.username}
-                    {viewProfileData.isGlobalMod && <span title="Global Mod" style={{marginLeft: 5, color: '#2b95ff'}}>🛡️</span>}
-                </div> 
-                <div className="profile-status">@{viewProfileData.username}</div>
-                {/* BADGES DISPLAY */}
-                <div style={{display:'flex', gap: 5, justifyContent:'center', marginTop: 10}}>
-                    {viewProfileData.badges && viewProfileData.badges.map((b,i) => (
-                        <div key={i} title={b.name} style={{width: 24, height: 24}} dangerouslySetInnerHTML={{__html: b.svg_content}} />
-                    ))}
-                </div>
-                <div style={{fontSize: 12, color: '#888', marginTop: 5}}>{viewProfileData.isFriend ? "В контактах" : ""}</div>
-            </div>
-            <div className="settings-list">
-              {viewProfileData.bio && (<div className="settings-item"> <div className="settings-label"> <div style={{ fontSize: "16px" }}>{viewProfileData.bio}</div> <div style={{ fontSize: "12px", color: "#888", marginTop: "4px" }}>Bio</div> </div> </div>)}
-              {viewProfileData.phone && (<div className="settings-item"> <div className="settings-label"> <div style={{ fontSize: "16px" }}>{viewProfileData.phone}</div> <div style={{ fontSize: "12px", color: "#888", marginTop: "4px" }}>Mobile</div> </div> </div>)}
-              <div className="settings-item" onClick={() => copyProfileLink(viewProfileData.username)}> 
-                <div className="settings-icon"><IconShare/></div> 
-                <div className="settings-label">Поделиться профилем</div>
-              </div>
-            </div>
-            <div className="avatar-history" style={{ padding: "0 15px" }}>
-              {avatarHistory.length > 0 && <h4>Old Avatars</h4>}
-              <div className="avatar-history-container"> {avatarHistory.map((avatar) => ( <div key={avatar.id} className="avatar-history-item"> <img src={avatar.avatar_url} alt="old avatar" onClick={() => setImageModalSrc(avatar.avatar_url)} /> </div> ))} </div>
-            </div>
-            <div style={{ marginTop: "10px", background: "#212121", padding: "0 15px" }}>
-              {viewProfileData.isFriend && (<div className="settings-item" onClick={() => removeFriend(viewProfileData.username)} style={{ color: "#ff5959" }}> <span className="settings-icon" style={{ color: "#ff5959" }}><svg xmlns="http://www.w3.org/2000/svg" width="200" height="200" viewBox="0 0 24 24"><path fill="#ffffff" d="m8.4 17l3.6-3.6l3.6 3.6l1.4-1.4l-3.6-3.6L17 8.4L15.6 7L12 10.6L8.4 7L7 8.4l3.6 3.6L7 15.6L8.4 17ZM5 21q-.825 0-1.413-.588T3 19V5q0-.825.588-1.413T5 3h14q.825 0 1.413.588T21 5v14q0 .825-.588 1.413T19 21H5Zm0-2h14V5H5v14ZM5 5v14V5Z"/></svg></span> Delete Contact </div>)}
-              <div className="settings-item" onClick={() => blockUser(viewProfileData.username)} style={{ color: "#ff5959", border: "none" }}> <span className="settings-icon" style={{ color: "#ff5959" }}><svg xmlns="http://www.w3.org/2000/svg" width="200" height="200" viewBox="0 0 24 24" fill="#ffffff"><path fill="#ffffff" d="M12 22q-2.075 0-3.9-.788t-3.175-2.137q-1.35-1.35-2.137-3.175T2 12q0-2.075.788-3.9t2.137-3.175q1.35-1.35 3.175-2.137T12 2q2.075 0 3.9.788t3.175 2.137q1.35 1.35 2.138 3.175T22 12q0 2.075-.788 3.9t-2.137 3.175q-1.35 1.35-3.175 2.138T12 22Zm0-2q3.35 0 5.675-2.325T20 12q0-1.35-.438-2.6T18.3 7.1L7.1 18.3q1.05.825 2.3 1.263T12 20Zm-6.3-3.1L16.9 5.7q-1.05-.825-2.3-1.262T12 4Q8.65 4 6.325 6.325T4 12q0 1.35.437 2.6T5.7 16.9Z"/></svg></span> Block User </div>
-            </div>
-          </Modal>
-        )}
       </div>
     );
 }
