@@ -5,6 +5,7 @@ import Modal from "./custom/Modal";
 import CustomAudioPlayer from "./custom/CustomAudioPlayer";
 import CustomVideoPlayer from "./custom/CustomVideoPlayer"; 
 import GlobalVideoPlayer from "./custom/GlobalVideoPlayer";
+import CallModal from "./custom/CallModal";
 import Cropper from 'react-easy-crop';
 import { registerPushNotifications } from "./custom/pushSubscription";
 import rehypeSanitize from 'rehype-sanitize';
@@ -346,6 +347,28 @@ function Chat({ socket, username, room, setRoom, handleLogout }) {
     const [recordedMedia, setRecordedMedia] = useState(null);
     const [videoShape, setVideoShape] = useState('circle');
     
+    // --- CALLING STATE ---
+    const [callStatus, setCallStatus] = useState('idle'); // idle, calling, receiving, connected
+    const [callSignal, setCallSignal] = useState(null);
+    const [caller, setCaller] = useState("");
+    const [callerName, setCallerName] = useState("");
+    
+    const [isMuted, setIsMuted] = useState(false);
+    const [isVideoOff, setIsVideoOff] = useState(false);
+
+    const localVideoRef = useRef();
+    const remoteVideoRef = useRef();
+    const peerRef = useRef();
+    const connectionRef = useRef(); // Для хранения RTCPeerConnection
+
+    // STUN сервера для пробития NAT (бесплатные Google сервера)
+    const servers = {
+        iceServers: [
+            { urls: 'stun:stun.l.google.com:19302' },
+            { urls: 'stun:global.stun.twilio.com:3478' }
+        ]
+    };
+
     const mediaRecorderRef = useRef(null);
     const audioChunksRef = useRef([]);
     const timerIntervalRef = useRef(null);
@@ -1660,6 +1683,250 @@ function Chat({ socket, username, room, setRoom, handleLogout }) {
         }
     }
 
+    // --- CALLING FUNCTIONS ---
+
+    // 1. Начать звонок
+    const startCall = async (isVideo) => {
+        if (!room.includes("_")) return alert("Звонки доступны только в личных сообщениях");
+        
+        // Определяем кому звоним (парсим room id)
+        const parts = room.split("_");
+        const userToCall = parts.find(u => u !== username);
+        if(!userToCall) return;
+
+        setCallStatus('calling');
+        setCallerName(userToCall);
+
+        // Инициализируем пустой стрим
+        const localStream = new MediaStream();
+        
+        // Создаем Peer Connection заранее
+        const peer = new RTCPeerConnection(servers);
+        peerRef.current = peer;
+
+        // Попытка получить Аудио
+        try {
+            const audioStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+            audioStream.getTracks().forEach(track => {
+                localStream.addTrack(track);
+                peer.addTrack(track, localStream);
+            });
+        } catch (err) {
+            console.log("Audio permission denied or device missing", err);
+            alert("Микрофон недоступен. Вы будете только слышать собеседника.");
+        }
+
+        // Попытка получить Видео (если запрошено)
+        if (isVideo) {
+            try {
+                const videoStream = await navigator.mediaDevices.getUserMedia({ video: true });
+                videoStream.getTracks().forEach(track => {
+                    localStream.addTrack(track);
+                    peer.addTrack(track, localStream);
+                });
+            } catch (err) {
+                console.log("Video permission denied or device missing", err);
+                alert("Камера недоступна. Звонок продолжится без видео.");
+            }
+        }
+
+        // Сохраняем локальный стрим для отображения (даже если он пустой или только аудио)
+        if (localVideoRef.current) {
+             localVideoRef.current.srcObject = localStream;
+        }
+        connectionRef.current = localStream;
+
+        try {
+            // ICE Candidates
+            peer.onicecandidate = (event) => {
+                if (event.candidate) {
+                    socket.emit("ice-candidate", { to: userToCall, candidate: event.candidate });
+                }
+            };
+
+            // Когда ловим удаленный трек
+            peer.ontrack = (event) => {
+                if (remoteVideoRef.current) {
+                    remoteVideoRef.current.srcObject = event.streams[0];
+                }
+            };
+
+            // Создаем Offer
+            // Важно: offerToReceiveAudio/Video = true, чтобы получать медиа, даже если сами не отправляем
+            const offer = await peer.createOffer({
+                offerToReceiveAudio: true,
+                offerToReceiveVideo: true
+            });
+            await peer.setLocalDescription(offer);
+
+            socket.emit("callUser", { 
+                userToCall, 
+                signalData: offer, 
+                from: username, 
+                name: myProfile.display_name || username 
+            });
+
+        } catch (err) {
+            console.error("Call Error:", err);
+            alert("Ошибка соединения.");
+            endCallProcess();
+        }
+    };
+
+    // 2. Ответить на звонок
+    const answerCall = async () => {
+        setCallStatus('connected');
+        
+        const localStream = new MediaStream();
+        const peer = new RTCPeerConnection(servers);
+        peerRef.current = peer;
+
+        // Попытка получить Аудио
+        try {
+            const audioStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+            audioStream.getTracks().forEach(track => {
+                localStream.addTrack(track);
+                peer.addTrack(track, localStream);
+            });
+        } catch (err) {
+            console.log("Audio permission denied on answer", err);
+             // Не алерт, так как уже идет звонок, просто будем без звука
+        }
+
+        // Попытка получить Видео
+        try {
+            const videoStream = await navigator.mediaDevices.getUserMedia({ video: true });
+            videoStream.getTracks().forEach(track => {
+                localStream.addTrack(track);
+                peer.addTrack(track, localStream);
+            });
+        } catch (err) {
+             console.log("Video permission denied on answer", err);
+        }
+
+        if (localVideoRef.current) {
+             localVideoRef.current.srcObject = localStream;
+        }
+        connectionRef.current = localStream;
+
+        try {
+            peer.ontrack = (event) => {
+                if (remoteVideoRef.current) {
+                    remoteVideoRef.current.srcObject = event.streams[0];
+                }
+            };
+
+            peer.onicecandidate = (event) => {
+                if (event.candidate) {
+                    socket.emit("ice-candidate", { to: caller, candidate: event.candidate });
+                }
+            };
+
+            // Применяем полученный Offer
+            await peer.setRemoteDescription(new RTCSessionDescription(callSignal));
+            
+            // Создаем Answer
+            const answer = await peer.createAnswer();
+            await peer.setLocalDescription(answer);
+
+            socket.emit("answerCall", { signal: answer, to: caller });
+
+        } catch (err) {
+            console.error("Answer Error:", err);
+            endCallProcess();
+        }
+    };
+
+    // 3. Завершить звонок (процесс)
+    const endCallProcess = () => {
+        if (peerRef.current) {
+            peerRef.current.close();
+            peerRef.current = null;
+        }
+        if (connectionRef.current) {
+            connectionRef.current.getTracks().forEach(track => track.stop());
+            connectionRef.current = null;
+        }
+        if (localVideoRef.current) localVideoRef.current.srcObject = null;
+        if (remoteVideoRef.current) remoteVideoRef.current.srcObject = null;
+        
+        setCallStatus('idle');
+        setCallSignal(null);
+        setCaller("");
+        setIsMuted(false);
+        setIsVideoOff(false);
+    };
+
+    // 4. Отправить сигнал завершения
+    const endCall = () => {
+        const target = callStatus === 'receiving' ? caller : callerName;
+        socket.emit("endCall", { to: target });
+        endCallProcess();
+    };
+
+    // 5. Тогглы
+    const toggleMute = () => {
+        if(connectionRef.current) {
+            const audioTracks = connectionRef.current.getAudioTracks();
+            if (audioTracks.length > 0) {
+                audioTracks[0].enabled = !audioTracks[0].enabled;
+                setIsMuted(!audioTracks[0].enabled);
+            }
+        }
+    }
+    const toggleVideo = () => {
+        if(connectionRef.current) {
+             const videoTracks = connectionRef.current.getVideoTracks();
+             if (videoTracks.length > 0) {
+                videoTracks[0].enabled = !videoTracks[0].enabled;
+                setIsVideoOff(!videoTracks[0].enabled);
+             }
+        }
+    }
+
+    // --- SOCKET LISTENERS FOR CALLING ---
+    useEffect(() => {
+        if (!socket) return;
+
+        socket.on("callUser", (data) => {
+            // Входящий звонок
+            setCallStatus('receiving');
+            setCaller(data.from);
+            setCallerName(data.name || data.from);
+            setCallSignal(data.signal);
+        });
+
+        socket.on("callAccepted", (signal) => {
+            setCallStatus('connected');
+            if(peerRef.current) {
+                peerRef.current.setRemoteDescription(new RTCSessionDescription(signal));
+            }
+        });
+
+        socket.on("ice-candidate", (candidate) => {
+            if (peerRef.current) {
+                peerRef.current.addIceCandidate(new RTCIceCandidate(candidate)).catch(e => console.error(e));
+            }
+        });
+
+        socket.on("callEnded", () => {
+            endCallProcess();
+        });
+        
+        socket.on("call_failed", (d) => {
+            alert(d.msg);
+            endCallProcess();
+        });
+
+        return () => {
+            socket.off("callUser");
+            socket.off("callAccepted");
+            socket.off("ice-candidate");
+            socket.off("callEnded");
+            socket.off("call_failed");
+        };
+    }, [socket]);
+
     return (
       <div className={`main-layout ${isMobile ? "mobile-mode" : ""} ${isSelectionMode ? "selection-mode-active" : ""}`} style={{ touchAction: "pan-y" }}>
         
@@ -1880,9 +2147,16 @@ function Chat({ socket, username, room, setRoom, handleLogout }) {
                   </span>
                 </div>
               </div>
-              <div style={{ position: "relative" }}>
-                <button className="menu-btn" onClick={() => setShowMenu(!showMenu)}><svg xmlns="http://www.w3.org/2000/svg" width="32" height="24" viewBox="0 0 24 24"><path fill="#ffffff" d="M4 6h16v2H4V6zm0 5h16v2H4v-2zm16 5H4v2h16v-2z"/></svg></button>
-                {showMenu && (<div className="dropdown-menu"> <div className="menu-item" onClick={openGroupInfo}><svg xmlns="http://www.w3.org/2000/svg" width="32" height="24" viewBox="0 0 24 24"><path fill="#ffffff" d="M6 3h14v2h2v6h-2v8h-2V5H6V3zm8 14v-2H6V5H4v10H2v4h2v2h14v-2h-2v-2h-2zm0 0v2H4v-2h10zM8 7h8v2H8V7zm8 4H8v2h8v-2z"/></svg> Информация</div> {!isPrivateChat && (<div className="menu-item" onClick={() => setActiveModal("groupInfo")}><svg xmlns="http://www.w3.org/2000/svg" width="32" height="24" viewBox="0 0 24 24"><path fill="#ffffff" d="M18 2h-6v2h-2v6h2V4h6V2zm0 8h-6v2h6v-2zm0-6h2v6h-2V4zM7 16h2v-2h12v2H9v4h12v-4h2v6H7v-6zM3 8h2v2h2v2H5v2H3v-2H1v-2h2V8z"/></svg> Добавить в группу</div>)} </div>)}
+              <div style={{display: 'flex', gap: 10, alignItems: 'center'}}>
+                {room.includes("_") && ( 
+                    <button className="menu-btn" onClick={() => startCall(true)} title="Видеозвонок">
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="#fff"><path d="M17 10.5V7c0-.55-.45-1-1-1H4c-.55 0-1 .45-1 1v10c0 .55.45 1 1 1h12c.55 0 1-.45 1-1v-3.5l4 4v-11l-4 4z"/></svg>
+                    </button>
+                )}
+                <div style={{ position: "relative" }}>
+                    <button className="menu-btn" onClick={() => setShowMenu(!showMenu)}><svg xmlns="http://www.w3.org/2000/svg" width="32" height="24" viewBox="0 0 24 24"><path fill="#ffffff" d="M4 6h16v2H4V6zm0 5h16v2H4v-2zm16 5H4v2h16v-2z"/></svg></button>
+                    {showMenu && (<div className="dropdown-menu"> <div className="menu-item" onClick={openGroupInfo}><svg xmlns="http://www.w3.org/2000/svg" width="32" height="24" viewBox="0 0 24 24"><path fill="#ffffff" d="M6 3h14v2h2v6h-2v8h-2V5H6V3zm8 14v-2H6V5H4v10H2v4h2v2h14v-2h-2v-2h-2zm0 0v2H4v-2h10zM8 7h8v2H8V7zm8 4H8v2h8v-2z"/></svg> Информация</div> {!isPrivateChat && (<div className="menu-item" onClick={() => setActiveModal("groupInfo")}><svg xmlns="http://www.w3.org/2000/svg" width="32" height="24" viewBox="0 0 24 24"><path fill="#ffffff" d="M18 2h-6v2h-2v6h2V4h6V2zm0 8h-6v2h6v-2zm0-6h2v6h-2V4zM7 16h2v-2h12v2H9v4h12v-4h2v6H7v-6zM3 8h2v2h2v2H5v2H3v-2H1v-2h2V8z"/></svg> Добавить в группу</div>)} </div>)}
+                </div>
               </div>
             </div>
 
@@ -2429,7 +2703,7 @@ function Chat({ socket, username, room, setRoom, handleLogout }) {
               </div>
             </div>
             <div className="avatar-history" style={{ padding: "0 15px" }}>
-              {avatarHistory.length > 0 && <h4>Old Avatars</h4>}
+              {avatarHistory.length > 0 && 44 && <h4>Old Avatars</h4>}
               <div className="avatar-history-container"> {avatarHistory.map((avatar) => ( <div key={avatar.id} className="avatar-history-item"> <img src={avatar.avatar_url} alt="old avatar" onClick={() => setImageModalSrc(avatar.avatar_url)} /> </div> ))} </div>
             </div>
             <div style={{ marginTop: "10px", background: "#212121", padding: "0 15px" }}>
@@ -2438,6 +2712,20 @@ function Chat({ socket, username, room, setRoom, handleLogout }) {
             </div>
           </Modal>
         )}
+        
+        <CallModal 
+            callStatus={callStatus}
+            localVideoRef={localVideoRef}
+            remoteVideoRef={remoteVideoRef}
+            callerName={callerName}
+            answerCall={answerCall}
+            endCall={endCall}
+            toggleMute={toggleMute}
+            toggleVideo={toggleVideo}
+            isMuted={isMuted}
+            isVideoOff={isVideoOff}
+            isIncoming={callStatus === 'receiving'}
+        />
       </div>
     );
 }

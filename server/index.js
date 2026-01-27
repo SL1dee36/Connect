@@ -1068,6 +1068,40 @@ io.on("connection", async (socket) => {
     }
   });
 
+  // --- CALLING (WEBRTC SIGNALING) ---
+  
+  socket.on("callUser", ({ userToCall, signalData, from, name }) => {
+    // Ищем сокет того, кому звоним
+    const target = onlineUsers.find((u) => u.username === userToCall);
+    if (target) {
+      io.to(target.socketId).emit("callUser", { signal: signalData, from, name });
+    } else {
+        // Если пользователя нет онлайн
+        socket.emit("call_failed", { msg: "Пользователь не в сети" });
+    }
+  });
+
+  socket.on("answerCall", (data) => {
+    const target = onlineUsers.find((u) => u.username === data.to);
+    if (target) {
+      io.to(target.socketId).emit("callAccepted", data.signal);
+    }
+  });
+
+  socket.on("endCall", ({ to }) => {
+      const target = onlineUsers.find((u) => u.username === to);
+      if (target) {
+          io.to(target.socketId).emit("callEnded");
+      }
+  });
+
+  socket.on("ice-candidate", ({ to, candidate }) => {
+      const target = onlineUsers.find((u) => u.username === to);
+      if (target) {
+          io.to(target.socketId).emit("ice-candidate", candidate);
+      }
+  });
+
   socket.on("disconnect", () => {
     onlineUsers = onlineUsers.filter((u) => u.socketId !== socket.id);
   });
