@@ -13,72 +13,27 @@ import AdminPanel from "./AdminPanel";
 
 const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || "http://localhost:3001";
 
-const IconClock = () => (
-    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="currentColor" style={{marginLeft: 4, display: 'inline-block', verticalAlign: 'middle'}}>
-        <path fill="currentColor" d="M12 21a9 9 0 1 0 0-18a9 9 0 0 0 0 18Zm11-9c0 6.075-4.925 11-11 11S1 18.075 1 12S5.925 1 12 1s11 4.925 11 11Zm-8 4.414l-4-4V5.5h2v6.086L16.414 15L15 16.414Z"/>
-    </svg>
-);
-const IconCheck = () => (
-    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="currentColor" style={{marginLeft: 4, display: 'inline-block', verticalAlign: 'middle'}}>
-        <path fill="currentColor" d="M9 16.2L4.8 12l-1.4 1.4L9 19L21 7l-1.4-1.4L9 16.2z"/>
-    </svg>
-);
-const IconReply = () => (
-    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
-         <path fill="#ffffff" d="M18 8H8V6H6v2H4v2h2v2h2v-2h10v10h2V8h-2zM8 12v2h2v-2H8zm0-6V4h2v2H8z"/>
-    </svg>
-);
-const IconCopy = () => (
-    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
-        <path fill="#ffffff" d="M4 2h11v2H6v13H4V2zm4 4h12v16H8V6zm2 2v12h8V8h-8z"/>
-    </svg>
-);
-const IconTrash = () => (
-    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"><path fill="#ffffff" d="M5 3H3v18h18V3H5zm14 2v14H5V5h14zm-3 6H8v2h8v-2z"/></svg>
-);
-const IconBell = ({ hasUnread }) => (
-    <div style={{ position: 'relative', cursor: 'pointer', display: 'flex' }}>
-        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"><path fill="#ffffff" d="M14 4V2h-4v2H5v2h14V4h-5zm5 12H5v-4H3v6h5v4h2v-4h4v2h-4v2h6v-4h5v-6h-2V6h-2v8h2v2zM5 6v8h2V6H5z"/></svg>
-        {hasUnread && (
-            <span style={{
-                position: 'absolute', top: -2, right: -2, width: 8, height: 8,
-                background: '#ff4d4d', borderRadius: '50%', border: '2px solid #1e1e1e'
-            }}/>
-        )}
-    </div>
-);
-const IconShare = () => (
-    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"><path fill="#ffffff" d="M22 2h-2v2h2v12h-2v2h2v-2h2V4h-2V2ZM2 4H0v12h2v2h2v-2H2V4Zm0 0V2h2v2H2Zm4 2H4v8h2V6Zm0 0V4h2v2H6Zm4 0h4v2h-4V6Zm0 6H8V8h2v4Zm4 0h-4v2H8v4H6v4h2v-4h2v-4h4v4h2v4h2v-4h-2v-4h-2v-2Zm0 0h2V8h-2v4Zm6-6h-2V4h-2v2h2v8h2V6Z"/></svg>
-);
-const IconBug = () => (
-    <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24"><path fill="#ffffff" d="M8 2h2v4h4V2h2v4h2v3h2v2h-2v2h4v2h-4v2h2v2h-2v3H6v-3H4v-2h2v-2H2v-2h4v-2H4V9h2V6h2V2Zm8 6H8v3h8V8Zm-5 5H8v7h3v-7Zm2 7h3v-7h-3v7ZM4 9H2V7h2v2Zm0 10v2H2v-2h2Zm16 0h2v2h-2v-2Zm0-10V7h2v2h-2Z"/></svg>
-);
-const IconShield = () => (
-    <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24"><path fill="#ffffff" d="M22 2H2v12h2V4h16v10h2V2zM6 14H4v2h2v-2zm0 2h2v2h2v2H8v-2H6v-2zm4 4v2h4v-2h2v-2h-2v2h-4zm10-6h-2v2h-2v2h2v-2h2v-2z"/></svg>
-);
-const IconMic = () => (
-    <svg width="24" height="24" viewBox="0 0 24 24" fill="#fff" xmlns="http://www.w3.org/2000/svg"><path d="M12.9975 4H15V2H12.9975H11.0025H9V4H11.0025H12.9975Z M12.9975 15H15V13H12.9975H11.0025H9V15H11.0025H12.9975Z M13.33 18H16V16H13.33H10.67H8V18H10.67H13.33ZM13.33 22H16V20H13.33H10.67H8V22H10.67H13.33ZM15 6.24895V7.37553V8.49789V9.62447V10.7511V11.8734V13H17V11.8734V10.7511V9.62447V8.49789V7.37553V6.24895V5.12236V4H15V5.12236V6.24895ZM6 11H4V12.5V14H6V12.5V11ZM18 11V12.5V14H20V12.5V11H18ZM8 14H6V16H8V14ZM18 14H16V16H18V14ZM7 6.24895V7.37553V8.49789V9.62447V10.7511V11.8734V13H9V11.8734V10.7511V9.62447V8.49789V7.37553V6.24895V5.12236V4H7V5.12236V6.24895ZM11 18.4998V18.7501V18.9995V19.2499V19.5002V19.7496V20H13V19.7496V19.5002V19.2499V18.9995V18.7501V18.4998V18.2494V18H11V18.2494V18.4998Z"/></svg>
-);
-const IconPaperclip = () => (
-    <svg width="24" height="24" viewBox="0 0 24 24" fill="#fff" xmlns="http://www.w3.org/2000/svg"><path d="M5 5h16v10H7V9h10v2H9v2h10V7H5v10h14v2H3V5h2z"/> </svg>
-);
-const IconPin = () => (
-<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"><path fill="#ffffff" d="M11 4h2v8h2v2h-2v2h-2v-2H9v-2h2V4zm-2 8H7v-2h2v2zm6 0v-2h2v2h-2zM4 18h16v2H4v-2z"/></svg>
-);
-const IconFolder = () => (
-<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"><path fill="#ffffff" d="M4 4h8v2h10v14H2V4h2zm16 4H10V6H4v12h16V8z"/></svg>
-);
-const IconCheckCircle = () => (
-    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"><path fill="#2b95ff" d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10s10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5l1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/></svg>
-);
-const IconDrag = () => (
-    <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor" xmlns="http://www.w3.org/2000/svg">
-         <path d="M20 6V4H4v2h16zm0 14v-2H4v2h16zM17 8v8h-2V8h2zm-8 6v-4h6V8H7v8h8v-2H9z" />
-    </svg>
-);
-const IconCamera = () => (
-    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="#fff"><path d="M2 5h14v4h2V7h2V5h2v14h-2v-2h-2v-2h-2v4H2V5zm2 12h10V7H4v10z"/></svg>
-);
+const IconClock = () => (<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="currentColor" style={{marginLeft: 4, display: 'inline-block', verticalAlign: 'middle'}}><path fill="currentColor" d="M12 21a9 9 0 1 0 0-18a9 9 0 0 0 0 18Zm11-9c0 6.075-4.925 11-11 11S1 18.075 1 12S5.925 1 12 1s11 4.925 11 11Zm-8 4.414l-4-4V5.5h2v6.086L16.414 15L15 16.414Z"/></svg>);
+const IconCheck = () => (<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="currentColor" style={{marginLeft: 4, display: 'inline-block', verticalAlign: 'middle'}}><path fill="currentColor" d="M9 16.2L4.8 12l-1.4 1.4L9 19L21 7l-1.4-1.4L9 16.2z"/></svg>);
+const IconReply = () => (<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path fill="#ffffff" d="M18 8H8V6H6v2H4v2h2v2h2v-2h10v10h2V8h-2zM8 12v2h2v-2H8zm0-6V4h2v2H8z"/></svg>);
+const IconCopy = () => (<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path fill="#ffffff" d="M4 2h11v2H6v13H4V2zm4 4h12v16H8V6zm2 2v12h8V8h-8z"/></svg>);
+const IconTrash = () => (<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"><path fill="#ffffff" d="M5 3H3v18h18V3H5zm14 2v14H5V5h14zm-3 6H8v2h8v-2z"/></svg>);
+const IconBell = ({ hasUnread }) => (<div style={{ position: 'relative', cursor: 'pointer', display: 'flex' }}><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"><path fill="#ffffff" d="M14 4V2h-4v2H5v2h14V4h-5zm5 12H5v-4H3v6h5v4h2v-4h4v2h-4v2h6v-4h5v-6h-2V6h-2v8h2v2zM5 6v8h2V6H5z"/></svg>{hasUnread && (<span style={{position: 'absolute', top: -2, right: -2, width: 8, height: 8, background: '#ff4d4d', borderRadius: '50%', border: '2px solid #1e1e1e'}}/>)}</div>);
+const IconShare = () => (<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"><path fill="#ffffff" d="M22 2h-2v2h2v12h-2v2h2v-2h2V4h-2V2ZM2 4H0v12h2v2h2v-2H2V4Zm0 0V2h2v2H2Zm4 2H4v8h2V6Zm0 0V4h2v2H6Zm4 0h4v2h-4V6Zm0 6H8V8h2v4Zm4 0h-4v2H8v4H6v4h2v-4h2v-4h4v4h2v4h2v-4h-2v-4h-2v-2Zm0 0h2V8h-2v4Zm6-6h-2V4h-2v2h2v8h2V6Z"/></svg>);
+const IconBug = () => (<svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24"><path fill="#ffffff" d="M8 2h2v4h4V2h2v4h2v3h2v2h-2v2h4v2h-4v2h2v2h-2v3H6v-3H4v-2h2v-2H2v-2h4v-2H4V9h2V6h2V2Zm8 6H8v3h8V8Zm-5 5H8v7h3v-7Zm2 7h3v-7h-3v7ZM4 9H2V7h2v2Zm0 10v2H2v-2h2Zm16 0h2v2h-2v-2Zm0-10V7h2v2h-2Z"/></svg>);
+const IconShield = () => (<svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24"><path fill="#ffffff" d="M22 2H2v12h2V4h16v10h2V2zM6 14H4v2h2v-2zm0 2h2v2h2v2H8v-2H6v-2zm4 4v2h4v-2h2v-2h-2v2h-4zm10-6h-2v2h-2v2h2v-2h2v-2z"/></svg>);
+const IconMic = () => (<svg width="24" height="24" viewBox="0 0 24 24" fill="#fff" xmlns="http://www.w3.org/2000/svg"><path d="M12.9975 4H15V2H12.9975H11.0025H9V4H11.0025H12.9975Z M12.9975 15H15V13H12.9975H11.0025H9V15H11.0025H12.9975Z M13.33 18H16V16H13.33H10.67H8V18H10.67H13.33ZM13.33 22H16V20H13.33H10.67H8V22H10.67H13.33ZM15 6.24895V7.37553V8.49789V9.62447V10.7511V11.8734V13H17V11.8734V10.7511V9.62447V8.49789V7.37553V6.24895V5.12236V4H15V5.12236V6.24895ZM6 11H4V12.5V14H6V12.5V11ZM18 11V12.5V14H20V12.5V11H18ZM8 14H6V16H8V14ZM18 14H16V16H18V14ZM7 6.24895V7.37553V8.49789V9.62447V10.7511V11.8734V13H9V11.8734V10.7511V9.62447V8.49789V7.37553V6.24895V5.12236V4H7V5.12236V6.24895ZM11 18.4998V18.7501V18.9995V19.2499V19.5002V19.7496V20H13V19.7496V19.5002V19.2499V18.9995V18.7501V18.4998V18.2494V18H11V18.2494V18.4998Z"/></svg>);
+const IconPaperclip = () => (<svg width="24" height="24" viewBox="0 0 24 24" fill="#fff" xmlns="http://www.w3.org/2000/svg"><path d="M5 5h16v10H7V9h10v2H9v2h10V7H5v10h14v2H3V5h2z"/> </svg>);
+const IconPin = () => (<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"><path fill="#ffffff" d="M11 4h2v8h2v2h-2v2h-2v-2H9v-2h2V4zm-2 8H7v-2h2v2zm6 0v-2h2v2h-2zM4 18h16v2H4v-2z"/></svg>);
+const IconFolder = () => (<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"><path fill="#ffffff" d="M4 4h8v2h10v14H2V4h2zm16 4H10V6H4v12h16V8z"/></svg>);
+const IconCheckCircle = () => (<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"><path fill="#2b95ff" d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10s10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5l1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/></svg>);
+const IconDrag = () => (<svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor" xmlns="http://www.w3.org/2000/svg"><path d="M20 6V4H4v2h16zm0 14v-2H4v2h16zM17 8v8h-2V8h2zm-8 6v-4h6V8H7v8h8v-2H9z" /></svg>);
+const IconCamera = () => (<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="#fff"><path d="M2 5h14v4h2V7h2V5h2v14h-2v-2h-2v-2h-2v4H2V5zm2 12h10V7H4v10z"/></svg>);
+
+const IconMessage = () => (<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"><path fill="currentColor" d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zM6 9h12v2H6V9zm8 5H6v-2h8v2zm4-6H6V6h12v2z"/></svg>);
+const IconCall = () => (<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"><path fill="currentColor" d="M6.62 10.79c1.44 2.83 3.76 5.14 6.59 6.59l2.2-2.2c.27-.27.67-.36 1.02-.24 1.12.37 2.33.57 3.57.57.55 0 1 .45 1 1V20c0 .55-.45 1-1 1-9.39 0-17-7.61-17-17 0-.55.45-1 1-1h3.5c.55 0 1 .45 1 1 0 1.25.2 2.45.57 3.57.11.35.03.74-.25 1.02l-2.2 2.2z"/></svg>);
+const IconLightning = () => (<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"><path fill="currentColor" d="M7 2v11h3v9l7-12h-4l4-8z"/></svg>);
+const IconMore = () => (<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"><path fill="currentColor" d="M12 8c1.1 0 2-.9 2-2s-.9-2-2-2-2 .9-2 2 .9 2 2 2zm0 2c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2zm0 6c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2z"/></svg>);
 
 const formatTime = (seconds) => {
     const mins = Math.floor(seconds / 60);
@@ -86,7 +41,7 @@ const formatTime = (seconds) => {
     return `${mins}:${secs < 10 ? '0' : ''}${secs}`;
 };
 
-const ContextMenu = ({ x, y, msg, onClose, onReply, onCopy, onDelete, canDelete }) => {
+const ContextMenu = ({ x, y, msg, onClose, onReply, onCopy, onDeleteRequest, canDelete }) => {
     return (
         <div 
             className="context-menu-container"
@@ -105,7 +60,7 @@ const ContextMenu = ({ x, y, msg, onClose, onReply, onCopy, onDelete, canDelete 
                 <IconCopy/> Копировать
             </div>
             {canDelete && (
-                <div className="menu-item" onClick={onDelete} style={{padding: '10px 15px', display: 'flex', alignItems: 'center', gap: 10, cursor: 'pointer', color: '#ff4d4d'}}>
+                <div className="menu-item" onClick={onDeleteRequest} style={{padding: '10px 15px', display: 'flex', alignItems: 'center', gap: 10, cursor: 'pointer', color: '#ff4d4d'}}>
                     <IconTrash/> Удалить
                 </div>
             )}
@@ -241,7 +196,7 @@ const MessageItem = React.memo(({ msg, username, display_name, setImageModalSrc,
         <div 
             id={`message-${msg.id}`}
             className={`message ${isMine ? "mine" : "theirs"}`} 
-            style={{ opacity: msg.status === 'pending' ? 0.7 : 1, position: 'relative' }}
+            style={{ opacity: msg.status === 'pending' || msg.status === 'uploading' ? 0.7 : 1, position: 'relative' }}
             onContextMenu={handleRightClick}
             onTouchStart={handleTouchStart}
             onTouchMove={handleTouchMove}
@@ -272,7 +227,12 @@ const MessageItem = React.memo(({ msg, username, display_name, setImageModalSrc,
                             </div>
                         </div>
                     )}
-                    {content}
+                    {msg.status === 'uploading' ? (
+                        <div style={{display: 'flex', alignItems: 'center', gap: 10, padding: 10}}>
+                             <div className="spinner" style={{width: 14, height: 14, borderWidth: 2}}></div>
+                             <span>Загрузка...</span>
+                        </div>
+                    ) : content}
                     <span className="meta">{msg.time}{isMine && msg.status === 'sent' && <IconCheck />}</span>
                 </div>
             </div>
@@ -284,7 +244,7 @@ const MessageItem = React.memo(({ msg, username, display_name, setImageModalSrc,
 function Chat({ socket, username, room, setRoom, handleLogout }) {
     const [myChats, setMyChats] = useState(() => { try { return JSON.parse(localStorage.getItem("apollo_my_chats")) || []; } catch { return []; } });
     const [friends, setFriends] = useState(() => { try { return JSON.parse(localStorage.getItem("apollo_friends")) || []; } catch { return []; } });
-    const [myProfile, setMyProfile] = useState(() => { try { return JSON.parse(localStorage.getItem("apollo_my_profile")) || { bio: "", phone: "", avatar_url: "", display_name: "", notifications_enabled: 1 }; } catch { return { bio: "", phone: "", avatar_url: "", display_name: "", notifications_enabled: 1 }; } });
+    const [myProfile, setMyProfile] = useState(() => { try { return JSON.parse(localStorage.getItem("apollo_my_profile")) || { bio: "", phone: "", avatar_url: "", display_name: "", notifications_enabled: 1, media: [] }; } catch { return { bio: "", phone: "", avatar_url: "", display_name: "", notifications_enabled: 1, media: [] }; } });
     const [chatPreviews, setChatPreviews] = useState(() => { try { return JSON.parse(localStorage.getItem("apollo_chat_previews")) || {}; } catch { return {}; } });
 
     const [globalRole, setGlobalRole] = useState('member'); 
@@ -347,8 +307,14 @@ function Chat({ socket, username, room, setRoom, handleLogout }) {
     const [recordedMedia, setRecordedMedia] = useState(null);
     const [videoShape, setVideoShape] = useState('circle');
     
-    // --- CALLING STATE ---
-    const [callStatus, setCallStatus] = useState('idle'); // idle, calling, receiving, connected
+    const [isUploading, setIsUploading] = useState(false);
+    const [messageToDelete, setMessageToDelete] = useState(null);
+    const profileMediaInputRef = useRef(null);
+    const [isMediaExpanded, setIsMediaExpanded] = useState(false);
+    const [friendOverrideForm, setFriendOverrideForm] = useState({ local_display_name: '', local_avatar_file: null, preview_avatar: '' });
+    const friendAvatarInputRef = useRef(null);
+
+    const [callStatus, setCallStatus] = useState('idle'); 
     const [callSignal, setCallSignal] = useState(null);
     const [caller, setCaller] = useState("");
     const [callerName, setCallerName] = useState("");
@@ -359,9 +325,8 @@ function Chat({ socket, username, room, setRoom, handleLogout }) {
     const localVideoRef = useRef();
     const remoteVideoRef = useRef();
     const peerRef = useRef();
-    const connectionRef = useRef(); // Для хранения RTCPeerConnection
+    const connectionRef = useRef(); 
 
-    // STUN сервера для пробития NAT (бесплатные Google сервера)
     const servers = {
         iceServers: [
             { urls: 'stun:stun.l.google.com:19302' },
@@ -418,6 +383,48 @@ function Chat({ socket, username, room, setRoom, handleLogout }) {
     useEffect(() => { localStorage.setItem("apollo_folders", JSON.stringify(folders)); }, [folders]);
     useEffect(() => { localStorage.setItem("apollo_chat_order", JSON.stringify(customChatOrder)); }, [customChatOrder]);
     useEffect(() => { localStorage.setItem("apollo_chat_previews", JSON.stringify(chatPreviews)); }, [chatPreviews]);
+
+    const handleSaveFriendOverride = async (isReset = false) => {
+        if (!viewProfileData) return;
+
+        const formData = new FormData();
+        formData.append('friend_username', viewProfileData.username);
+
+        if (isReset) {
+            formData.append('reset', 'true');
+        } else {
+            formData.append('local_display_name', friendOverrideForm.local_display_name);
+            if (friendOverrideForm.local_avatar_file) {
+                formData.append('local_avatar', friendOverrideForm.local_avatar_file);
+            } else {
+                // Если файл не менялся, отправляем текущий URL, чтобы не стереть его
+                formData.append('local_avatar_url', friendOverrideForm.preview_avatar);
+            }
+        }
+
+        try {
+            const token = localStorage.getItem("apollo_token");
+            const res = await fetch(`${BACKEND_URL}/update-friend-override`, {
+                method: 'POST',
+                headers: { 'Authorization': `Bearer ${token}` },
+                body: formData
+            });
+
+            if (res.ok) {
+                // Обновляем список друзей локально для мгновенного эффекта
+                socket.emit("get_initial_data"); // Просим сервер прислать обновленные списки
+                
+                setActiveModal('userProfile'); // Возвращаемся в профиль
+                // Запрашиваем обновленный профиль, чтобы увидеть изменения
+                socket.emit("get_user_profile", viewProfileData.username);
+            } else {
+                alert("Ошибка сохранения");
+            }
+        } catch (e) {
+            console.error(e);
+            alert("Сетевая ошибка");
+        }
+    };
 
     const unifiedChatList = useMemo(() => {
         let all = [
@@ -484,6 +491,7 @@ function Chat({ socket, username, room, setRoom, handleLogout }) {
         if (activeModal) {
             window.history.pushState({ type: 'modal' }, '');
         }
+        setIsMediaExpanded(false);
     }, [activeModal]);
 
     const handleCloseMobileChat = useCallback(() => {
@@ -721,7 +729,22 @@ function Chat({ socket, username, room, setRoom, handleLogout }) {
         return new Promise((resolve) => { canvas.toBlob((blob) => { if (blob) resolve(blob); }, 'image/webp', 0.8); });
     }, [createImage]);
 
-    const handleDeleteMessage = useCallback((id) => { if (window.confirm("Удалить это сообщение?")) socket.emit("delete_message", id); }, [socket]);
+    const handleDeleteMessageRequest = useCallback((id) => { 
+        setMessageToDelete(id);
+        setActiveModal('deleteConfirm');
+    }, []);
+
+    const confirmDelete = (forEveryone) => {
+        if (!messageToDelete) return;
+        
+        socket.emit("delete_message", { id: messageToDelete, forEveryone });
+        
+        setMessageList(prev => prev.filter(msg => msg.id !== messageToDelete));
+        
+        setActiveModal(null);
+        setMessageToDelete(null);
+        setContextMenu(null);
+    };
 
     const handleContextMenu = useCallback((e, msg, x, y) => {
         setActiveMessageId(msg.id);
@@ -852,7 +875,8 @@ function Chat({ socket, username, room, setRoom, handleLogout }) {
         const handleMyProfile = (data) => {
              setMyProfile({
                  ...data,
-                 notifications_enabled: data.notifications_enabled === 1
+                 notifications_enabled: data.notifications_enabled === 1,
+                 media: data.media || []
              });
         };
         
@@ -896,7 +920,7 @@ function Chat({ socket, username, room, setRoom, handleLogout }) {
         socket.on("my_profile_data", handleMyProfile);
         
         socket.on("user_profile_data", (data) => { 
-            setViewProfileData(data); 
+            setViewProfileData({...data, media: data.media || []}); 
             setActiveModal("userProfile"); 
             socket.emit("get_avatar_history", data.username); 
         });
@@ -1010,7 +1034,7 @@ function Chat({ socket, username, room, setRoom, handleLogout }) {
         
         socket.on("group_info_data", (d) => { if(d.room === room) { setGroupMembers(d.members); } });
         socket.on("group_info_updated", (data) => { if(room === data.members?.[0]?.room) setGroupMembers(data.members); });
-        socket.on("message_deleted", (id) => setMessageList((prev) => prev.filter((msg) => msg.id !== id)));
+        socket.on("message_deleted", (data) => setMessageList((prev) => prev.filter((msg) => msg.id !== (data.id || data))));
 
         return () => {
             socket.off("receive_message", handleReceiveMessage);
@@ -1268,7 +1292,8 @@ function Chat({ socket, username, room, setRoom, handleLogout }) {
     };
 
     const sendRecordedContent = async () => {
-        if (!recordedMedia) return;
+        if (!recordedMedia || isUploading) return;
+        setIsUploading(true);
 
         const formData = new FormData();
         const ext = recordedMedia.type === 'video' ? 'webm' : 'webm';
@@ -1278,8 +1303,6 @@ function Chat({ socket, username, room, setRoom, handleLogout }) {
         const time = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
         const timestamp = Date.now();
         const tempId = timestamp;
-        
-        let optimisticContent = recordedMedia.url; 
         
         setRecordedMedia(null);
         setIsLocked(false);
@@ -1309,14 +1332,7 @@ function Chat({ socket, username, room, setRoom, handleLogout }) {
                     id: tempId 
                 };
                 
-                const localDisplayMsg = {
-                    ...optimisticMsg,
-                    message: recordedMedia.type === 'video' 
-                        ? JSON.stringify({ url: recordedMedia.url, shape: videoShape }) 
-                        : recordedMedia.url
-                };
-
-                setMessageList(prev => [...prev, localDisplayMsg]);
+                setMessageList(prev => [...prev, optimisticMsg]);
                 
                 socket.emit("send_message", optimisticMsg, (res) => { 
                     if (res && res.status === 'ok') {
@@ -1326,6 +1342,8 @@ function Chat({ socket, username, room, setRoom, handleLogout }) {
             }
         } catch (err) {
             console.error("Upload failed", err);
+        } finally {
+            setIsUploading(false);
         }
     };
 
@@ -1340,42 +1358,94 @@ function Chat({ socket, username, room, setRoom, handleLogout }) {
     const handleKeyDown = (e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(); } };
 
     const sendMessage = async () => {
-        if (!currentMessage.trim() && attachedFiles.length === 0) return;
+        if ((!currentMessage.trim() && attachedFiles.length === 0) || isUploading) return;
+        
+        setIsUploading(true);
         previousScrollHeight.current = 0;
         const time = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
         const timestamp = Date.now();
         const replyData = replyingTo ? { id: replyingTo.id, author: replyingTo.author, message: replyingTo.message } : null;
 
-        if (attachedFiles.length > 0) {
-            const formData = new FormData();
-            attachedFiles.forEach(file => formData.append('files', file));
-            try {
+        try {
+            if (attachedFiles.length > 0) {
+                const tempUrls = attachedFiles.map(f => URL.createObjectURL(f));
+                let msgType = tempUrls.length === 1 ? 'image' : 'gallery';
+                let msgContent = tempUrls.length === 1 ? tempUrls[0] : JSON.stringify(tempUrls);
+                const tempId = timestamp + Math.random();
+                const optimisticMsg = { room, author: username, message: msgContent, type: msgType, time, timestamp, status: 'uploading', tempId, id: tempId, replyTo: replyData };
+                
+                setMessageList(prev => [...prev, optimisticMsg]);
+
+                const formData = new FormData();
+                attachedFiles.forEach(file => formData.append('files', file));
+                
                 const response = await fetch(`${BACKEND_URL}/upload-multiple`, { method: 'POST', body: formData });
                 const data = await response.json();
+                
                 if (data.urls && data.urls.length > 0) {
-                    let msgType = data.urls.length === 1 ? 'image' : 'gallery';
-                    let msgContent = data.urls.length === 1 ? data.urls[0] : JSON.stringify(data.urls);
-                    const tempId = timestamp + Math.random();
-                    const optimisticMsg = { room, author: username, message: msgContent, type: msgType, time, timestamp, status: 'pending', tempId, id: tempId, replyTo: replyData };
-                    
-                    setChatPreviews(prev => ({ ...prev, [room]: { text: '📷 Изображение', sender: username, time, timestamp, type: 'image' } }));
-                    setMessageList(prev => [...prev, optimisticMsg]);
-                    socket.emit("send_message", optimisticMsg, (res) => { if (res && res.status === 'ok') setMessageList(prev => prev.map(m => m.tempId === tempId ? { ...m, id: res.id, status: 'sent' } : m)); });
+                     let realContent = data.urls.length === 1 ? data.urls[0] : JSON.stringify(data.urls);
+                     const finalMsg = { ...optimisticMsg, message: realContent, status: 'pending' };
+                     
+                     socket.emit("send_message", finalMsg, (res) => { 
+                        if (res && res.status === 'ok') 
+                            setMessageList(prev => prev.map(m => m.tempId === tempId ? { ...m, id: res.id, status: 'sent', message: realContent } : m)); 
+                     });
                 }
-            } catch (err) {}
-            setAttachedFiles([]);
-        }
+                setAttachedFiles([]);
+            }
 
-        if (currentMessage.trim()) {
-            const tempId = timestamp;
-            const optimisticMsg = { room, author: username, message: currentMessage, type: 'text', time, timestamp, status: 'pending', tempId, id: tempId, replyTo: replyData };
+            if (currentMessage.trim()) {
+                const tempId = timestamp;
+                const optimisticMsg = { room, author: username, message: currentMessage, type: 'text', time, timestamp, status: 'pending', tempId, id: tempId, replyTo: replyData };
 
-            setChatPreviews(prev => ({ ...prev, [room]: { text: currentMessage, sender: username, time, timestamp, type: 'text' } }));
-            setMessageList(prev => [...prev, optimisticMsg]);
-            setCurrentMessage("");
-            socket.emit("send_message", optimisticMsg, (res) => { if (res && res.status === 'ok') setMessageList(prev => prev.map(m => m.tempId === tempId ? { ...m, id: res.id, status: 'sent' } : m)); });
+                setChatPreviews(prev => ({ ...prev, [room]: { text: currentMessage, sender: username, time, timestamp, type: 'text' } }));
+                setMessageList(prev => [...prev, optimisticMsg]);
+                setCurrentMessage("");
+                socket.emit("send_message", optimisticMsg, (res) => { if (res && res.status === 'ok') setMessageList(prev => prev.map(m => m.tempId === tempId ? { ...m, id: res.id, status: 'sent' } : m)); });
+            }
+            setReplyingTo(null);
+        } catch (e) {
+            console.error("Error sending", e);
+            alert("Error sending message");
+        } finally {
+            setIsUploading(false);
         }
-        setReplyingTo(null);
+    };
+
+    const handleProfileMediaSelect = (e) => {
+        if (e.target.files && e.target.files.length > 0) {
+            uploadProfileMedia(e.target.files[0]);
+        }
+    };
+
+    const uploadProfileMedia = async (file) => {
+        const formData = new FormData();
+        formData.append('file', file);
+        formData.append('username', username);
+
+        const localUrl = URL.createObjectURL(file);
+        const tempMediaItem = { id: Date.now(), url: localUrl, type: file.type.startsWith('video') ? 'video' : 'image', temp: true };
+        
+        setMyProfile(prev => ({
+            ...prev,
+            media: [...(prev.media || []), tempMediaItem]
+        }));
+
+        try {
+            const res = await fetch(`${BACKEND_URL}/upload-profile-media`, { method: 'POST', body: formData });
+            const data = await res.json();
+            
+            if (data.url) {
+                setMyProfile(prev => ({
+                    ...prev,
+                    media: prev.media.map(m => m.id === tempMediaItem.id ? { ...m, url: data.url, temp: false } : m)
+                }));
+            }
+        } catch (e) {
+            console.error(e);
+            alert("Ошибка загрузки медиа");
+            setMyProfile(prev => ({...prev, media: prev.media.filter(m => m.id !== tempMediaItem.id)}));
+        }
     };
 
     const handleBugSubmit = async () => {
@@ -1683,13 +1753,9 @@ function Chat({ socket, username, room, setRoom, handleLogout }) {
         }
     }
 
-    // --- CALLING FUNCTIONS ---
-
-    // 1. Начать звонок
     const startCall = async (isVideo) => {
         if (!room.includes("_")) return alert("Звонки доступны только в личных сообщениях");
         
-        // Определяем кому звоним (парсим room id)
         const parts = room.split("_");
         const userToCall = parts.find(u => u !== username);
         if(!userToCall) return;
@@ -1697,14 +1763,11 @@ function Chat({ socket, username, room, setRoom, handleLogout }) {
         setCallStatus('calling');
         setCallerName(userToCall);
 
-        // Инициализируем пустой стрим
         const localStream = new MediaStream();
         
-        // Создаем Peer Connection заранее
         const peer = new RTCPeerConnection(servers);
         peerRef.current = peer;
 
-        // Попытка получить Аудио
         try {
             const audioStream = await navigator.mediaDevices.getUserMedia({ audio: true });
             audioStream.getTracks().forEach(track => {
@@ -1716,7 +1779,6 @@ function Chat({ socket, username, room, setRoom, handleLogout }) {
             alert("Микрофон недоступен. Вы будете только слышать собеседника.");
         }
 
-        // Попытка получить Видео (если запрошено)
         if (isVideo) {
             try {
                 const videoStream = await navigator.mediaDevices.getUserMedia({ video: true });
@@ -1730,29 +1792,24 @@ function Chat({ socket, username, room, setRoom, handleLogout }) {
             }
         }
 
-        // Сохраняем локальный стрим для отображения (даже если он пустой или только аудио)
         if (localVideoRef.current) {
              localVideoRef.current.srcObject = localStream;
         }
         connectionRef.current = localStream;
 
         try {
-            // ICE Candidates
             peer.onicecandidate = (event) => {
                 if (event.candidate) {
                     socket.emit("ice-candidate", { to: userToCall, candidate: event.candidate });
                 }
             };
 
-            // Когда ловим удаленный трек
             peer.ontrack = (event) => {
                 if (remoteVideoRef.current) {
                     remoteVideoRef.current.srcObject = event.streams[0];
                 }
             };
 
-            // Создаем Offer
-            // Важно: offerToReceiveAudio/Video = true, чтобы получать медиа, даже если сами не отправляем
             const offer = await peer.createOffer({
                 offerToReceiveAudio: true,
                 offerToReceiveVideo: true
@@ -1773,7 +1830,6 @@ function Chat({ socket, username, room, setRoom, handleLogout }) {
         }
     };
 
-    // 2. Ответить на звонок
     const answerCall = async () => {
         setCallStatus('connected');
         
@@ -1781,7 +1837,6 @@ function Chat({ socket, username, room, setRoom, handleLogout }) {
         const peer = new RTCPeerConnection(servers);
         peerRef.current = peer;
 
-        // Попытка получить Аудио
         try {
             const audioStream = await navigator.mediaDevices.getUserMedia({ audio: true });
             audioStream.getTracks().forEach(track => {
@@ -1790,10 +1845,8 @@ function Chat({ socket, username, room, setRoom, handleLogout }) {
             });
         } catch (err) {
             console.log("Audio permission denied on answer", err);
-             // Не алерт, так как уже идет звонок, просто будем без звука
         }
 
-        // Попытка получить Видео
         try {
             const videoStream = await navigator.mediaDevices.getUserMedia({ video: true });
             videoStream.getTracks().forEach(track => {
@@ -1822,10 +1875,8 @@ function Chat({ socket, username, room, setRoom, handleLogout }) {
                 }
             };
 
-            // Применяем полученный Offer
             await peer.setRemoteDescription(new RTCSessionDescription(callSignal));
             
-            // Создаем Answer
             const answer = await peer.createAnswer();
             await peer.setLocalDescription(answer);
 
@@ -1837,7 +1888,6 @@ function Chat({ socket, username, room, setRoom, handleLogout }) {
         }
     };
 
-    // 3. Завершить звонок (процесс)
     const endCallProcess = () => {
         if (peerRef.current) {
             peerRef.current.close();
@@ -1857,14 +1907,12 @@ function Chat({ socket, username, room, setRoom, handleLogout }) {
         setIsVideoOff(false);
     };
 
-    // 4. Отправить сигнал завершения
     const endCall = () => {
         const target = callStatus === 'receiving' ? caller : callerName;
         socket.emit("endCall", { to: target });
         endCallProcess();
     };
 
-    // 5. Тогглы
     const toggleMute = () => {
         if(connectionRef.current) {
             const audioTracks = connectionRef.current.getAudioTracks();
@@ -1884,12 +1932,10 @@ function Chat({ socket, username, room, setRoom, handleLogout }) {
         }
     }
 
-    // --- SOCKET LISTENERS FOR CALLING ---
     useEffect(() => {
         if (!socket) return;
 
         socket.on("callUser", (data) => {
-            // Входящий звонок
             setCallStatus('receiving');
             setCaller(data.from);
             setCallerName(data.name || data.from);
@@ -1951,10 +1997,7 @@ function Chat({ socket, username, room, setRoom, handleLogout }) {
             onClose={() => setContextMenu(null)} 
             onReply={() => handleReply(contextMenu.msg)} 
             onCopy={() => handleCopy(contextMenu.msg.message)} 
-            onDelete={() => { 
-                handleDeleteMessage(contextMenu.msg.id); 
-                setContextMenu(null); 
-            }} 
+            onDeleteRequest={() => handleDeleteMessageRequest(contextMenu.msg.id)}
             canDelete={canDeleteMessage(contextMenu.msg)}
           />
         )}
@@ -2155,7 +2198,7 @@ function Chat({ socket, username, room, setRoom, handleLogout }) {
                 )}
                 <div style={{ position: "relative" }}>
                     <button className="menu-btn" onClick={() => setShowMenu(!showMenu)}><svg xmlns="http://www.w3.org/2000/svg" width="32" height="24" viewBox="0 0 24 24"><path fill="#ffffff" d="M4 6h16v2H4V6zm0 5h16v2H4v-2zm16 5H4v2h16v-2z"/></svg></button>
-                    {showMenu && (<div className="dropdown-menu"> <div className="menu-item" onClick={openGroupInfo}><svg xmlns="http://www.w3.org/2000/svg" width="32" height="24" viewBox="0 0 24 24"><path fill="#ffffff" d="M6 3h14v2h2v6h-2v8h-2V5H6V3zm8 14v-2H6V5H4v10H2v4h2v2h14v-2h-2v-2h-2zm0 0v2H4v-2h10zM8 7h8v2H8V7zm8 4H8v2h8v-2z"/></svg> Информация</div> {!isPrivateChat && (<div className="menu-item" onClick={() => setActiveModal("groupInfo")}><svg xmlns="http://www.w3.org/2000/svg" width="32" height="24" viewBox="0 0 24 24"><path fill="#ffffff" d="M18 2h-6v2h-2v6h2V4h6V2zm0 8h-6v2h6v-2zm0-6h2v6h-2V4zM7 16h2v-2h12v2H9v4h12v-4h2v6H7v-6zM3 8h2v2h2v2H5v2H3v-2H1v-2h2V8z"/></svg> Добавить в группу</div>)} </div>)}
+                    {showMenu && (<div className="dropdown-menu"> <div className="menu-item" onClick={openGroupInfo}><svg xmlns="http://www.w3.org/2000/svg" width="32" height="24" viewBox="0 0 24 24"><path fill="#ffffff" d="M6 3h14v2h2v6h-2v8h-2V5H6V3zm8 14v-2H6V5H4v10H2v4h2v2h14v-2h-2v-2h-2zm0 0v2H4v-2h10zM8 7h8v2H8V7zm8 4H8v2h8v-2z"/></svg> Информация</div> {!isPrivateChat && (<div className="menu-item" onClick={() => setActiveModal("addToGroup")}><svg xmlns="http://www.w3.org/2000/svg" width="32" height="24" viewBox="0 0 24 24"><path fill="#ffffff" d="M18 2h-6v2h-2v6h2V4h6V2zm0 8h-6v2h6v-2zm0-6h2v6h-2V4zM7 16h2v-2h12v2H9v4h12v-4h2v6H7v-6zM3 8h2v2h2v2H5v2H3v-2H1v-2h2V8z"/></svg> Добавить в группу</div>)}</div>)}
                 </div>
               </div>
             </div>
@@ -2224,8 +2267,8 @@ function Chat({ socket, username, room, setRoom, handleLogout }) {
                                 )}
                             </div>
 
-                            <button className="send-pill-btn" onClick={sendRecordedContent} style={{borderRadius: '50%', width: 45, height: 45, padding: 0, justifyContent: 'center'}}>
-                                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"><path fill="#ffffff" d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/></svg>
+                            <button className="send-pill-btn" onClick={sendRecordedContent} disabled={isUploading} style={{borderRadius: '50%', width: 45, height: 45, padding: 0, justifyContent: 'center'}}>
+                                {isUploading ? <div className="spinner"></div> : <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"><path fill="#ffffff" d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/></svg>}
                             </button>
                         </div>
                     ) : (
@@ -2256,7 +2299,7 @@ function Chat({ socket, username, room, setRoom, handleLogout }) {
                             {attachedFiles.length > 0 && (<div className="attachments-preview"> {attachedFiles.map((f, i) => (<div key={i} className="attachment-thumb"> <img src={URL.createObjectURL(f)} alt="preview" /> <button onClick={() => removeAttachment(i)}>&times;</button> </div>))} </div>)}
                             
                             {!isRecording ? (
-                                <textarea ref={textareaRef} value={currentMessage} placeholder="Написать сообщение..." className="chat-textarea" onChange={(e) => { setCurrentMessage(e.target.value); socket.emit("typing", { room, username }); }} onKeyDown={handleKeyDown} rows={1} />
+                                <textarea ref={textareaRef} value={currentMessage} placeholder="Написать сообщение..." className="chat-textarea" onChange={(e) => { setCurrentMessage(e.target.value); socket.emit("typing", { room, username }); }} onKeyDown={handleKeyDown} rows={1} disabled={isUploading} />
                             ) : (
                                 <div className="recording-status" style={{flex: 1, display: 'flex', alignItems: 'center', color: '#ff4d4d', fontWeight: 'bold', fontSize: 16, paddingLeft: 10}}>
                                     <span style={{marginRight: 10, animation: 'pulse 1s infinite'}}>●</span>
@@ -2278,7 +2321,9 @@ function Chat({ socket, username, room, setRoom, handleLogout }) {
                                 
                                 <div className="toolbar-right">
                                     {(currentMessage.trim() || attachedFiles.length > 0) && !isRecording ? (
-                                        <button className="send-pill-btn" onClick={sendMessage}> Отправить ↵ </button>
+                                        <button className="send-pill-btn" onClick={sendMessage} disabled={isUploading}> 
+                                            {isUploading ? <div className="spinner"></div> : 'Отправить ↵'}
+                                        </button>
                                     ) : (
                                         <div 
                                             className={`record-btn-container ${isRecording ? 'recording-active' : ''}`}
@@ -2351,7 +2396,19 @@ function Chat({ socket, username, room, setRoom, handleLogout }) {
             </Modal>
         )}
 
-        {/* --- MODAL FOR CREATING FOLDER --- */}
+        {activeModal === 'deleteConfirm' && (
+            <Modal title="Удалить сообщение" onClose={() => { setActiveModal(null); setMessageToDelete(null); }}>
+                <div className="delete-options">
+                    <p style={{textAlign: 'center', color: '#ccc', marginBottom: 10}}>Вы хотите удалить это сообщение?</p>
+                    {(myRole === 'owner' || globalRole === 'mod' || messageList.find(m => m.id === messageToDelete)?.author === username) && (
+                        <button className="btn-delete-everyone" onClick={() => confirmDelete(true)}>Удалить у всех</button>
+                    )}
+                    <button className="btn-delete-me" onClick={() => confirmDelete(false)}>Удалить у меня</button>
+                    {/* <button className="btn-danger" style={{background: 'transparent', color: '#888', border: 'none'}} onClick={() => setActiveModal(null)}>Отмена</button> */}
+                </div>
+            </Modal>
+        )}
+
         {activeModal === "createFolder" && (
             <Modal title="Новая папка" onClose={() => setActiveModal(null)}>
                 <input id="search-input"
@@ -2364,14 +2421,12 @@ function Chat({ socket, username, room, setRoom, handleLogout }) {
             </Modal>
         )}
 
-        {/* --- MODAL FOR EDITING FOLDER --- */}
         {activeModal === "editFolder" && folderToEdit && (
             <Modal title={`Папка: ${folderToEdit.name}`} onClose={() => setActiveModal(null)}>
                 <button className="btn-danger" id="search-input" onClick={() => removeFolder(folderToEdit.id)}>Удалить папку</button>
             </Modal>
         )}
 
-        {/* --- MODAL FOR ADDING TO FOLDER --- */}
         {activeModal === "addToFolder" && (
             <Modal title="Добавить в папку" onClose={() => setActiveModal(null)}>
                 <div className="settings-list" id="search-input">
@@ -2397,7 +2452,68 @@ function Chat({ socket, username, room, setRoom, handleLogout }) {
         )}
 
         {activeModal === "createGroup" && (<Modal title="Создать группу" onClose={() => setActiveModal(null)}> <input id="search-input" className="modal-input" placeholder="Название..." value={newChatName} onChange={(e) => setNewChatName(e.target.value)} /> <button className="btn-primary" onClick={() => { if (newChatName) socket.emit("create_group", { room: newChatName, username }); }}> Создать </button> </Modal>)}
-
+        {activeModal === "addToGroup" && (
+            <Modal title="Добавить участников" onClose={() => { setActiveModal(null); setSearchQuery(""); }}>
+                <div className="addToGroupbar" style={{ padding: "0 20px" }}>
+                    <input 
+                        className="modal-input" 
+                        placeholder="Поиск по друзьям..." 
+                        value={searchQuery} 
+                        onChange={(e) => setSearchQuery(e.target.value)}
+                        style={{marginBottom: 15}}
+                    />
+                </div>
+                <div className="settings-list">
+                    {friends
+                        .filter(f => {
+                            // Фильтруем:
+                            // 1. Тех, кто уже в группе
+                            const isAlreadyMember = groupMembers.some(m => m.username === f.username);
+                            // 2. По поисковому запросу
+                            const matchesSearch = f.username.toLowerCase().includes(searchQuery.toLowerCase()) || 
+                                                (f.display_name && f.display_name.toLowerCase().includes(searchQuery.toLowerCase()));
+                            
+                            return !isAlreadyMember && matchesSearch;
+                        })
+                        .map((friend) => (
+                            <div key={friend.username} className="settings-item">
+                                <div className="friend-avatar" style={{ 
+                                    backgroundImage: friend.avatar_url ? `url(${friend.avatar_url})` : 'none',
+                                    backgroundColor: '#333'
+                                }}>
+                                    {!friend.avatar_url && friend.username[0].toUpperCase()}
+                                </div>
+                                
+                                <div className="settings-label">
+                                    <div style={{ fontSize: "15px", color: "white" }}>
+                                        {friend.display_name || friend.username}
+                                    </div>
+                                    <div style={{ fontSize: "12px", color: "#888" }}>
+                                        @{friend.username}
+                                    </div>
+                                </div>
+                                
+                                <button 
+                                    className="add-btn-small" 
+                                    onClick={() => {
+                                        socket.emit("add_group_member", { room, username: friend.username });
+                                        // Можно добавить визуальное подтверждение или закрыть окно
+                                        alert(`${friend.username} добавлен!`);
+                                    }}
+                                >
+                                    +
+                                </button>
+                            </div>
+                        ))
+                    }
+                    {friends.length === 0 && (
+                        <div style={{ padding: 20, textAlign: 'center', color: '#666' }}>
+                            Ваш список друзей пуст
+                        </div>
+                    )}
+                </div>
+            </Modal>
+            )}
         {activeModal === "searchGroup" && (
           <Modal title="Поиск групп" onClose={() => { setActiveModal(null); setSearchGroupResults([]); setSearchQuery(""); }}>
             <input id="search-input" className="modal-input" placeholder="Название..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} />
@@ -2489,7 +2605,7 @@ function Chat({ socket, username, room, setRoom, handleLogout }) {
                     
                 <div className="ProfName">
                     <div className="profile-name">{myProfile.display_name || username}</div> 
-                    <div className="profile-status"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="#1a7bd6"><path fill="#1a7bd6" d="M4 4h16v12H8V8h8v6h2V6H6v12h14v2H4V4zm10 10v-4h-4v4h4z"/></svg>{username}</div> 
+                    <div className="profile-status"><svg xmlns="http://www.w.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="#1a7bd6"><path fill="#1a7bd6" d="M4 4h16v12H8V8h8v6h2V6H6v12h14v2H4V4zm10 10v-4h-4v4h4z"/></svg>{username}</div> 
                 </div>
                 <div className="btns">
                     <button className="change-avatar-btn" onClick={() => avatarInputRef.current.click()}><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"><path fill="#ffffff" d="M4 4H2v16h20V4H4zm16 2v12H4V6h16zM8 8H6v2h2V8zm4 0h4v2h-4V8zm-2 2h2v4h-2v-4zm6 4h2v-4h-2v4zm0 0h-4v2h4v-2z"/></svg></button>
@@ -2498,8 +2614,8 @@ function Chat({ socket, username, room, setRoom, handleLogout }) {
                     <button className="change-avatar-btn" ><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"><path fill="#ffffff" d="M12 1h2v8h8v4h-2v-2h-8V5h-2V3h2V1zM8 7V5h2v2H8zM6 9V7h2v2H6zm-2 2V9h2v2H4zm10 8v2h-2v2h-2v-8H2v-4h2v2h8v6h2zm2-2v2h-2v-2h2zm2-2v2h-2v-2h2zm0 0h2v-2h-2v2z"/></svg></button>
                 </div>
                 </div>
-                
             </div>
+            
             <div style={{ color: "#2b95ff", padding: "15px 10px 5px 10px", fontSize: "13px", fontWeight: "bold", textTransform: "uppercase" }}>
                   Аккаунт
             </div>
@@ -2530,7 +2646,6 @@ function Chat({ socket, username, room, setRoom, handleLogout }) {
                   Настройки
               </div>
 
-              {/* Уведомления */}
               <div className="settings-item" onClick={requestNotificationPermission}> 
                 <div className="settings-icon"><IconBell hasUnread={false}/></div> 
                 <div style={{ flex: 1, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
@@ -2541,28 +2656,25 @@ function Chat({ socket, username, room, setRoom, handleLogout }) {
                 </div>
               </div>
 
-              {/* Камера и Микрофон */}
               <div className="settings-item" onClick={() => requestMediaPermissions('video')}> 
                 <div className="settings-icon"><IconCamera /></div> 
                 <div className="settings-label">Доступ к камере и микрофону</div>
                 <div style={{fontSize: 12, color: '#2b95ff'}}>Запросить</div>
               </div>
 
-              {/* Микрофон (отдельно) */}
               <div className="settings-item" onClick={() => requestMediaPermissions('audio')}> 
                 <div className="settings-icon"><IconMic /></div> 
                 <div className="settings-label">Доступ к микрофону</div>
                 <div style={{fontSize: 12, color: '#2b95ff'}}>Запросить</div>
               </div>
 
-              {/* Файлы */}
               <div className="settings-item" onClick={requestFilePermission}> 
                 <div className="settings-icon"><IconFolder /></div> 
                 <div className="settings-label">Доступ к галерее и файлам</div>
                 <div style={{fontSize: 12, color: '#2b95ff'}}>Запросить</div>
               </div>
 
-              <div style={{ marginBottom: 20 }}></div> {/* Отступ снизу */}
+              <div style={{ marginBottom: 20 }}></div>
               
                <div className="settings-item" onClick={() => copyProfileLink(username)}> 
                 <div className="settings-icon"><IconShare/></div> 
@@ -2570,11 +2682,35 @@ function Chat({ socket, username, room, setRoom, handleLogout }) {
               </div>
 
             </div>
+            
             <div className="avatar-history" style={{ padding: "0 20px" }}>
               <h4>История аватаров</h4>
               <div className="avatar-history-container"> {avatarHistory.map((avatar) => ( <div key={avatar.id} className="avatar-history-item"> <img src={avatar.avatar_url} alt="old avatar" onClick={() => setImageModalSrc(avatar.avatar_url)} /> <button className="delete-avatar-btn" onClick={() => socket.emit("delete_avatar", { avatarId: avatar.id })}>⨉</button> </div> ))} </div>
             </div>
-            <div style={{ padding: "0 20px 20px 20px" }}> <button className="btn-primary" style={{ width: "100%" }} onClick={saveProfile}>Save Changes</button> <button className="btn-danger" style={{ marginTop: 10, textAlign: "center" }} onClick={handleLogout}>Log Out</button> </div>
+
+            <div className="profile-media-section">
+                <div className="profile-media-header">
+                    <h4>Медиа профиля ({myProfile.media ? myProfile.media.length : 0})</h4>
+                </div>
+                <div className="media-grid">
+                    <div className="media-grid-add-btn" onClick={() => profileMediaInputRef.current.click()}>+</div>
+                    {myProfile.media && (isMediaExpanded ? myProfile.media : myProfile.media.slice(-5).reverse()).map((item, idx) => (
+                        <div key={idx} className="media-grid-item" onClick={() => setImageModalSrc(item.url)}>
+                            {item.temp && <div className="uploading-overlay"><div className="spinner"></div></div>}
+                            {item.type === 'video' ? <video src={item.url} muted /> : <img src={item.url} alt="media" />}
+                            <button className="delete-media-btn" onClick={(e) => { e.stopPropagation(); /* Logic to delete */ }}>&times;</button>
+                        </div>
+                    ))}
+                </div>
+                {myProfile.media && myProfile.media.length > 5 && (
+                    <button className="media-toggle-btn" onClick={() => setIsMediaExpanded(!isMediaExpanded)}>
+                        {isMediaExpanded ? "Свернуть" : `Показать все (${myProfile.media.length})`}
+                    </button>
+                )}
+                <input type="file" ref={profileMediaInputRef} className="hidden-input" accept="image/*,video/*" onChange={handleProfileMediaSelect} />
+            </div>
+            
+            <div style={{ padding: "20px 20px 20px 20px" }}> <button className="btn-primary" style={{ width: "100%" }} onClick={saveProfile}>Save Changes</button> <button className="btn-danger" style={{ marginTop: 10, textAlign: "center" }} onClick={handleLogout}>Log Out</button> </div>
           </Modal>
         )}
 
@@ -2596,7 +2732,6 @@ function Chat({ socket, username, room, setRoom, handleLogout }) {
                 <div className="profile-status">{groupMembers.length} members</div>
             </div>
             
-            {/* CHAT SETTINGS FOR OWNER/MOD */}
             {(myRole === 'owner' || globalRole === 'mod') && room !== "General" && (
                 <div style={{padding: '0 20px', marginBottom: 20}}>
                      <div className="settings-item">
@@ -2655,7 +2790,6 @@ function Chat({ socket, username, room, setRoom, handleLogout }) {
                         </div> 
                     </div> 
                     
-                    {/* ROLE MANAGEMENT */}
                     {(myRole === "owner" || globalRole === 'mod') && m.username !== username && room !== "General" && (
                         <div style={{display:'flex', gap: 5}}>
                              {m.role !== 'owner' && (
@@ -2671,30 +2805,101 @@ function Chat({ socket, username, room, setRoom, handleLogout }) {
               ))}
             </div>
             <div style={{ padding: "20px" }}>
-              {(myRole === "owner" || myRole === "editor" || globalRole === "mod") && (<div className="action-card" onClick={() => { const n = prompt("Ник:"); if (n) socket.emit("add_group_member", { room, username: n }); }} style={{ marginBottom: 10, height: "auto", display: "flex", alignItems: "center", justifyContent: "center", flexDirection: "row" }}><svg xmlns="http://www.w3.org/2000/svg" width="32" height="24" viewBox="0 0 24 24"><path fill="#ffffff" d="M18 2h-6v2h-2v6h2V4h6V2zm0 8h-6v2h6v-2zm0-6h2v6h-2V4zM7 16h2v-2h12v2H9v4h12v-4h2v6H7v-6zM3 8h2v2h2v2H5v2H3v-2H1v-2h2V8z"/></svg> Добавить участника</div>)}
+              {(myRole === "owner" || myRole === "editor" || globalRole === "mod") && (
+                  <div className="action-card" 
+                       onClick={() => setActiveModal("addToGroup")} 
+                       style={{ marginBottom: 10, height: "auto", display: "flex", alignItems: "center", justifyContent: "center", flexDirection: "row", gap: 10 }}
+                  >
+                      <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"><path fill="#ffffff" d="M18 2h-6v2h-2v6h2V4h6V2zm0 8h-6v2h6v-2zm0-6h2v6h-2V4zM7 16h2v-2h12v2H9v4h12v-4h2v6H7v-6zM3 8h2v2h2v2H5v2H3v-2H1v-2h2V8z"/></svg> 
+                      Добавить участника
+                  </div>
+              )}
               <button className="btn-danger" style={{ textAlign: "center" }} onClick={leaveGroup}>{myRole === "owner" && room !== "General" ? "Delete Group" : "Leave Group"}</button>
             </div>
           </Modal>
         )}
 
+        {activeModal === 'editFriendProfile' && viewProfileData && (
+            <Modal title="Редактировать контакт" onClose={() => setActiveModal('userProfile')}>
+                <div style={{ padding: 20 }}>
+                    <div className="form-container">
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 20, marginBottom: 20 }}>
+                            <div className="profile-avatar-large" style={{ ...getAvatarStyle(friendOverrideForm.preview_avatar), width: 80, height: 80, cursor: 'pointer' }} onClick={() => friendAvatarInputRef.current.click()}>
+                                {!friendOverrideForm.preview_avatar && viewProfileData.username[0].toUpperCase()}
+                            </div>
+                            <input type="file" ref={friendAvatarInputRef} className="hidden-input" accept="image/*" onChange={(e) => {
+                                if (e.target.files[0]) {
+                                    const file = e.target.files[0];
+                                    setFriendOverrideForm(prev => ({ ...prev, local_avatar_file: file, preview_avatar: URL.createObjectURL(file) }));
+                                }
+                            }} />
+                            <div className="input-group" style={{ flex: 1 }}>
+                                <label>Локальное имя</label>
+                                <input
+                                    className="modal-input"
+                                    value={friendOverrideForm.local_display_name}
+                                    onChange={(e) => setFriendOverrideForm(prev => ({ ...prev, local_display_name: e.target.value }))}
+                                />
+                            </div>
+                        </div>
+                        <button className="btn-primary" onClick={handleSaveFriendOverride}>Сохранить</button>
+                        <button className="btn-danger" onClick={() => handleSaveFriendOverride(true)}>Сбросить изменения</button>
+                    </div>
+                </div>
+            </Modal>
+        )}
+        
         {activeModal === "userProfile" && viewProfileData && (
           <Modal title="Info" onClose={() => setActiveModal(null)}>
-            <div className="profile-hero"> 
-                <div className="profile-avatar-large" style={getAvatarStyle(viewProfileData.avatar_url)}>{!viewProfileData.avatar_url && viewProfileData.username[0]?.toUpperCase()}</div> 
-                <div className="profile-name">
-                    {viewProfileData.display_name || viewProfileData.username}
-                    {viewProfileData.isGlobalMod && <span title="Global Mod" style={{marginLeft: 5, color: '#2b95ff'}}>🛡️</span>}
-                </div> 
-                <div className="profile-status">@{viewProfileData.username}</div>
-                {/* BADGES DISPLAY */}
-                <div style={{display:'flex', gap: 5, justifyContent:'center', marginTop: 10}}>
-                    {viewProfileData.badges && viewProfileData.badges.map((b,i) => (
-                        <div key={i} title={b.name} style={{width: 24, height: 24}} dangerouslySetInnerHTML={{__html: b.svg_content}} />
-                    ))}
+            <div className="profile-hero">
+                <div className="profile-avatar-background" style={getAvatarStyle(viewProfileData.avatar_url)}>
+                    <div className="ProfName">
+                        <div className="profile-name">{viewProfileData.display_name}</div>
+                        <div className="profile-status">@{viewProfileData.username}</div>
+                    </div>
+                    <div className="btns">
+                        <button className="change-avatar-btn" title="Написать сообщение" onClick={() => {
+                            const roomId = [username, viewProfileData.username].sort().join("_");
+                            switchChat(roomId);
+                            setActiveModal(null);
+                        }}>
+                            <IconMessage />
+                        </button>
+                        <button className="change-avatar-btn" title="Позвонить" onClick={() => {
+                            const roomId = [username, viewProfileData.username].sort().join("_");
+                            if (room !== roomId) {
+                                switchChat(roomId);
+                            }
+                            // Небольшая задержка, чтобы чат успел переключиться перед звонком
+                            setTimeout(() => startCall(true), 100);
+                        }}>
+                            <IconCall />
+                        </button>
+                        <button className="change-avatar-btn" title="Boost">
+                            <IconLightning />
+                        </button>
+                        <button className="change-avatar-btn" title="Еще" onClick={() => {
+                            setFriendOverrideForm({
+                                local_display_name: viewProfileData.local_overrides?.local_display_name || viewProfileData.original_display_name,
+                                local_avatar_file: null,
+                                preview_avatar: viewProfileData.local_overrides?.local_avatar_url || viewProfileData.original_avatar_url
+                            });
+                            setActiveModal('editFriendProfile');
+                        }}>
+                            <IconMore />
+                        </button>
+                    </div>
                 </div>
-                <div style={{fontSize: 12, color: '#888', marginTop: 5}}>{viewProfileData.isFriend ? "В контактах" : ""}</div>
             </div>
+
             <div className="settings-list">
+              {viewProfileData.badges && viewProfileData.badges.length > 0 && (
+                  <div className="settings-item" style={{justifyContent:'center'}}>
+                      {viewProfileData.badges.map((b,i) => (
+                          <div key={i} title={b.name} style={{width: 24, height: 24}} dangerouslySetInnerHTML={{__html: b.svg_content}} />
+                      ))}
+                  </div>
+              )}
               {viewProfileData.bio && (<div className="settings-item"> <div className="settings-label"> <div style={{ fontSize: "16px" }}>{viewProfileData.bio}</div> <div style={{ fontSize: "12px", color: "#888", marginTop: "4px" }}>Bio</div> </div> </div>)}
               {viewProfileData.phone && (<div className="settings-item"> <div className="settings-label"> <div style={{ fontSize: "16px" }}>{viewProfileData.phone}</div> <div style={{ fontSize: "12px", color: "#888", marginTop: "4px" }}>Mobile</div> </div> </div>)}
               <div className="settings-item" onClick={() => copyProfileLink(viewProfileData.username)}> 
@@ -2702,17 +2907,32 @@ function Chat({ socket, username, room, setRoom, handleLogout }) {
                 <div className="settings-label">Поделиться профилем</div>
               </div>
             </div>
-            <div className="avatar-history" style={{ padding: "0 15px" }}>
-              {avatarHistory.length > 0 && 44 && <h4>Old Avatars</h4>}
-              <div className="avatar-history-container"> {avatarHistory.map((avatar) => ( <div key={avatar.id} className="avatar-history-item"> <img src={avatar.avatar_url} alt="old avatar" onClick={() => setImageModalSrc(avatar.avatar_url)} /> </div> ))} </div>
-            </div>
+            
+            {viewProfileData.media && viewProfileData.media.length > 0 && (
+                <div className="profile-media-section">
+                    <div className="profile-media-header"><h4>Медиа ({viewProfileData.media.length})</h4></div>
+                    <div className="media-grid">
+                        {(isMediaExpanded ? viewProfileData.media : viewProfileData.media.slice(-6).reverse()).map((item, idx) => (
+                            <div key={idx} className="media-grid-item" onClick={() => setImageModalSrc(item.url)}>
+                                {item.type === 'video' ? <video src={item.url} muted /> : <img src={item.url} alt="media" />}
+                            </div>
+                        ))}
+                    </div>
+                    {viewProfileData.media.length > 6 && (
+                        <button className="media-toggle-btn" onClick={() => setIsMediaExpanded(!isMediaExpanded)}>
+                            {isMediaExpanded ? "Свернуть" : `Показать все (${viewProfileData.media.length})`}
+                        </button>
+                    )}
+                </div>
+            )}
+            
             <div style={{ marginTop: "10px", background: "#212121", padding: "0 15px" }}>
               {viewProfileData.isFriend && (<div className="settings-item" onClick={() => removeFriend(viewProfileData.username)} style={{ color: "#ff5959" }}> <span className="settings-icon" style={{ color: "#ff5959" }}><svg xmlns="http://www.w3.org/2000/svg" width="200" height="200" viewBox="0 0 24 24"><path fill="#ffffff" d="m8.4 17l3.6-3.6l3.6 3.6l1.4-1.4l-3.6-3.6L17 8.4L15.6 7L12 10.6L8.4 7L7 8.4l3.6 3.6L7 15.6L8.4 17ZM5 21q-.825 0-1.413-.588T3 19V5q0-.825.588-1.413T5 3h14q.825 0 1.413.588T21 5v14q0 .825-.588 1.413T19 21H5Zm0-2h14V5H5v14ZM5 5v14V5Z"/></svg></span> Delete Contact </div>)}
-              <div className="settings-item" onClick={() => blockUser(viewProfileData.username)} style={{ color: "#ff5959", border: "none" }}> <span className="settings-icon" style={{ color: "#ff5959" }}><svg xmlns="http://www.w3.org/2000/svg" width="200" height="200" viewBox="0 0 24 24" fill="#ffffff"><path fill="#ffffff" d="M12 22q-2.075 0-3.9-.788t-3.175-2.137q-1.35-1.35-2.137-3.175T2 12q0-2.075.788-3.9t2.137-3.175q1.35-1.35 3.175-2.137T12 2q2.075 0 3.9.788t3.175 2.137q1.35 1.35 2.138 3.175T22 12q0 2.075-.788 3.9t-2.137 3.175q-1.35 1.35-3.175 2.138T12 22Zm0-2q3.35 0 5.675-2.325T20 12q0-1.35-.438-2.6T18.3 7.1L7.1 18.3q1.05.825 2.3 1.263T12 20Zm-6.3-3.1L16.9 5.7q-1.05-.825-2.3-1.262T12 4Q8.65 4 6.325 6.325T4 12q0 1.35.437 2.6T5.7 16.9Z"/></svg></span> Block User </div>
+              <div className="settings-item" onClick={() => blockUser(viewProfileData.username)} style={{ color: "#ff5959", border: "none" }}> <span className="settings-icon" style={{ color: "#ff5959" }}><svg xmlns="http://www.w3.org/2000/svg" width="200" height="200" viewBox="0 0 24 24" fill="#ffffff"><path fill="#ffffff" d="M12 22q-2.075 0-3.9-.788t-3.175-2.137q-1.35-1.35-2.137-3.175T2 12q0-2.075.788-3.9t2.137-3.175q1.35-1.35-3.175 2.137T12 2q2.075 0 3.9.788t3.175 2.137q1.35 1.35 2.138 3.175T22 12q0 2.075-.788 3.9t-2.137 3.175q-1.35 1.35-3.175 2.138T12 22Zm0-2q3.35 0 5.675-2.325T20 12q0-1.35-.438-2.6T18.3 7.1L7.1 18.3q1.05.825 2.3 1.263T12 20Zm-6.3-3.1L16.9 5.7q-1.05-.825-2.3-1.262T12 4Q8.65 4 6.325 6.325T4 12q0 1.35.437 2.6T5.7 16.9Z"/></svg></span> Block User </div>
             </div>
           </Modal>
         )}
-        
+
         <CallModal 
             callStatus={callStatus}
             localVideoRef={localVideoRef}
