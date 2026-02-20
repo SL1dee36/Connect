@@ -500,7 +500,9 @@ function Chat({ socket, username, room, setRoom, handleLogout }) {
             if (room && !currentChatExists) {
                  switchChat(unifiedChatList[0].id);
             } else if (!room) {
-                 switchChat(unifiedChatList[0].id);
+                 if (!isMobile) {
+                     switchChat(unifiedChatList[0].id);
+                 }
             }
         } else {
             // Если список чатов пуст (удалили вообще последний чат)
