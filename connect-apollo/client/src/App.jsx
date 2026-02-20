@@ -17,7 +17,7 @@ const socket = io.connect(import.meta.env.VITE_BACKEND_URL || "http://localhost:
 
 const MainApp = () => {
   const [user, setUser] = useState(null);
-  const [room, setRoom] = useState("General");
+  const [room, setRoom] = useState("");
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
@@ -39,7 +39,7 @@ const MainApp = () => {
         const decodedUser = jwtDecode(token);
         if (decodedUser.exp * 1000 > Date.now()) {
           setUser(decodedUser);
-          setRoom(storedRoom || "General");
+          setRoom(storedRoom || "");
           socket.auth = { token };
           socket.connect();
           socket.emit("authenticate", { token });

@@ -1615,3 +1615,16 @@ p { margin: 0px; }
     margin: 0;
     width: 100%;
 }
+
+.no-chat-selected {
+    display: flex;
+    height: 60dvh;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+}
+
+.no-chat-icon {
+  width: 64px;
+  height: 64px;
+}

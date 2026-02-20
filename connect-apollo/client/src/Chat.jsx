@@ -30,7 +30,7 @@ const IconCheckCircle = () => (<svg xmlns="http://www.w3.org/2000/svg" width="24
 const IconDrag = () => (<svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor" xmlns="http://www.w3.org/2000/svg"><path d="M20 6V4H4v2h16zm0 14v-2H4v2h16zM17 8v8h-2V8h2zm-8 6v-4h6V8H7v8h8v-2H9z" /></svg>);
 const IconCamera = () => (<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="#fff"><path d="M2 5h14v4h2V7h2V5h2v14h-2v-2h-2v-2h-2v4H2V5zm2 12h10V7H4v10z"/></svg>);
 
-const IconMessage = () => (<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"><path fill="currentColor" d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zM6 9h12v2H6V9zm8 5H6v-2h8v2zm4-6H6V6h12v2z"/></svg>);
+const IconMessage = () => (<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"><path fill="#ffffff" d="M20 2H2v20h2V4h16v12H6v2H4v2h2v-2h16V2h-2zM6 7h12v2H6V7zm8 4H6v2h8v-2z"/></svg>);
 const IconCall = () => (<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"><path fill="currentColor" d="M6.62 10.79c1.44 2.83 3.76 5.14 6.59 6.59l2.2-2.2c.27-.27.67-.36 1.02-.24 1.12.37 2.33.57 3.57.57.55 0 1 .45 1 1V20c0 .55-.45 1-1 1-9.39 0-17-7.61-17-17 0-.55.45-1 1-1h3.5c.55 0 1 .45 1 1 0 1.25.2 2.45.57 3.57.11.35.03.74-.25 1.02l-2.2 2.2z"/></svg>);
 const IconLightning = () => (<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"><path fill="currentColor" d="M7 2v11h3v9l7-12h-4l4-8z"/></svg>);
 const IconMore = () => (<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"><path fill="currentColor" d="M12 8c1.1 0 2-.9 2-2s-.9-2-2-2-2 .9-2 2 .9 2 2 2zm0 2c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2zm0 6c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2z"/></svg>);
@@ -432,7 +432,7 @@ function Chat({ socket, username, room, setRoom, handleLogout }) {
                 id: c,
                 originalId: c,
                 type: 'group', 
-                name: c === 'General' ? 'Community Bot' : c, 
+                name: c, 
                 avatar: null
             })),
             ...friends.map(f => {
@@ -447,6 +447,17 @@ function Chat({ socket, username, room, setRoom, handleLogout }) {
                 };
             })
         ];
+
+        // Ensure uniqueness by ID
+        const unique = [];
+        const seen = new Set();
+        for (const chat of all) {
+            if (!seen.has(chat.id)) {
+                unique.push(chat);
+                seen.add(chat.id);
+            }
+        }
+        all = unique;
 
         all = all.map(chat => ({
             ...chat,
@@ -480,6 +491,52 @@ function Chat({ socket, username, room, setRoom, handleLogout }) {
     
         return all;
     }, [myChats, friends, pinnedChats, activeFolderId, folders, customChatOrder, chatPreviews, username]);
+
+    // Auto-select first chat if available and no chat is selected, or if selected chat is gone
+    useEffect(() => {
+        if (unifiedChatList.length > 0) {
+            const currentChatExists = unifiedChatList.find(c => c.id === room);
+            // Если мы находимся в комнате, которой больше нет (удалили/вышли)
+            if (room && !currentChatExists) {
+                 switchChat(unifiedChatList[0].id);
+            } else if (!room) {
+                 switchChat(unifiedChatList[0].id);
+            }
+        } else {
+            // Если список чатов пуст (удалили вообще последний чат)
+            if (room !== "") {
+                setRoom("");
+                localStorage.setItem("apollo_room", "");
+                if (isMobile) setShowMobileChat(false);
+            }
+        }
+    }, [unifiedChatList, room, isMobile]); // Убрали switchChat из зависимостей
+
+    const switchChat = useCallback((targetName) => {
+        if (isSelectionMode) return; 
+        
+        // Разрешаем передавать "", чтобы принудительно сбросить активный чат
+        if (targetName !== "" && (!targetName || typeof targetName !== 'string')) return;
+        
+        const roomId = targetName;
+        
+        if (roomId !== room) { 
+            setRoom(roomId); 
+            localStorage.setItem("apollo_room", roomId); 
+        }
+
+        if (isMobile) { 
+            setSwipeX(0); 
+            // Открываем мобильный чат только если выбрали реальную комнату
+            if (roomId !== "") {
+                setShowMobileChat(true); 
+                if (document.activeElement instanceof HTMLElement) document.activeElement.blur(); 
+            } else {
+                // Если чат сброшен, закрываем мобильное окно чата
+                setShowMobileChat(false);
+            }
+        }
+    }, [room, setRoom, isMobile, isSelectionMode]);
 
     useEffect(() => {
         if (isMobile && showMobileChat) {
@@ -816,24 +873,6 @@ function Chat({ socket, username, room, setRoom, handleLogout }) {
         }
     };
 
-    const switchChat = useCallback((targetName) => {
-        if (isSelectionMode) return; 
-        if (!targetName || typeof targetName !== 'string') return;
-        
-        const roomId = targetName;
-        
-        if (roomId !== room) { 
-            setRoom(roomId); 
-            localStorage.setItem("apollo_room", roomId); 
-        }
-
-        if (isMobile) { 
-            setSwipeX(0); 
-            setShowMobileChat(true); 
-            if (document.activeElement instanceof HTMLElement) document.activeElement.blur(); 
-        }
-    }, [room, setRoom, isMobile, isSelectionMode]);
-
     useEffect(() => {
         if (!showMobileChat) {
             setSwipeX(0);
@@ -905,18 +944,45 @@ function Chat({ socket, username, room, setRoom, handleLogout }) {
         socket.on("friends_list", (list) => { if(Array.isArray(list)) setFriends(list); });
         socket.on("search_results", handleSearchResults);
         socket.on("search_groups_results", handleSearchGroupResults);
-        socket.on("group_created", (data) => { setMyChats(prev => !prev.includes(data.room) ? [...prev, data.room] : prev); switchChat(data.room); setActiveModal(null); });
-        socket.on("group_joined", (data) => { setMyChats(prev => !prev.includes(data.room) ? [...prev, data.room] : prev); switchChat(data.room); setActiveModal(null); });
+        socket.on("group_created", (data) => { 
+            setMyChats(prev => !prev.includes(data.room) ? [...prev, data.room] : prev); 
+            switchChat(data.room); 
+            setActiveModal(null); 
+        });
+        
+        socket.on("group_joined", (data) => { 
+            setMyChats(prev => !prev.includes(data.room) ? [...prev, data.room] : prev); 
+            switchChat(data.room); 
+            setActiveModal(null); 
+        });
         
         socket.on("left_group_success", (data) => { 
             setMyChats(prev => prev.filter(c => c !== data.room)); 
-            if(room === data.room) setRoom(""); 
+            // Сбрасываем чат, useEffect выше сам выберет следующий доступный
+            if(room === data.room) switchChat(""); 
             setActiveModal(null); 
         });
 
-        socket.on("group_deleted", (data) => { setMyChats(prev => prev.filter(c => c !== data.room)); if(localStorage.getItem("apollo_room") === data.room) switchChat(""); alert("Group Deleted"); });
-        socket.on("friend_added", (data) => { setFriends(prev => [...prev, data.username]); alert(`${data.username} добавлен!`); });
-        socket.on("friend_removed", (data) => { setFriends(prev => prev.filter(f => f !== data.username)); if(localStorage.getItem("apollo_room") === [username, data.username].sort().join("_")) switchChat(""); });
+        socket.on("group_deleted", (data) => { 
+            setMyChats(prev => prev.filter(c => c !== data.room)); 
+            if(room === data.room) {
+                switchChat(""); 
+                alert("Группа была удалена владельцем");
+            }
+        });
+        
+        socket.on("friend_added", (data) => { 
+            setFriends(prev => [...prev, data.username]); 
+            alert(`${data.username} добавлен!`); 
+        });
+        
+        socket.on("friend_removed", (data) => { 
+            setFriends(prev => prev.filter(f => f.username !== data.username && f !== data.username)); 
+            const expectedRoomId = [username, data.username].sort().join("_");
+            if(room === expectedRoomId) {
+                switchChat(""); 
+            }
+        });
         socket.on("my_profile_data", handleMyProfile);
         
         socket.on("user_profile_data", (data) => { 
@@ -1484,7 +1550,7 @@ function Chat({ socket, username, room, setRoom, handleLogout }) {
     }
 
     const openGroupInfo = () => {
-        if (!myChats.includes(room) && room !== "General") { 
+        if (!myChats.includes(room)) { 
             socket.emit("get_user_profile", room.replace(username, "").replace("_", "") || room); 
             setShowMenu(false); 
         }
@@ -1538,7 +1604,7 @@ function Chat({ socket, username, room, setRoom, handleLogout }) {
         alert("Ссылка на профиль скопирована!");
     };
 
-    const leaveGroup = () => { if (window.confirm(myRole === 'owner' && room !== "General" ? "Удалить группу?" : "Выйти из группы?")) socket.emit("leave_group", { room }); };
+    const leaveGroup = () => { if (window.confirm("Выйти из группы?")) socket.emit("leave_group", { room }); };
     const removeFriend = (t) => { if (window.confirm(`Удалить ${t}?`)) { socket.emit("remove_friend", t); setActiveModal(null); }};
     const blockUser = (t) => { if (window.confirm(`Заблокировать ${t}?`)) { socket.emit("block_user", t); setActiveModal(null); }};
     const isPrivateChat = room.includes("_");
@@ -1546,13 +1612,11 @@ function Chat({ socket, username, room, setRoom, handleLogout }) {
     const displayRoomName = currentChatInfo?.name || (isPrivateChat ? room.replace(username, "").replace("_", "") : room);
     
     
-    const roomAvatar = roomSettings.avatar_url || (room === "General" ? '' : '');
+    const roomAvatar = roomSettings.avatar_url || '';
     const getAvatarStyle = (imgUrl) => imgUrl ? { backgroundImage: `url(${imgUrl})`, backgroundSize: 'cover', backgroundPosition: 'center', backgroundColor: '#333', color: 'transparent', } : { backgroundColor: '#333' };
 
     let headerSubtitle = "";
-    if (room === "General") {
-        headerSubtitle = `${totalNetworkUsers} пользователей в сети`;
-    } else if (typingText) {
+    if (typingText) {
         headerSubtitle = typingText;
     } else if (!isPrivateChat) {
         headerSubtitle = `${groupMembers.length} участников`;
@@ -1705,7 +1769,7 @@ function Chat({ socket, username, room, setRoom, handleLogout }) {
         const chatsToDelete = unifiedChatList.filter(c => selectedChats.includes(c.id));
         chatsToDelete.forEach(chat => {
             if (chat.type === 'group') {
-                 if (chat.originalId !== 'General') socket.emit("leave_group", { room: chat.originalId });
+                 socket.emit("leave_group", { room: chat.originalId });
             } else { 
                  socket.emit("remove_friend", chat.originalId);
             }
@@ -2089,7 +2153,7 @@ function Chat({ socket, username, room, setRoom, handleLogout }) {
 
                         const renderPreview = () => {
                             if (!chat.preview) {
-                                return chat.id === "General" ? "Новости и обновления" : "Нет сообщений";
+                                return "Нет сообщений";
                             }
                             const sender = chat.preview.sender === username ? "Вы: " : (chat.type === 'dm' ? "" : `${chat.preview.sender}: `);
                             let text = chat.preview.text;
@@ -2134,7 +2198,7 @@ function Chat({ socket, username, room, setRoom, handleLogout }) {
                                 )}
                                 
                                 <div className="friend-avatar" style={getAvatarStyle(chat.avatar)}>
-                                    {chat.id === "General" ? <svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 24 24"><path fill="#ffffff" d="M2 5h2v2H2V5zm4 4H4V7h2v2zm2 0H6v2H4v2H2v6h20v-6h-2v-2h-2V9h2V7h2V5h-2v2h-2v2h-2V7H8v2zm0 0h8v2h2v2h2v4H4v-4h2v-2h2V9zm2 4H8v2h2v-2zm4 0h2v2h-2v-2z"/></svg> : (!chat.avatar && (chat.name[0] ? chat.name[0].toUpperCase() : "?"))}
+                                    {!chat.avatar && (chat.name[0] ? chat.name[0].toUpperCase() : "?")}
                                 </div>
                                 <div className="chat-info-mobile">
                                     <div className="chat-name chat-name-row">
@@ -2178,192 +2242,200 @@ function Chat({ socket, username, room, setRoom, handleLogout }) {
                 zIndex: 100
             }}
         >
-            <div className="glass-chat-background"></div>            
           <div className="glass-chat">
-            <div className="chat-header">
-              <div className="header-left">
-                {isMobile && (<button className="back-btn" onClick={handleCloseMobileChat}><svg xmlns="http://www.w3.org/2000/svg" width="32" height="26" viewBox="0 0 24 24"><path fill="#ffffff" d="M16 5v2h-2V5h2zm-4 4V7h2v2h-2zm-2 2V9h2v2h-2zm0 2H8v-2h2v2zm2 2v-2h-2v2h2zm0 0h2v2h-2v-2zm4 4v-2h-2v2h2z"/></svg></button>)}
-                <div onClick={openGroupInfo} style={{ cursor: "pointer", display: "flex", flexDirection: "column", whiteSpace: "nowrap"}}>
-                  <h3 style={{ margin: 0 }}>{displayRoomName}</h3>
-                  <span style={{ fontSize: 12, color: "#777", paddingLeft: 0 }}>
-                      {headerSubtitle}
-                  </span>
-                </div>
-              </div>
-              <div style={{display: 'flex', gap: 10, alignItems: 'center'}}>
-                {room.includes("_") && ( 
-                    <button className="menu-btn" onClick={() => startCall(true)} title="Видеозвонок">
-                        <svg width="24" height="24" viewBox="0 0 24 24" fill="#fff"><path d="M17 10.5V7c0-.55-.45-1-1-1H4c-.55 0-1 .45-1 1v10c0 .55.45 1 1 1h12c.55 0 1-.45 1-1v-3.5l4 4v-11l-4 4z"/></svg>
-                    </button>
-                )}
-                <div style={{ position: "relative" }}>
-                    <button className="menu-btn" onClick={() => setShowMenu(!showMenu)}><svg xmlns="http://www.w3.org/2000/svg" width="32" height="24" viewBox="0 0 24 24"><path fill="#ffffff" d="M4 6h16v2H4V6zm0 5h16v2H4v-2zm16 5H4v2h16v-2z"/></svg></button>
-                    {showMenu && (<div className="dropdown-menu"> <div className="menu-item" onClick={openGroupInfo}><svg xmlns="http://www.w3.org/2000/svg" width="32" height="24" viewBox="0 0 24 24"><path fill="#ffffff" d="M6 3h14v2h2v6h-2v8h-2V5H6V3zm8 14v-2H6V5H4v10H2v4h2v2h14v-2h-2v-2h-2zm0 0v2H4v-2h10zM8 7h8v2H8V7zm8 4H8v2h8v-2z"/></svg> Информация</div> {!isPrivateChat && (<div className="menu-item" onClick={() => setActiveModal("addToGroup")}><svg xmlns="http://www.w3.org/2000/svg" width="32" height="24" viewBox="0 0 24 24"><path fill="#ffffff" d="M18 2h-6v2h-2v6h2V4h6V2zm0 8h-6v2h6v-2zm0-6h2v6h-2V4zM7 16h2v-2h12v2H9v4h12v-4h2v6H7v-6zM3 8h2v2h2v2H5v2H3v-2H1v-2h2V8z"/></svg> Добавить в группу</div>)}</div>)}
-                </div>
-              </div>
-            </div>
-
-            {activeVideoState && (
-                <GlobalVideoPlayer 
-                    activeVideo={activeVideoState}
-                    onTogglePlay={() => window.dispatchEvent(new CustomEvent('video-toggle-play'))}
-                    onClose={() => {
-                        setActiveVideoState(null);
-                        window.dispatchEvent(new CustomEvent('video-close-focus'));
-                    }}
-                    onSeek={(val) => window.dispatchEvent(new CustomEvent('video-seek', { detail: val }))}
-                    onSpeedChange={() => window.dispatchEvent(new CustomEvent('video-change-speed'))}
-                />
-            )}
-
-            <div className="chat-body" ref={chatBodyRef} onScroll={handleScroll}>
-              {isLoadingHistory && (<div style={{ textAlign: "center", fontSize: 12, color: "#666", padding: 10 }}>Загрузка истории...</div>)}
-              {messageList.map((msg, index) => (<MessageItem key={msg.id || index} msg={msg} username={username} display_name={msg.author_display_name} setImageModalSrc={setImageModalSrc} onContextMenu={handleContextMenu} onReplyTrigger={handleReply} scrollToMessage={handleScrollToReply} onMentionClick={onMentionClick} />))}
-              <div ref={messagesEndRef} />
-            </div>
-
-            <div className="chat-input-background"></div>
-
-            {(room === "General" || isPrivateChat || myRole !== 'guest' || globalRole === 'mod') ? (
-                <div className="chat-input-wrapper">
-                    
-                    {recordedMedia ? (
-                        <div className="media-preview-bar" style={{display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%', gap: 10}}>
-                            <button className="tool-btn" onClick={cancelRecording} style={{color: '#ff4d4d', background: 'transparent'}}>
-                                <IconTrash />
-                            </button>
-                            
-                            <div style={{flex: 1, display: 'flex', justifyContent: 'center', alignItems: 'center', overflow: 'hidden'}}>
-                                {recordedMedia.type === 'audio' ? (
-                                     <div style={{width: '100%', maxWidth: '300px'}}>
-                                        <CustomAudioPlayer src={recordedMedia.url} /> 
-                                     </div>
-                                ) : (
-                                    <div style={{display: 'flex', alignItems: 'center', gap: 15}}>
-                                        <CustomVideoPlayer 
-                                            src={recordedMedia.url} 
-                                            shape={videoShape} 
-                                            width="240px"
-                                            align="right"
-                                            author={username}
-                                            time="Сейчас"
-                                        />
-                                        <div className="shape-selector" style={{display: 'flex', flexDirection:'column', gap: 8, background: '#222', padding: 8, borderRadius: 20}}>
-                                            {['circle', 'heart', 'triangle', 'square'].map(s => (
-                                                <div 
-                                                    key={s}
-                                                    onClick={() => setVideoShape(s)}
-                                                    style={{
-                                                        width: 24, height: 24, background: '#555', cursor: 'pointer',
-                                                        border: videoShape === s ? '2px solid #2b95ff' : '2px solid transparent',
-                                                        borderRadius: s === 'circle' ? '50%' : (s === 'square' ? '4px' : '0'),
-                                                        clipPath: s === 'triangle' ? 'polygon(50% 0%, 0% 100%, 100% 100%)' : 'none',
-                                                        transition: '0.2s'
-                                                    }}
-                                                />
-                                            ))}
-                                        </div>
-                                    </div>
-                                )}
-                            </div>
-
-                            <button className="send-pill-btn" onClick={sendRecordedContent} disabled={isUploading} style={{borderRadius: '50%', width: 45, height: 45, padding: 0, justifyContent: 'center'}}>
-                                {isUploading ? <div className="spinner"></div> : <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"><path fill="#ffffff" d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/></svg>}
-                            </button>
-                        </div>
-                    ) : (
-                        <>
-                            {inputMode === 'video' && isRecording && (
-                                <div className="live-camera-preview" style={{
-                                    position: 'absolute', bottom: 85, right: 20, 
-                                    width: 140, height: 140, borderRadius: '50%', 
-                                    overflow: 'hidden', border: '4px solid #ff4d4d', zIndex: 999,
-                                    background: '#000', boxShadow: '0 4px 15px rgba(0,0,0,0.5)'
-                                }}>
-                                    <video ref={liveVideoRef} muted autoPlay playsInline style={{width: '100%', height: '100%', objectFit: 'cover', transform: 'scaleX(-1)'}} />
-                                </div>
-                            )}
-
-                            {isRecording && !isLocked && (
-                                <div className="lock-indicator" style={{
-                                    position: 'absolute', right: 30, bottom: 100, 
-                                    display: 'flex', flexDirection: 'column', alignItems: 'center', 
-                                    color: '#aaa', animation: 'slideUpFade 1.5s infinite', zIndex: 90
-                                }}>
-                                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"><path fill="currentColor" d="M12 2c-4.42 0-8 3.58-8 8v4h16v-4c0-4.42-3.58-8-8-8zm4 12H8v-4c0-2.21 1.79-4 4-4s4 1.79 4 4v4z"/></svg>
-                                    <span style={{fontSize: 10, marginTop: 2}}>Lock</span>
-                                </div>
-                            )}
-
-                            {replyingTo && (<div className="reply-bar"><div><div style={{ color: "#8774e1", fontSize: 13, fontWeight: "bold" }}>В ответ {replyingTo.author}</div><div style={{ fontSize: 14, color: "#ccc", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", maxWidth: "250px" }}>{replyingTo.message}</div></div><button onClick={() => setReplyingTo(null)} style={{ background: "none", border: "none", color: "#888", cursor: "pointer", fontSize: 24 }}>&times;</button></div>)}
-                            {attachedFiles.length > 0 && (<div className="attachments-preview"> {attachedFiles.map((f, i) => (<div key={i} className="attachment-thumb"> <img src={URL.createObjectURL(f)} alt="preview" /> <button onClick={() => removeAttachment(i)}>&times;</button> </div>))} </div>)}
-                            
-                            {!isRecording ? (
-                                <textarea ref={textareaRef} value={currentMessage} placeholder="Написать сообщение..." className="chat-textarea" onChange={(e) => { setCurrentMessage(e.target.value); socket.emit("typing", { room, username }); }} onKeyDown={handleKeyDown} rows={1} disabled={isUploading} />
-                            ) : (
-                                <div className="recording-status" style={{flex: 1, display: 'flex', alignItems: 'center', color: '#ff4d4d', fontWeight: 'bold', fontSize: 16, paddingLeft: 10}}>
-                                    <span style={{marginRight: 10, animation: 'pulse 1s infinite'}}>●</span>
-                                    {formatTime(recordingTime)}
-                                    
-                                    {isMobile && (
-                                        <span style={{marginLeft: 20, color: '#666', fontSize: 13, fontWeight: 'normal'}}>
-                                            {isLocked ? "Запись закреплена" : "< Свайп для отмены"}
-                                        </span>
-                                    )}
-                                </div>
-                            )}
-
-                            <div className="input-toolbar">
-                                <div className="toolbar-left" style={{opacity: isRecording ? 0 : 1, pointerEvents: isRecording ? 'none' : 'auto', transition: '0.2s'}}>
-                                    <input type="file" className="hidden-input" multiple ref={fileInputRef} onChange={handleFileSelect} accept="image/*" />
-                                    <button className="tool-btn" onClick={() => fileInputRef.current.click()} title="Прикрепить фото"><IconPaperclip></IconPaperclip></button>
-                                </div>
-                                
-                                <div className="toolbar-right">
-                                    {(currentMessage.trim() || attachedFiles.length > 0) && !isRecording ? (
-                                        <button className="send-pill-btn" onClick={sendMessage} disabled={isUploading}> 
-                                            {isUploading ? <div className="spinner"></div> : 'Отправить ↵'}
-                                        </button>
-                                    ) : (
-                                        <div 
-                                            className={`record-btn-container ${isRecording ? 'recording-active' : ''}`}
-                                            onMouseDown={handleRecordStart}
-                                            onMouseMove={handleRecordMove}
-                                            onMouseUp={handleRecordEnd}
-                                            onMouseLeave={handleRecordEnd}
-                                            onTouchStart={handleRecordStart}
-                                            onTouchMove={handleRecordMove}
-                                            onTouchEnd={handleRecordEnd}
-                                            onTouchCancel={handleRecordEnd}
-                                            
-                                            style={{position: 'relative', touchAction: 'none', cursor: 'pointer', padding: 5}} 
-                                        >
-                                            {isLocked ? (
-                                                <button className="send-pill-btn" onClick={stopRecordingProcess} style={{borderRadius: '50%', width: 50, height: 50, padding: 0, justifyContent: 'center'}}>
-                                                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"><path fill="#fff" d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 14H9V8h2v8zm4 0h-2V8h2v8z"/></svg>
-                                                </button>
-                                            ) : (
-                                                <button className={`mic-btn ${isRecording ? "recording" : ""}`} style={{
-                                                    transform: isRecording ? 'scale(1.8)' : 'scale(1)', 
-                                                    transition: 'transform 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275)',
-                                                    pointerEvents: 'none' 
-                                                }}>
-                                                    {inputMode === 'audio' ? <IconMic /> : (
-                                                        <IconCamera />
-                                                    )}
-                                                </button>
-                                            )}
-                                        </div>
-                                    )}
-                                </div>
-                            </div>
-                        </>
-                    )}
+            {!room ? (
+                <div className="no-chat-selected">
+                    <div className="no-chat-icon"><IconMessage/></div>
+                    <p>Выберите чат из списка или создайте новый, чтобы начать общение</p>
                 </div>
             ) : (
-                <div style={{ padding: 20, textAlign: 'center', color: '#666', fontSize: 13 }}>
-                    У вас нет прав писать в этот чат.
+             <>
+                <div className="chat-header">
+                <div className="header-left">
+                    {isMobile && (<button className="back-btn" onClick={handleCloseMobileChat}><svg xmlns="http://www.w3.org/2000/svg" width="32" height="26" viewBox="0 0 24 24"><path fill="#ffffff" d="M16 5v2h-2V5h2zm-4 4V7h2v2h-2zm-2 2V9h2v2h-2zm0 2H8v-2h2v2zm2 2v-2h-2v2h2zm0 0h2v2h-2v-2zm4 4v-2h-2v2h2z"/></svg></button>)}
+                    <div onClick={openGroupInfo} style={{ cursor: "pointer", display: "flex", flexDirection: "column", whiteSpace: "nowrap"}}>
+                    <h3 style={{ margin: 0 }}>{displayRoomName}</h3>
+                    <span style={{ fontSize: 12, color: "#777", paddingLeft: 0 }}>
+                        {headerSubtitle}
+                    </span>
+                    </div>
                 </div>
+                <div style={{display: 'flex', gap: 10, alignItems: 'center'}}>
+                    {room.includes("_") && ( 
+                        <button className="menu-btn" onClick={() => startCall(true)} title="Видеозвонок">
+                            <svg width="24" height="24" viewBox="0 0 24 24" fill="#fff"><path d="M17 10.5V7c0-.55-.45-1-1-1H4c-.55 0-1 .45-1 1v10c0 .55.45 1 1 1h12c.55 0 1-.45 1-1v-3.5l4 4v-11l-4 4z"/></svg>
+                        </button>
+                    )}
+                    <div style={{ position: "relative" }}>
+                        <button className="menu-btn" onClick={() => setShowMenu(!showMenu)}><svg xmlns="http://www.w3.org/2000/svg" width="32" height="24" viewBox="0 0 24 24"><path fill="#ffffff" d="M4 6h16v2H4V6zm0 5h16v2H4v-2zm16 5H4v2h16v-2z"/></svg></button>
+                        {showMenu && (<div className="dropdown-menu"> <div className="menu-item" onClick={openGroupInfo}><svg xmlns="http://www.w3.org/2000/svg" width="32" height="24" viewBox="0 0 24 24"><path fill="#ffffff" d="M6 3h14v2h2v6h-2v8h-2V5H6V3zm8 14v-2H6V5H4v10H2v4h2v2h14v-2h-2v-2h-2zm0 0v2H4v-2h10zM8 7h8v2H8V7zm8 4H8v2h8v-2z"/></svg> Информация</div> {!isPrivateChat && (<div className="menu-item" onClick={() => setActiveModal("addToGroup")}><svg xmlns="http://www.w3.org/2000/svg" width="32" height="24" viewBox="0 0 24 24"><path fill="#ffffff" d="M18 2h-6v2h-2v6h2V4h6V2zm0 8h-6v2h6v-2zm0-6h2v6h-2V4zM7 16h2v-2h12v2H9v4h12v-4h2v6H7v-6zM3 8h2v2h2v2H5v2H3v-2H1v-2h2V8z"/></svg> Добавить в группу</div>)}</div>)}
+                    </div>
+                </div>
+                </div>
+
+                {activeVideoState && (
+                    <GlobalVideoPlayer 
+                        activeVideo={activeVideoState}
+                        onTogglePlay={() => window.dispatchEvent(new CustomEvent('video-toggle-play'))}
+                        onClose={() => {
+                            setActiveVideoState(null);
+                            window.dispatchEvent(new CustomEvent('video-close-focus'));
+                        }}
+                        onSeek={(val) => window.dispatchEvent(new CustomEvent('video-seek', { detail: val }))}
+                        onSpeedChange={() => window.dispatchEvent(new CustomEvent('video-change-speed'))}
+                    />
+                )}
+
+                <div className="chat-body" ref={chatBodyRef} onScroll={handleScroll}>
+                {isLoadingHistory && (<div style={{ textAlign: "center", fontSize: 12, color: "#666", padding: 10 }}>Загрузка истории...</div>)}
+                {messageList.map((msg, index) => (<MessageItem key={msg.id || index} msg={msg} username={username} display_name={msg.author_display_name} setImageModalSrc={setImageModalSrc} onContextMenu={handleContextMenu} onReplyTrigger={handleReply} scrollToMessage={handleScrollToReply} onMentionClick={onMentionClick} />))}
+                <div ref={messagesEndRef} />
+                </div>
+
+                <div className="chat-input-background"></div>
+
+                {(isPrivateChat || myRole !== 'guest' || globalRole === 'mod') ? (
+                    <div className="chat-input-wrapper">
+                        
+                        {recordedMedia ? (
+                            <div className="media-preview-bar" style={{display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%', gap: 10}}>
+                                <button className="tool-btn" onClick={cancelRecording} style={{color: '#ff4d4d', background: 'transparent'}}>
+                                    <IconTrash />
+                                </button>
+                                
+                                <div style={{flex: 1, display: 'flex', justifyContent: 'center', alignItems: 'center', overflow: 'hidden'}}>
+                                    {recordedMedia.type === 'audio' ? (
+                                        <div style={{width: '100%', maxWidth: '300px'}}>
+                                            <CustomAudioPlayer src={recordedMedia.url} /> 
+                                        </div>
+                                    ) : (
+                                        <div style={{display: 'flex', alignItems: 'center', gap: 15}}>
+                                            <CustomVideoPlayer 
+                                                src={recordedMedia.url} 
+                                                shape={videoShape} 
+                                                width="240px"
+                                                align="right"
+                                                author={username}
+                                                time="Сейчас"
+                                            />
+                                            <div className="shape-selector" style={{display: 'flex', flexDirection:'column', gap: 8, background: '#222', padding: 8, borderRadius: 20}}>
+                                                {['circle', 'heart', 'triangle', 'square'].map(s => (
+                                                    <div 
+                                                        key={s}
+                                                        onClick={() => setVideoShape(s)}
+                                                        style={{
+                                                            width: 24, height: 24, background: '#555', cursor: 'pointer',
+                                                            border: videoShape === s ? '2px solid #2b95ff' : '2px solid transparent',
+                                                            borderRadius: s === 'circle' ? '50%' : (s === 'square' ? '4px' : '0'),
+                                                            clipPath: s === 'triangle' ? 'polygon(50% 0%, 0% 100%, 100% 100%)' : 'none',
+                                                            transition: '0.2s'
+                                                        }}
+                                                    />
+                                                ))}
+                                            </div>
+                                        </div>
+                                    )}
+                                </div>
+
+                                <button className="send-pill-btn" onClick={sendRecordedContent} disabled={isUploading} style={{borderRadius: '50%', width: 45, height: 45, padding: 0, justifyContent: 'center'}}>
+                                    {isUploading ? <div className="spinner"></div> : <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"><path fill="#ffffff" d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/></svg>}
+                                </button>
+                            </div>
+                        ) : (
+                            <>
+                                {inputMode === 'video' && isRecording && (
+                                    <div className="live-camera-preview" style={{
+                                        position: 'absolute', bottom: 85, right: 20, 
+                                        width: 140, height: 140, borderRadius: '50%', 
+                                        overflow: 'hidden', border: '4px solid #ff4d4d', zIndex: 999,
+                                        background: '#000', boxShadow: '0 4px 15px rgba(0,0,0,0.5)'
+                                    }}>
+                                        <video ref={liveVideoRef} muted autoPlay playsInline style={{width: '100%', height: '100%', objectFit: 'cover', transform: 'scaleX(-1)'}} />
+                                    </div>
+                                )}
+
+                                {isRecording && !isLocked && (
+                                    <div className="lock-indicator" style={{
+                                        position: 'absolute', right: 30, bottom: 100, 
+                                        display: 'flex', flexDirection: 'column', alignItems: 'center', 
+                                        color: '#aaa', animation: 'slideUpFade 1.5s infinite', zIndex: 90
+                                    }}>
+                                        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"><path fill="currentColor" d="M12 2c-4.42 0-8 3.58-8 8v4h16v-4c0-4.42-3.58-8-8-8zm4 12H8v-4c0-2.21 1.79-4 4-4s4 1.79 4 4v4z"/></svg>
+                                        <span style={{fontSize: 10, marginTop: 2}}>Lock</span>
+                                    </div>
+                                )}
+
+                                {replyingTo && (<div className="reply-bar"><div><div style={{ color: "#8774e1", fontSize: 13, fontWeight: "bold" }}>В ответ {replyingTo.author}</div><div style={{ fontSize: 14, color: "#ccc", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", maxWidth: "250px" }}>{replyingTo.message}</div></div><button onClick={() => setReplyingTo(null)} style={{ background: "none", border: "none", color: "#888", cursor: "pointer", fontSize: 24 }}>&times;</button></div>)}
+                                {attachedFiles.length > 0 && (<div className="attachments-preview"> {attachedFiles.map((f, i) => (<div key={i} className="attachment-thumb"> <img src={URL.createObjectURL(f)} alt="preview" /> <button onClick={() => removeAttachment(i)}>&times;</button> </div>))} </div>)}
+                                
+                                {!isRecording ? (
+                                    <textarea ref={textareaRef} value={currentMessage} placeholder="Написать сообщение..." className="chat-textarea" onChange={(e) => { setCurrentMessage(e.target.value); socket.emit("typing", { room, username }); }} onKeyDown={handleKeyDown} rows={1} disabled={isUploading} />
+                                ) : (
+                                    <div className="recording-status" style={{flex: 1, display: 'flex', alignItems: 'center', color: '#ff4d4d', fontWeight: 'bold', fontSize: 16, paddingLeft: 10}}>
+                                        <span style={{marginRight: 10, animation: 'pulse 1s infinite'}}>●</span>
+                                        {formatTime(recordingTime)}
+                                        
+                                        {isMobile && (
+                                            <span style={{marginLeft: 20, color: '#666', fontSize: 13, fontWeight: 'normal'}}>
+                                                {isLocked ? "Запись закреплена" : "< Свайп для отмены"}
+                                            </span>
+                                        )}
+                                    </div>
+                                )}
+
+                                <div className="input-toolbar">
+                                    <div className="toolbar-left" style={{opacity: isRecording ? 0 : 1, pointerEvents: isRecording ? 'none' : 'auto', transition: '0.2s'}}>
+                                        <input type="file" className="hidden-input" multiple ref={fileInputRef} onChange={handleFileSelect} accept="image/*" />
+                                        <button className="tool-btn" onClick={() => fileInputRef.current.click()} title="Прикрепить фото"><IconPaperclip></IconPaperclip></button>
+                                    </div>
+                                    
+                                    <div className="toolbar-right">
+                                        {(currentMessage.trim() || attachedFiles.length > 0) && !isRecording ? (
+                                            <button className="send-pill-btn" onClick={sendMessage} disabled={isUploading}> 
+                                                {isUploading ? <div className="spinner"></div> : 'Отправить ↵'}
+                                            </button>
+                                        ) : (
+                                            <div 
+                                                className={`record-btn-container ${isRecording ? 'recording-active' : ''}`}
+                                                onMouseDown={handleRecordStart}
+                                                onMouseMove={handleRecordMove}
+                                                onMouseUp={handleRecordEnd}
+                                                onMouseLeave={handleRecordEnd}
+                                                onTouchStart={handleRecordStart}
+                                                onTouchMove={handleRecordMove}
+                                                onTouchEnd={handleRecordEnd}
+                                                onTouchCancel={handleRecordEnd}
+                                                
+                                                style={{position: 'relative', touchAction: 'none', cursor: 'pointer', padding: 5}} 
+                                            >
+                                                {isLocked ? (
+                                                    <button className="send-pill-btn" onClick={stopRecordingProcess} style={{borderRadius: '50%', width: 50, height: 50, padding: 0, justifyContent: 'center'}}>
+                                                        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"><path fill="#fff" d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 14H9V8h2v8zm4 0h-2V8h2v8z"/></svg>
+                                                    </button>
+                                                ) : (
+                                                    <button className={`mic-btn ${isRecording ? "recording" : ""}`} style={{
+                                                        transform: isRecording ? 'scale(1.8)' : 'scale(1)', 
+                                                        transition: 'transform 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275)',
+                                                        pointerEvents: 'none' 
+                                                    }}>
+                                                        {inputMode === 'audio' ? <IconMic /> : (
+                                                            <IconCamera />
+                                                        )}
+                                                    </button>
+                                                )}
+                                            </div>
+                                        )}
+                                    </div>
+                                </div>
+                            </>
+                        )}
+                    </div>
+                ) : (
+                    <div style={{ padding: 20, textAlign: 'center', color: '#666', fontSize: 13 }}>
+                        У вас нет прав писать в этот чат.
+                    </div>
+                )}
+             </>
             )}
           </div>
         </div>
@@ -2732,7 +2804,7 @@ function Chat({ socket, username, room, setRoom, handleLogout }) {
                 <div className="profile-status">{groupMembers.length} members</div>
             </div>
             
-            {(myRole === 'owner' || globalRole === 'mod') && room !== "General" && (
+            {(myRole === 'owner' || globalRole === 'mod') && (
                 <div style={{padding: '0 20px', marginBottom: 20}}>
                      <div className="settings-item">
                         <label>Приватный чат (только по приглашению)</label>
@@ -2790,7 +2862,7 @@ function Chat({ socket, username, room, setRoom, handleLogout }) {
                         </div> 
                     </div> 
                     
-                    {(myRole === "owner" || globalRole === 'mod') && m.username !== username && room !== "General" && (
+                    {(myRole === "owner" || globalRole === 'mod') && m.username !== username && (
                         <div style={{display:'flex', gap: 5}}>
                              {m.role !== 'owner' && (
                                 <>
@@ -2814,7 +2886,7 @@ function Chat({ socket, username, room, setRoom, handleLogout }) {
                       Добавить участника
                   </div>
               )}
-              <button className="btn-danger" style={{ textAlign: "center" }} onClick={leaveGroup}>{myRole === "owner" && room !== "General" ? "Delete Group" : "Leave Group"}</button>
+              <button className="btn-danger" style={{ textAlign: "center" }} onClick={leaveGroup}>{myRole === "owner" ? "Delete Group" : "Leave Group"}</button>
             </div>
           </Modal>
         )}
