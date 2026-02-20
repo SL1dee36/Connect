@@ -2093,7 +2093,7 @@ function Chat({ socket, username, room, setRoom, handleLogout }) {
             <div className="sidebar-top">
                 <div className="sidebar-header-content">
                   <div className="my-avatar" style={getAvatarStyle(myProfile.avatar_url)} onClick={openSettings}>{!myProfile.avatar_url && username[0].toUpperCase()}</div>
-                  {isMobile && <div className="mobile-app-title">Chats</div>}
+                  {isMobile && <div className="mobile-app-title">Connect</div>}
                 </div>
                 <div className="actMenu" style={{display: 'flex', gap: 15, alignItems: 'center'}}>
                      <div onClick={() => setActiveModal("notifications")} title="notifications"><IconBell hasUnread={hasUnreadNotifs} /></div>
@@ -2514,7 +2514,7 @@ function Chat({ socket, username, room, setRoom, handleLogout }) {
         )}
 
         {activeModal === "actionMenu" && (
-          <Modal title="CONNECT" onClose={() => setActiveModal(null)}>
+          <Modal title="NEW MESSAGE" onClose={() => setActiveModal(null)}>
             <div className="action-grid">
               <div className="action-card" onClick={() => setActiveModal("createGroup")}> <span style={{ fontSize: 12}}><svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24"><path fill="#ffffff" d="M11 4h2v7h7v2h-7v7h-2v-7H4v-2h7V4z"/></svg></span> <div><div style={{ fontWeight: "bold" }}>Новая группа</div></div> </div>
               <div className="action-card" onClick={() => setActiveModal("searchGroup")}> <span style={{ fontSize: 24 }}><svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24"><path fill="#ffffff" d="M6 2h8v2H6V2zM4 6V4h2v2H4zm0 8H2V6h2v8zm2 2H4v-2h2v2zm8 0v2H6v-2h8zm2-2h-2v2h2v2h2v2h2v2h2v-2h-2v-2h-2v-2h-2v-2zm0-8h2v8h-2V6zm0 0V4h-2v2h2z"/></svg></span> <div><div style={{ fontWeight: "bold" }}>Найти группу</div></div> </div>
@@ -2646,7 +2646,7 @@ function Chat({ socket, username, room, setRoom, handleLogout }) {
 
         {activeModal === "adminBugs" && (
             <Modal title="Bug Reports" onClose={() => setActiveModal(null)}>
-                <div className="settings-list">
+                <div className="settings-list" style="margin-top: 20px">
                     {adminBugList.length === 0 && <div style={{padding:20, textAlign:'center'}}>Нет репортов</div>}
                     {adminBugList.map(bug => (
                         <div key={bug.id} className="settings-item" style={{flexDirection: 'column', alignItems: 'flex-start', borderBottom: '1px solid #333', opacity: bug.status === 'resolved' ? 0.5 : 1}}>

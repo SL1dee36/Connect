@@ -912,10 +912,10 @@ padding: 0px !important;
 
   .chat-list-item {
       display: flex; align-items: center; gap: 15px; padding: 12px;
-      background: #111; border-bottom: 1px solid #000; border-radius: 0px;
+      background: #00000000; border-bottom: 1px solid #000; border-radius: 0px;
       transition: 0.2s; width: 100%; box-sizing: border-box;
   }
-  .chat-list-item:active { background: #1a1a1a; }
+  .chat-list-item:active { background: #bfdfff3d; }
   .friend-avatar { width: 50px; height: 50px; font-size: 18px; margin: 0; border-radius: 14px; border: 0px !important}
   
   .chat-info-mobile { display: flex; flex-direction: column; justify-content: center; gap: 2px; overflow: hidden; flex: 1; }
@@ -1180,7 +1180,11 @@ p { margin: 0px; }
 
 @media (max-width: 768px) {
   .folder-tabs { overflow-x: auto; padding: 12px 15px; border-bottom: 1px solid #333; background: #000; padding-right: 70px; }
-  .add-folder-btn { padding: 6px 10px; border-radius: 16px; background: #111; color: #666; cursor: pointer; border: 1px solid #333; display: flex; align-items: center; justify-content: center; min-height: 24px; min-width: 24px; position: absolute; right: 15px; z-index: 999; }
+  .add-folder-btn { 
+    padding: 6px 10px; 
+    border-radius: 32px; 
+    width: 16px !important; 
+    background: #111; color: #666; cursor: pointer; border: 1px solid #333; display: flex; align-items: center; justify-content: center; min-height: 24px; position: absolute; right: 15px; z-index: 999; }
   .background-folder-btn { right: 0px; border-radius: 0px; border: 1px solid #000000f0; background: #000000f0; backdrop-filter: blur(2px); z-index: 9; position: fixed; display: flex !important; color: #000; width: 40px; height: 36px; }
   .folder-tab.active { background: #2b95ff; color: white; border-color: #2b95ff; }
   .sidebar-selection-header {
@@ -1201,12 +1205,12 @@ p { margin: 0px; }
 .folder-tab { padding: 6px 12px; border-radius: 16px; font-size: 13px; white-space: nowrap; cursor: pointer; background: #222; color: #aaa; border: 1px solid #333; transition: 0.2s; user-select: none; min-width: 24px; max-width: 42px; min-height: 24px; height: fit-content; display: flex; align-items: center; justify-content: center; }
 .folder-tab:hover { background: #333; color: #fff; }
 .folder-tab.active { background: #2b95ff; color: white; border-color: #2b95ff; }
-.add-folder-btn { padding: 6px 10px; border-radius: 16px; background: #111; color: #666; cursor: pointer; border: 1px solid #333; display: flex; align-items: center; justify-content: center; }
+.add-folder-btn { padding: 6px 10px; border-radius: 32px; width: 16px; background: #111; color: #666; cursor: pointer; border: 1px solid #333; display: flex; align-items: center; justify-content: center; }
 .add-folder-btn:hover { color: #fff; border-color: #555; }
 
 /* CHAT LIST ITEM STATES */
 .chat-list-item { position: relative; }
-.chat-list-item.active { background: #111; }
+.chat-list-item.active { background: #bfdfff3d; }
 .chat-list-item.selected { background: rgba(43, 149, 255, 0.2) !important; }
 .chat-list-item.pinned { border-right: 3px solid #888; }
 .check-icon-container { margin-right: 10px; display: flex; align-items: center; animation: popIn 0.2s ease; }
@@ -1217,7 +1221,7 @@ p { margin: 0px; }
 .chat-list-item.dragging { opacity: 0.9; background: #2a2a2a !important; box-shadow: 0 10px 20px rgba(0,0,0,0.5); transform: scale(1.02); z-index: 1000; border: 1px solid #1a7bd6; position: relative; }
 .drag-handle:active { color: #fff; }
 
-.chat-list-item { background: #111111cc; border-bottom: 1px solid #00000000; border-radius: 0px; }
+.chat-list-item { background: #00000000; border-bottom: 1px solid #00000000; border-radius: 0px; }
 .friend-avatar { width: 50px; height: 50px; font-size: 18px; margin: 0; border-radius: 14px; }
 
 /* NEW: Chat Preview Styles */
@@ -1266,7 +1270,7 @@ p { margin: 0px; }
 
 .chat-list-item {
       display: flex; align-items: center; gap: 15px; padding: 12px;
-      background: #111111cc; border-bottom: 1px solid #000; border-radius: 0px;
+      background: #00000000; border-bottom: 1px solid #222; border-radius: 0px;
       transition: 0.2s; width: 100%; box-sizing: border-box;
   }
  .chat-list-item:active { background: #1a1a1a; transition: 0.2s !important; }
