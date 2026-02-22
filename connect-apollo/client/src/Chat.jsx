@@ -2924,10 +2924,10 @@ function Chat({ socket, username, room, setRoom, handleLogout }) {
 
         {activeModal === "adminBugs" && (
             <Modal title="Bug Reports" onClose={() => setActiveModal(null)}>
-                <div className="settings-list" style="margin-top: 20px">
+                <div className="settings-list">
                     {adminBugList.length === 0 && <div style={{padding:20, textAlign:'center'}}>Нет репортов</div>}
                     {adminBugList.map(bug => (
-                        <div key={bug.id} className="settings-item" style={{flexDirection: 'column', alignItems: 'flex-start', borderBottom: '1px solid #333', opacity: bug.status === 'resolved' ? 0.5 : 1}}>
+                        <div key={bug.id} className="settings-item" style={{marginTop: '20px', flexDirection: 'column', alignItems: 'flex-start', borderBottom: '1px solid #333', opacity: bug.status === 'resolved' ? 0.5 : 1}}>
                             <div style={{display:'flex', justifyContent:'space-between', width:'100%', marginBottom: 5}}>
                                 <span style={{color: '#2b95ff', fontWeight:'bold'}}>@{bug.reporter}</span>
                                 <span style={{fontSize: 12, color: '#666'}}>{new Date(bug.created_at).toLocaleDateString()}</span>
