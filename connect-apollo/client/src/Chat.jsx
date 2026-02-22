@@ -3,13 +3,14 @@ import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import Modal from "./custom/Modal";
 import CustomAudioPlayer from "./custom/CustomAudioPlayer";
-import CustomVideoPlayer from "./custom/CustomVideoPlayer"; 
+import CustomVideoPlayer from "./custom/CustomVideoPlayer";
 import GlobalVideoPlayer from "./custom/GlobalVideoPlayer";
 import CallModal from "./custom/CallModal";
 import Cropper from 'react-easy-crop';
 import { registerPushNotifications } from "./custom/pushSubscription";
 import rehypeSanitize from 'rehype-sanitize';
 import AdminPanel from "./AdminPanel";
+import EmojiPickerPanel, { getNotoEmojiUrls } from "./custom/EmojiPickerPanel";
 
 const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || "http://localhost:3001";
 
@@ -40,6 +41,26 @@ const formatTime = (seconds) => {
     const secs = seconds % 60;
     return `${mins}:${secs < 10 ? '0' : ''}${secs}`;
 };
+
+const InlineAnimatedEmoji = React.memo(({ nativeEmoji }) => {
+    const [failed, setFailed] = useState(false);
+    
+    if (failed) return <span>{nativeEmoji}</span>;
+
+    const hexCode = Array.from(nativeEmoji).map(c => c.codePointAt(0).toString(16)).join('_');
+    const { webp, gif } = getNotoEmojiUrls(hexCode);
+
+    return (
+        <picture className="inline-animated-emoji">
+            <source srcSet={webp} type="image/webp" />
+            <img 
+                src={gif} 
+                alt={nativeEmoji} 
+                onError={() => setFailed(true)} // Безопасное обновление без краша React!
+            />
+        </picture>
+    );
+});
 
 const ContextMenu = ({ x, y, msg, onClose, onReply, onCopy, onDeleteRequest, canDelete }) => {
     return (
@@ -121,18 +142,18 @@ const MessageItem = React.memo(({ msg, username, display_name, setImageModalSrc,
                             const isMention = props.children?.[0]?.toString().startsWith('@');
                             if (isMention) {
                                 return (
-                                    <span 
-                                        className="mention-link" 
-                                        onClick={(e) => { e.stopPropagation(); onMentionClick(props.href); }}
-                                    >
+                                    <span className="mention-link" onClick={(e) => { e.stopPropagation(); onMentionClick(props.href); }}>
                                         {props.children}
                                     </span>
                                 );
                             }
                             return <a {...props} target="_blank" rel="noreferrer">{props.children}</a>
                         },
-                        p: ({node, ...props}) => <p style={{margin: '0 0 8px 0'}} {...props} />,
-                        h3: ({node, ...props}) => <h3 style={{margin: '10px 0 5px 0', fontSize: '1.1em'}} {...props} />,
+                        // ПЕРЕХВАТЫВАЕМ ПАРАГРАФЫ И ТЕКСТ ДЛЯ РЕНДЕРИНГА ЭМОДЗИ
+                        p: ({node, ...props}) => <p style={{margin: '0 0 8px 0'}}>{parseChildrenWithEmojis(props.children)}</p>,
+                        li: ({node, ...props}) => <li>{parseChildrenWithEmojis(props.children)}</li>,
+                        span: ({node, ...props}) => <span>{parseChildrenWithEmojis(props.children)}</span>,
+                        h3: ({node, ...props}) => <h3 style={{margin: '10px 0 5px 0', fontSize: '1.1em'}}>{parseChildrenWithEmojis(props.children)}</h3>,
                         ul: ({node, ...props}) => <ul style={{paddingLeft: '20px', margin: '5px 0'}} {...props} />,
                         ol: ({node, ...props}) => <ol style={{paddingLeft: '20px', margin: '5px 0'}} {...props} />
                     }}
@@ -142,6 +163,54 @@ const MessageItem = React.memo(({ msg, username, display_name, setImageModalSrc,
             </div>
         );
     }
+
+    // Функция, превращающая текстовую строку с эмодзи в массив React-элементов
+    const renderAnimatedText = (text) => {
+        if (typeof text !== 'string') return text;
+        
+        // Регулярное выражение для поиска любых эмодзи
+        const emojiRegex = /(\p{Emoji_Presentation}|\p{Extended_Pictographic})/gu;
+        const parts = text.split(emojiRegex);
+        
+        return parts.map((part, index) => {
+            if (part.match(emojiRegex)) {
+                // Превращаем нативный эмодзи в HEX код
+                const hexCode = Array.from(part).map(c => c.codePointAt(0).toString(16)).join('-');
+                const { webp, gif } = getNotoEmojiUrls(hexCode);
+                
+                return (
+                    <picture key={index} className="inline-animated-emoji">
+                        <source srcSet={webp} type="image/webp" />
+                        <img 
+                            src={gif} 
+                            alt={part} 
+                            onError={(e) => {
+                                // Если анимации нет (404), заменяем картинку на обычный текст
+                                e.target.outerHTML = part;
+                            }} 
+                        />
+                    </picture>
+                );
+            }
+            return part;
+        });
+    };
+
+    // Глубокий парсинг детей (чтобы поддерживать жирный текст, курсив и т.д. внутри markdown)
+    const parseChildrenWithEmojis = (children) => {
+        return React.Children.map(children, child => {
+            if (typeof child === 'string') {
+                return renderAnimatedText(child);
+            }
+            if (React.isValidElement(child)) {
+                return React.cloneElement(child, {
+                    children: parseChildrenWithEmojis(child.props.children)
+                });
+            }
+            return child;
+        });
+    };
+
 
     const handleTouchStart = (e) => {
         touchStartRef.current = e.touches[0].clientX;
@@ -306,6 +375,7 @@ function Chat({ socket, username, room, setRoom, handleLogout }) {
     const [recordingTime, setRecordingTime] = useState(0);
     const [recordedMedia, setRecordedMedia] = useState(null);
     const [videoShape, setVideoShape] = useState('circle');
+    const [isEmojiPickerOpen, setIsEmojiPickerOpen] = useState(false);
     
     const [isUploading, setIsUploading] = useState(false);
     const [messageToDelete, setMessageToDelete] = useState(null);
@@ -608,6 +678,23 @@ function Chat({ socket, username, room, setRoom, handleLogout }) {
             window.removeEventListener('touchstart', handleGlobalClose);
         };
     }, []);
+
+    // Закрытие панели эмодзи при клике вне
+    useEffect(() => {
+        const handleEmojiClose = (e) => {
+            const emojiPanel = document.querySelector('.emoji-picker-panel');
+            const emojiButton = e.target.closest('.tool-btn');
+            if (isEmojiPickerOpen && !emojiPanel?.contains(e.target) && !emojiButton) {
+                setIsEmojiPickerOpen(false);
+            }
+        };
+        window.addEventListener('mousedown', handleEmojiClose);
+        window.addEventListener('touchstart', handleEmojiClose);
+        return () => {
+            window.removeEventListener('mousedown', handleEmojiClose);
+            window.removeEventListener('touchstart', handleEmojiClose);
+        };
+    }, [isEmojiPickerOpen]);
 
     const playNotificationSound = useCallback(() => {
         try {
@@ -1424,6 +1511,25 @@ function Chat({ socket, username, room, setRoom, handleLogout }) {
     };
     const removeAttachment = (index) => setAttachedFiles(prev => prev.filter((_, i) => i !== index));
     const handleKeyDown = (e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(); } };
+    
+    const handleEmojiSelect = (emoji) => {
+        const textarea = textareaRef.current;
+        if (!textarea) return;
+        
+        const start = textarea.selectionStart;
+        const end = textarea.selectionEnd;
+        const text = currentMessage;
+        const before = text.substring(0, start);
+        const after = text.substring(end);
+        
+        setCurrentMessage(before + emoji + after);
+        
+        // Устанавливаем курсор после вставленного эмодзи
+        setTimeout(() => {
+            textarea.focus();
+            textarea.setSelectionRange(start + emoji.length, start + emoji.length);
+        }, 0);
+    };
 
     const sendMessage = async () => {
         if ((!currentMessage.trim() && attachedFiles.length === 0) || isUploading) return;
@@ -2288,7 +2394,7 @@ function Chat({ socket, username, room, setRoom, handleLogout }) {
                     />
                 )}
 
-                <div className="chat-body" ref={chatBodyRef} onScroll={handleScroll}>
+                <div className={`chat-body ${isEmojiPickerOpen ? 'emoji-open' : ''}`} ref={chatBodyRef} onScroll={handleScroll}>
                 {isLoadingHistory && (<div style={{ textAlign: "center", fontSize: 12, color: "#666", padding: 10 }}>Загрузка истории...</div>)}
                 {messageList.map((msg, index) => (<MessageItem key={msg.id || index} msg={msg} username={username} display_name={msg.author_display_name} setImageModalSrc={setImageModalSrc} onContextMenu={handleContextMenu} onReplyTrigger={handleReply} scrollToMessage={handleScrollToReply} onMentionClick={onMentionClick} />))}
                 <div ref={messagesEndRef} />
@@ -2297,7 +2403,7 @@ function Chat({ socket, username, room, setRoom, handleLogout }) {
                 <div className="chat-input-background"></div>
 
                 {(isPrivateChat || myRole !== 'guest' || globalRole === 'mod') ? (
-                    <div className="chat-input-wrapper">
+                    <div className={`chat-input-wrapper ${isEmojiPickerOpen ? 'emoji-open' : ''}`}>
                         
                         {recordedMedia ? (
                             <div className="media-preview-bar" style={{display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%', gap: 10}}>
@@ -2389,6 +2495,14 @@ function Chat({ socket, username, room, setRoom, handleLogout }) {
                                     <div className="toolbar-left" style={{opacity: isRecording ? 0 : 1, pointerEvents: isRecording ? 'none' : 'auto', transition: '0.2s'}}>
                                         <input type="file" className="hidden-input" multiple ref={fileInputRef} onChange={handleFileSelect} accept="image/*" />
                                         <button className="tool-btn" onClick={() => fileInputRef.current.click()} title="Прикрепить фото"><IconPaperclip></IconPaperclip></button>
+                                        <button 
+                                            className="tool-btn" 
+                                            onClick={() => setIsEmojiPickerOpen(!isEmojiPickerOpen)} 
+                                            title="Эмодзи"
+                                            style={{background: isEmojiPickerOpen ? '#444' : '#33333390'}}
+                                        >
+                                            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"><path fill="#ffffff" d="M5 3h14v2H5V3zm0 16H3V5h2v14zm14 0v2H5v-2h14zm0 0h2V5h-2v14zM10 8H8v2h2V8zm4 0h2v2h-2V8zm-5 6v-2H7v2h2zm6 0v2H9v-2h6zm0 0h2v-2h-2v2z"/></svg>
+                                        </button>
                                     </div>
                                     
                                     <div className="toolbar-right">
@@ -2441,6 +2555,12 @@ function Chat({ socket, username, room, setRoom, handleLogout }) {
             )}
           </div>
         </div>
+
+        <EmojiPickerPanel
+            isOpen={isEmojiPickerOpen}
+            onClose={() => setIsEmojiPickerOpen(false)}
+            onEmojiSelect={handleEmojiSelect}
+        />
 
         {activeModal === "notifications" && (
             <Modal title="Уведомления" onClose={() => { setActiveModal(null); setHasUnreadNotifs(false); }}>
