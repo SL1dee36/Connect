@@ -2618,7 +2618,7 @@ function Chat({ socket, username, room, setRoom, handleLogout }) {
                                         <button 
                                             className="tool-btn" 
                                             // onClick={() => setIsEmojiPickerOpen(!isEmojiPickerOpen)} 
-                                            onClick={(e) => {
+                                            onMouseDown={(e) => {
                                                     e.stopPropagation();
                                                     
                                                     if (isEmojiPickerOpen) {
