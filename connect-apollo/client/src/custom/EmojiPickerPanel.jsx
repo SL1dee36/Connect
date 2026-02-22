@@ -27,14 +27,22 @@ const IconClose = () => (
     <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M19 6.41L17.59 5L12 10.59L6.41 5L5 6.41L10.59 12L5 17.59L6.41 19L12 13.41L17.59 19L19 17.59L13.41 12L19 6.41Z"/></svg>
 );
 
-// Одиночный эмодзи (статичный текст, 0 запросов к сети)
 const EmojiItem = React.memo(({ emojiCode, onClick }) => {
     const nativeEmoji = useMemo(() => {
         return emojiCode.split('-').map(part => String.fromCodePoint(parseInt(part, 16))).join('');
     }, [emojiCode]);
 
     return (
-        <button className="emoji-item" onClick={() => onClick(nativeEmoji)} title={nativeEmoji}>
+        <button 
+            className="emoji-item" 
+            // Используем onMouseDown вместо onClick для надежности на мобильных
+            onMouseDown={(e) => {
+                e.preventDefault();  // Запрещаем браузеру что-либо делать (фокус/выделение)
+                e.stopPropagation(); // Запрещаем событию всплывать (чтобы не закрылось меню)
+                onClick(nativeEmoji);
+            }}
+            title={nativeEmoji}
+        >
             <span style={{ fontSize: '24px', lineHeight: 1 }}>{nativeEmoji}</span>
         </button>
     );

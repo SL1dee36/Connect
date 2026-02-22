@@ -552,6 +552,36 @@ function Chat({ socket, username, room, setRoom, handleLogout }) {
     const [activeVideoState, setActiveVideoState] = useState(null);
 
     useEffect(() => {
+        // Функция для обновления высоты
+        const setViewportHeight = () => {
+            const visualViewport = window.visualViewport;
+            if (visualViewport) {
+                document.documentElement.style.setProperty(
+                    '--visual-viewport-height', 
+                    `${visualViewport.height}px`
+                );
+                
+                if (/iPhone|iPad|iPod/.test(navigator.userAgent)) {
+                    window.scrollTo(0, 0);
+                    document.body.scrollTop = 0;
+                }
+            }
+        };
+
+        // Слушатели событий
+        window.visualViewport?.addEventListener('resize', setViewportHeight);
+        window.visualViewport?.addEventListener('scroll', setViewportHeight);
+        
+        // Инициализация
+        setViewportHeight();
+
+        return () => {
+            window.visualViewport?.removeEventListener('resize', setViewportHeight);
+            window.visualViewport?.removeEventListener('scroll', setViewportHeight);
+        };
+    }, []);
+
+    useEffect(() => {
         const handleVideoUpdate = (e) => {
             setActiveVideoState(e.detail);
         };
@@ -1633,12 +1663,16 @@ function Chat({ socket, username, room, setRoom, handleLogout }) {
         const before = text.substring(0, start);
         const after = text.substring(end);
         
-        setCurrentMessage(before + emoji + after);
+        const newText = before + emoji + after;
+        setCurrentMessage(newText);
+        
+        // Вычисляем новую позицию курсора
+        const newCursorPos = start + emoji.length;
 
         if (!isMobile) {
             setTimeout(() => {
                 textarea.focus();
-                textarea.setSelectionRange(start + emoji.length, start + emoji.length);
+                textarea.setSelectionRange(newCursorPos, newCursorPos);
             }, 0);
         } 
         
@@ -2586,7 +2620,7 @@ function Chat({ socket, username, room, setRoom, handleLogout }) {
                                     <div className="lock-indicator" style={{
                                         position: 'absolute', right: 30, bottom: 100, 
                                         display: 'flex', flexDirection: 'column', alignItems: 'center', 
-                                        color: '#aaa', animation: 'slideUpFade 1.5s infinite', zIndex: 90
+                                        color: '#aaa', animation: 'фslideUpFade 1.5s infinite', zIndex: 90
                                     }}>
                                         <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"><path fill="currentColor" d="M12 2c-4.42 0-8 3.58-8 8v4h16v-4c0-4.42-3.58-8-8-8zm4 12H8v-4c0-2.21 1.79-4 4-4s4 1.79 4 4v4z"/></svg>
                                         <span style={{fontSize: 10, marginTop: 2}}>Lock</span>
