@@ -803,6 +803,7 @@ input, textarea {
   .settings-list {
       background: #1c1c1d;
       padding: 0 0px;
+      margin-top: 80px;
   }
   
   /* Увеличенные тач-зоны */
