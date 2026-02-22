@@ -1634,6 +1634,13 @@ function Chat({ socket, username, room, setRoom, handleLogout }) {
         const after = text.substring(end);
         
         setCurrentMessage(before + emoji + after);
+
+        if (!isMobile) {
+            setTimeout(() => {
+                textarea.focus();
+                textarea.setSelectionRange(start + emoji.length, start + emoji.length);
+            }, 0);
+        } 
         
         setTimeout(() => {
             textarea.focus();
