@@ -114,7 +114,7 @@ input, textarea {
 }
 
 .chat-list-scroll-container {
-padding: 0px !important;
+    padding: 0px !important;
 }
 
 .glass-chat-background{
@@ -1281,6 +1281,7 @@ p { margin: 0px; }
 
 .chat-list-scroll-container {
   gap: 0px !important;
+  overflow-x: hidden;
 } 
 
 /* --- АНИМАЦИИ ДЛЯ ЗАПИСИ --- */
@@ -2019,4 +2020,3 @@ p { margin: 0px; }
         padding-bottom: 450px !important; /* 100px (стандарт) + 350px (панель) */
     }
 }
-
