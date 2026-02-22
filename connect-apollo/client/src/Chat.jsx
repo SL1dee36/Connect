@@ -42,23 +42,67 @@ const formatTime = (seconds) => {
     return `${mins}:${secs < 10 ? '0' : ''}${secs}`;
 };
 
-const InlineAnimatedEmoji = React.memo(({ nativeEmoji }) => {
+// БЕЗОПАСНЫЙ компонент для рендера эмодзи в тексте чата
+const InlineAnimatedEmoji = React.memo(({ nativeEmoji, autoAnimate = false, sizeClass = 'inline' }) => {
+    const [isAnimated, setIsAnimated] = useState(autoAnimate);
     const [failed, setFailed] = useState(false);
-    
-    if (failed) return <span>{nativeEmoji}</span>;
+    const [isVisible, setIsVisible] = useState(false);
+    const ref = useRef(null);
+
+    // Включаем/выключаем анимацию в зависимости от видимости на экране
+    useEffect(() => {
+        const observer = new IntersectionObserver(([entry]) => {
+            setIsVisible(entry.isIntersecting);
+            
+            // Если это гигантский эмодзи (autoAnimate) - запускаем, как только он появился
+            if (autoAnimate) {
+                setIsAnimated(entry.isIntersecting);
+            } 
+            // Выключаем анимацию если скроллим вверх/вниз
+            else if (!entry.isIntersecting && isAnimated) {
+                setIsAnimated(false);
+            }
+        }, { rootMargin: '100px' });
+        
+        if (ref.current) observer.observe(ref.current);
+        return () => observer.disconnect();
+    }, [isAnimated, autoAnimate]);
+
+    const handleClick = (e) => {
+        e.stopPropagation();
+        // По клику анимируем (только если это не Jumbo, который и так анимирован)
+        if (!failed && !autoAnimate) setIsAnimated(!isAnimated);
+    };
 
     const hexCode = Array.from(nativeEmoji).map(c => c.codePointAt(0).toString(16)).join('_');
     const { webp, gif } = getNotoEmojiUrls(hexCode);
 
+    // Рендерим статику, если: выключена анимация, или загрузка выдала 404, или элемент вне экрана
+    const showStatic = (!isAnimated && !autoAnimate) || failed || !isVisible;
+
     return (
-        <picture className="inline-animated-emoji">
-            <source srcSet={webp} type="image/webp" />
-            <img 
-                src={gif} 
-                alt={nativeEmoji} 
-                onError={() => setFailed(true)} // Безопасное обновление без краша React!
-            />
-        </picture>
+        <span 
+            ref={ref} 
+            className={`inline-emoji-wrapper ${sizeClass}`} 
+            onClick={handleClick} 
+            title={failed || autoAnimate ? "" : "Нажмите для анимации"}
+        >
+            {showStatic ? (
+                <span className="inline-emoji-static">{nativeEmoji}</span>
+            ) : (
+                <picture className="inline-animated-emoji">
+                    <source srcSet={webp} type="image/webp" />
+                    <img 
+                        src={gif} 
+                        alt={nativeEmoji} 
+                        onError={() => {
+                            setFailed(true);
+                            setIsAnimated(false);
+                        }} 
+                    />
+                </picture>
+            )}
+        </span>
     );
 });
 
@@ -98,8 +142,50 @@ const MessageItem = React.memo(({ msg, username, display_name, setImageModalSrc,
     const touchCurrentRef = useRef(null);
     const longPressTimerRef = useRef(null);
 
+    const noEmojiStr = msg.type === 'text' 
+        ? msg.message.replace(/[\p{Emoji_Presentation}\p{Extended_Pictographic}\u200d\ufe0f\s]/gu, '') 
+        : '';
+    
+    // Если букв нет, но сообщение не пустое — это "Только эмодзи"
+    const isEmojiOnlyCandidate = msg.type === 'text' && noEmojiStr.length === 0 && msg.message.trim().length > 0;
+    
+    let emojiCount = 0;
+    let graphemes = [];
+
+    if (isEmojiOnlyCandidate) {
+        try {
+            // Разбиваем строку на реальные эмодзи (с учетом цветов кожи и составных)
+            const segmenter = new Intl.Segmenter('ru', { granularity: 'grapheme' });
+            graphemes = Array.from(segmenter.segment(msg.message.replace(/\s/g, ''))).map(s => s.segment);
+        } catch (e) {
+            graphemes = msg.message.replace(/\s/g, '').match(/(\p{Emoji_Presentation}|\p{Extended_Pictographic})/gu) || [];
+        }
+        emojiCount = graphemes.length;
+    }
+
+    // ЛОГИКА TELEGRAM:
+    // 1 эмодзи = Гигантский + Анимация
+    const isJumbo = emojiCount === 1;
+    // 2 или 3 эмодзи = Средние + Статика (без фона)
+    const isMedium = emojiCount >= 2 && emojiCount <= 3;
+    // 1-3 эмодзи идут без серого "бабла"
+    const isTransparentBubble = isJumbo || isMedium; 
+
     let content;
-    if (msg.type === 'video') {
+    if (isTransparentBubble) {
+        content = (
+            <div className="emoji-only-container">
+                {graphemes.map((em, i) => (
+                    <InlineAnimatedEmoji 
+                        key={i} 
+                        nativeEmoji={em} 
+                        autoAnimate={isJumbo} // Только если это 1 эмодзи - анимируем сразу
+                        sizeClass={isJumbo ? 'jumbo' : 'medium'} // Выбираем размер
+                    />
+                ))}
+            </div>
+        );
+    } else if (msg.type === 'video') {
         let videoData = { url: msg.message, shape: 'circle' };
         try {
             const parsed = JSON.parse(msg.message);
@@ -132,6 +218,32 @@ const MessageItem = React.memo(({ msg, username, display_name, setImageModalSrc,
     } else {
         const processedText = msg.message.replace(/@(\w+)/g, '[@$1]($1)');
 
+        const renderAnimatedText = (text) => {
+            if (typeof text !== 'string') return text;
+            const emojiRegex = /(\p{Emoji_Presentation}|\p{Extended_Pictographic})/gu;
+            const parts = text.split(emojiRegex);
+            
+            return parts.map((part, index) => {
+                if (part.match(emojiRegex)) {
+                    // ВАЖНО: sizeClass="inline" заставит компонент рендерить маленький <span>
+                    return <InlineAnimatedEmoji key={index} nativeEmoji={part} sizeClass="inline" />;
+                }
+                return part;
+            });
+        };
+
+        const parseChildrenWithEmojis = (children) => {
+            return React.Children.map(children, child => {
+                if (typeof child === 'string') return renderAnimatedText(child);
+                if (React.isValidElement(child)) {
+                    return React.cloneElement(child, {
+                        children: parseChildrenWithEmojis(child.props.children)
+                    });
+                }
+                return child;
+            });
+        };
+
         content = (
             <div className="markdown-content">
                 <ReactMarkdown 
@@ -149,7 +261,6 @@ const MessageItem = React.memo(({ msg, username, display_name, setImageModalSrc,
                             }
                             return <a {...props} target="_blank" rel="noreferrer">{props.children}</a>
                         },
-                        // ПЕРЕХВАТЫВАЕМ ПАРАГРАФЫ И ТЕКСТ ДЛЯ РЕНДЕРИНГА ЭМОДЗИ
                         p: ({node, ...props}) => <p style={{margin: '0 0 8px 0'}}>{parseChildrenWithEmojis(props.children)}</p>,
                         li: ({node, ...props}) => <li>{parseChildrenWithEmojis(props.children)}</li>,
                         span: ({node, ...props}) => <span>{parseChildrenWithEmojis(props.children)}</span>,
@@ -279,7 +390,7 @@ const MessageItem = React.memo(({ msg, username, display_name, setImageModalSrc,
             </div>
 
             <div className={`bubble-container ${isLongPress ? 'long-press-active' : ''}`} style={{ transform: `translateX(${translateX}px)`, transition: translateX === 0 ? 'transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275)' : 'none' }}>
-                <div className={`bubble ${msg.type === 'video' ? 'video-bubble' : ''}`}>
+                <div className={`bubble ${msg.type === 'video' ? 'video-bubble' : ''} ${isTransparentBubble ? 'transparent-bubble' : ''}`}>
                     <span className="meta-name" style={{display:'flex', alignItems:'center', gap: '4px'}}>
                         {msg.author_display_name || msg.author}
                         {msg.author_badges && msg.author_badges.map((b, i) => (
@@ -1524,7 +1635,6 @@ function Chat({ socket, username, room, setRoom, handleLogout }) {
         
         setCurrentMessage(before + emoji + after);
         
-        // Устанавливаем курсор после вставленного эмодзи
         setTimeout(() => {
             textarea.focus();
             textarea.setSelectionRange(start + emoji.length, start + emoji.length);
@@ -2401,10 +2511,13 @@ function Chat({ socket, username, room, setRoom, handleLogout }) {
                 </div>
 
                 <div className="chat-input-background"></div>
-
+                <EmojiPickerPanel
+                            isOpen={isEmojiPickerOpen}
+                            onClose={() => setIsEmojiPickerOpen(false)}
+                            onEmojiSelect={handleEmojiSelect}
+                />
                 {(isPrivateChat || myRole !== 'guest' || globalRole === 'mod') ? (
                     <div className={`chat-input-wrapper ${isEmojiPickerOpen ? 'emoji-open' : ''}`}>
-                        
                         {recordedMedia ? (
                             <div className="media-preview-bar" style={{display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%', gap: 10}}>
                                 <button className="tool-btn" onClick={cancelRecording} style={{color: '#ff4d4d', background: 'transparent'}}>
@@ -2477,7 +2590,7 @@ function Chat({ socket, username, room, setRoom, handleLogout }) {
                                 {attachedFiles.length > 0 && (<div className="attachments-preview"> {attachedFiles.map((f, i) => (<div key={i} className="attachment-thumb"> <img src={URL.createObjectURL(f)} alt="preview" /> <button onClick={() => removeAttachment(i)}>&times;</button> </div>))} </div>)}
                                 
                                 {!isRecording ? (
-                                    <textarea ref={textareaRef} value={currentMessage} placeholder="Написать сообщение..." className="chat-textarea" onChange={(e) => { setCurrentMessage(e.target.value); socket.emit("typing", { room, username }); }} onKeyDown={handleKeyDown} rows={1} disabled={isUploading} />
+                                    <textarea ref={textareaRef} value={currentMessage} placeholder="Написать сообщение..." className="chat-textarea" onChange={(e) => { setCurrentMessage(e.target.value); socket.emit("typing", { room, username }); }} onKeyDown={handleKeyDown} rows={1} disabled={isUploading} onFocus={() => setIsEmojiPickerOpen(false)} />
                                 ) : (
                                     <div className="recording-status" style={{flex: 1, display: 'flex', alignItems: 'center', color: '#ff4d4d', fontWeight: 'bold', fontSize: 16, paddingLeft: 10}}>
                                         <span style={{marginRight: 10, animation: 'pulse 1s infinite'}}>●</span>
@@ -2497,11 +2610,23 @@ function Chat({ socket, username, room, setRoom, handleLogout }) {
                                         <button className="tool-btn" onClick={() => fileInputRef.current.click()} title="Прикрепить фото"><IconPaperclip></IconPaperclip></button>
                                         <button 
                                             className="tool-btn" 
-                                            onClick={() => setIsEmojiPickerOpen(!isEmojiPickerOpen)} 
+                                            // onClick={() => setIsEmojiPickerOpen(!isEmojiPickerOpen)} 
+                                            onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    
+                                                    if (isEmojiPickerOpen) {
+                                                        setIsEmojiPickerOpen(false);
+                                                        // Опционально: раскомментируйте строку ниже, если хотите сразу открывать клавиатуру при закрытии смайлов
+                                                        // textareaRef.current?.focus(); 
+                                                    } else {
+                                                        textareaRef.current?.blur();
+                                                        setIsEmojiPickerOpen(true);
+                                                    }
+                                                }} 
                                             title="Эмодзи"
                                             style={{background: isEmojiPickerOpen ? '#444' : '#33333390'}}
                                         >
-                                            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"><path fill="#ffffff" d="M5 3h14v2H5V3zm0 16H3V5h2v14zm14 0v2H5v-2h14zm0 0h2V5h-2v14zM10 8H8v2h2V8zm4 0h2v2h-2V8zm-5 6v-2H7v2h2zm6 0v2H9v-2h6zm0 0h2v-2h-2v2z"/></svg>
+                                            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"><path fill="#aaa" d="M5 3h14v2H5V3zm0 16H3V5h2v14zm14 0v2H5v-2h14zm0 0h2V5h-2v14zM10 8H8v2h2V8zm4 0h2v2h-2V8zm-5 6v-2H7v2h2zm6 0v2H9v-2h6zm0 0h2v-2h-2v2z"/></svg>
                                         </button>
                                     </div>
                                     
@@ -2546,21 +2671,17 @@ function Chat({ socket, username, room, setRoom, handleLogout }) {
                             </>
                         )}
                     </div>
+                    
                 ) : (
                     <div style={{ padding: 20, textAlign: 'center', color: '#666', fontSize: 13 }}>
                         У вас нет прав писать в этот чат.
                     </div>
+                    
                 )}
              </>
             )}
           </div>
         </div>
-
-        <EmojiPickerPanel
-            isOpen={isEmojiPickerOpen}
-            onClose={() => setIsEmojiPickerOpen(false)}
-            onEmojiSelect={handleEmojiSelect}
-        />
 
         {activeModal === "notifications" && (
             <Modal title="Уведомления" onClose={() => { setActiveModal(null); setHasUnreadNotifs(false); }}>
@@ -2660,10 +2781,7 @@ function Chat({ socket, username, room, setRoom, handleLogout }) {
                 <div className="settings-list">
                     {friends
                         .filter(f => {
-                            // Фильтруем:
-                            // 1. Тех, кто уже в группе
                             const isAlreadyMember = groupMembers.some(m => m.username === f.username);
-                            // 2. По поисковому запросу
                             const matchesSearch = f.username.toLowerCase().includes(searchQuery.toLowerCase()) || 
                                                 (f.display_name && f.display_name.toLowerCase().includes(searchQuery.toLowerCase()));
                             
@@ -2691,7 +2809,6 @@ function Chat({ socket, username, room, setRoom, handleLogout }) {
                                     className="add-btn-small" 
                                     onClick={() => {
                                         socket.emit("add_group_member", { room, username: friend.username });
-                                        // Можно добавить визуальное подтверждение или закрыть окно
                                         alert(`${friend.username} добавлен!`);
                                     }}
                                 >

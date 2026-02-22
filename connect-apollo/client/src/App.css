@@ -301,6 +301,7 @@ padding: 0px !important;
 /* --- FOOTER & INPUT RE-DESIGN --- */
 
 .chat-input-wrapper {
+    backdrop-filter: blur(8px);
     background: #25252550;
     border-radius: 16px;
     margin-top: 15px;
@@ -330,6 +331,8 @@ padding: 0px !important;
     backdrop-filter: blur(10px);
     background: #111111cc;
     z-index: 5;
+
+    display: none;
 }
 
 .chat-input-wrapper:focus-within {
@@ -1633,22 +1636,21 @@ p { margin: 0px; }
    ======================================== */
 
 .emoji-picker-panel {
-    /* position: absolute; */
-    bottom: 100%;
-    left: 20px;
-    right: 20px;
-    max-width: 400px;
     margin: 0 auto;
     background: #212121;
     border: 1px solid #333;
     border-radius: 16px;
     box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.5);
-    z-index: 1000;
     display: flex;
     flex-direction: column;
     overflow: hidden;
     animation: slideUpFade 0.2s ease-out;
-    max-height: 400px;
+    max-height: 250px;
+    position: absolute;
+    bottom: 140px;
+    width: -webkit-fill-available;
+    margin-inline: 50px;
+    z-index: 101;
 }
 
 @keyframes slideUpFade {
@@ -1824,7 +1826,14 @@ p { margin: 0px; }
         max-width: 100%;
         max-height: 60dvh;
         border-radius: 16px 16px 0 0;
+        margin-inline: 0px;
+        background-color: #00000090;
+        backdrop-filter: blur(16px);
         animation: slideUpMobile 0.3s cubic-bezier(0.2, 0.8, 0.2, 1);
+    }
+    .emoji-picker-panel {
+        border-radius: 0px !important;
+        height: 50%;
     }
     
     .emoji-grid {
@@ -1858,23 +1867,115 @@ p { margin: 0px; }
   height: 64px;
 }
 
+/* ========================================
+   EMOJI ONLY MESSAGES (LIKE TELEGRAM)
+   ======================================== */
 
-/* --- INLINE ANIMATED EMOJIS IN CHAT --- */
-.inline-animated-emoji {
-    display: inline-block;
-    vertical-align: middle;
-    line-height: 1;
-    margin: -0.2em 0.1em 0 0.1em;
+/* Прозрачный пузырь сообщения (нет фона, нет отступов) */
+.bubble.transparent-bubble {
+    background: transparent !important;
+    box-shadow: none !important;
+    padding: 0 !important;
+    border: none !important;
 }
 
+/* Перенос галочек прочитано/времени для эмодзи без фона */
+.transparent-bubble .meta {
+    background: rgba(0, 0, 0, 0.4);
+    padding: 2px 6px;
+    border-radius: 10px;
+    width: fit-content;
+    align-self: flex-end;
+    margin-top: 4px;
+}
+
+/* Отступ если под эмодзи есть блок ответа */
+.transparent-bubble .reply-preview-bubble {
+    margin-bottom: 8px;
+}
+
+.emoji-only-container {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+    align-items: center;
+}
+
+/* Базовые стили для эмодзи-обертки */
+.inline-emoji-wrapper {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    vertical-align: middle;
+    transition: transform 0.1s;
+}
+
+.inline-emoji-wrapper:active {
+    transform: scale(0.9); /* Анимация нажатия */
+}
+
+/* 1. ОБЫЧНЫЕ эмодзи в тексте (с фоном) - ИСПРАВЛЕНО */
+.inline-emoji-wrapper.inline {
+    width: 20px;   /* Жесткий размер в пикселях */
+    height: 20px;  /* Жесткий размер в пикселях */
+    margin: 0 0.05em;
+    cursor: pointer;
+    vertical-align: -0.2em; /* Выравнивание по базовой линии текста */
+}
+.inline-emoji-wrapper.inline .inline-emoji-static {
+    font-size: 20px; /* Жесткий размер в пикселях */
+    line-height: 1;
+}
+.inline-emoji-wrapper.inline img { 
+    width: 20px; 
+    height: 20px; 
+}
+
+
+/* 2. СРЕДНИЕ эмодзи (2 - 3 штуки, без фона) */
+.inline-emoji-wrapper.medium {
+    width: 50px;
+    height: 50px;
+    margin: 0;
+    cursor: pointer;
+}
+.inline-emoji-wrapper.medium .inline-emoji-static {
+    font-size: 50px;
+}
+.inline-emoji-wrapper.medium img { 
+    width: 50px; 
+    height: 50px; 
+}
+
+/* 3. ГИГАНТСКИЙ эмодзи (1 штука, без фона, всегда анимирован) */
+.inline-emoji-wrapper.jumbo {
+    width: 140px;
+    height: 140px;
+    margin: 0;
+    pointer-events: none; /* Ему не нужен клик, он сам играет */
+}
+.inline-emoji-wrapper.jumbo .inline-emoji-static {
+    font-size: 140px;
+}
+.inline-emoji-wrapper.jumbo img { 
+    width: 140px; 
+    height: 140px; 
+}
+
+/* Системные и анимированные настройки */
+.inline-emoji-static {
+    line-height: 1;
+    user-select: none;
+}
 .inline-animated-emoji img {
-    width: 1.3em;
-    height: 1.3em;
     object-fit: contain;
     user-select: none;
-    -webkit-user-drag: none;
+    pointer-events: none;
     display: inline-block;
+    width: 100%; 
+    height: 100%; 
 }
+
 
 /* Скрываем скролл в пикере, если он вдруг появится на Windows */
 .emoji-grid-container {
@@ -1883,6 +1984,9 @@ p { margin: 0px; }
     padding: 12px;
 }
 
+/* ========================================
+   СДВИГ ЧАТА И ИНПУТА ПРИ ОТКРЫТИИ ЭМОДЗИ (MOBILE)
+   ======================================== */
 @media (max-width: 768px) {
     /* Фиксируем высоту панели эмодзи, чтобы инпут вставал ровно над ней */
     .emoji-picker-panel {
