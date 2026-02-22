@@ -1949,17 +1949,17 @@ p { margin: 0px; }
 
 /* 3. ГИГАНТСКИЙ эмодзи (1 штука, без фона, всегда анимирован) */
 .inline-emoji-wrapper.jumbo {
-    width: 140px;
-    height: 140px;
+    width: 128px;
+    height: 128px;
     margin: 0;
     pointer-events: none; /* Ему не нужен клик, он сам играет */
 }
 .inline-emoji-wrapper.jumbo .inline-emoji-static {
-    font-size: 140px;
+    font-size: 128px;
 }
 .inline-emoji-wrapper.jumbo img { 
-    width: 140px; 
-    height: 140px; 
+    width: 128px; 
+    height: 128px; 
 }
 
 /* Системные и анимированные настройки */
