@@ -11,6 +11,7 @@ import { registerPushNotifications } from "./custom/pushSubscription";
 import rehypeSanitize from 'rehype-sanitize';
 import AdminPanel from "./AdminPanel";
 import EmojiPickerPanel, { getNotoEmojiUrls } from "./custom/EmojiPickerPanel";
+import DragDropOverlay from "./custom/DragDropOverlay";
 
 const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || "http://localhost:3001";
 
@@ -550,6 +551,9 @@ function Chat({ socket, username, room, setRoom, handleLogout }) {
     const [draggedItemId, setDraggedItemId] = useState(null);
 
     const [activeVideoState, setActiveVideoState] = useState(null);
+
+    const [isDragOverlayOpen, setIsDragOverlayOpen] = useState(false);
+    const [dragFiles, setDragFiles] = useState([]);
 
     useEffect(() => {
         // Функция для обновления высоты
@@ -1650,6 +1654,99 @@ function Chat({ socket, username, room, setRoom, handleLogout }) {
         setAttachedFiles(prev => [...prev, ...files]);
         e.target.value = "";
     };
+    const handleDragOver = (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        };
+
+        const handleDragEnter = (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        // Не показываем оверлей если уже открыт или в режиме записи
+        if (!isDragOverlayOpen && !isRecording && room) {
+            setIsDragOverlayOpen(true);
+        }
+        };
+
+        const handleDragLeave = (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        // Проверяем что курсор действительно ушел за пределы окна
+        const rect = e.target.getBoundingClientRect();
+        if (
+            e.clientX <= rect.left ||
+            e.clientX >= rect.right ||
+            e.clientY <= rect.top ||
+            e.clientY >= rect.bottom
+        ) {
+            setIsDragOverlayOpen(false);
+        }
+        };
+
+        const handleDrop = (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        setIsDragOverlayOpen(false);
+
+        if (!room) {
+            alert("Сначала выберите чат");
+            return;
+        }
+
+        const files = Array.from(e.dataTransfer.files);
+        if (files.length > 0) {
+            const validFiles = files.filter(f => 
+            f.type.startsWith('image/') || 
+            f.type.startsWith('video/') ||
+            f.type.startsWith('audio/')
+            );
+            
+            if (validFiles.length === 0) {
+            alert("Можно перетаскивать только изображения, видео и аудио");
+            return;
+            }
+
+            if (validFiles.length > 10) {
+            alert("Максимум 10 файлов за раз");
+            return;
+            }
+
+            setDragFiles(prev => {
+                const newFiles = [...prev, ...validFiles];
+                if (newFiles.length > 10) {
+                    alert("Максимум 10 файлов за раз");
+                    return prev;
+                }
+                return newFiles;
+            });
+
+            setIsDragOverlayOpen(true);
+        }
+        };
+
+        const handleRemoveDragFile = (index) => {
+            setDragFiles(prev => prev.filter((_, i) => i !== index));
+        };
+
+        const handleDragSend = async () => {
+        if (dragFiles.length === 0 || isUploading) return;
+
+        
+        
+        setAttachedFiles(dragFiles);
+        setDragFiles([]);
+        setIsDragOverlayOpen(false);
+        
+        setTimeout(() => {
+            sendMessage();
+        }, 100);
+        };
+
+        const handleDragCancel = () => {
+        setDragFiles([]);
+        setIsDragOverlayOpen(false);
+    };
+
     const removeAttachment = (index) => setAttachedFiles(prev => prev.filter((_, i) => i !== index));
     const handleKeyDown = (e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(); } };
     
@@ -2297,7 +2394,14 @@ function Chat({ socket, username, room, setRoom, handleLogout }) {
     }, [socket]);
 
     return (
-      <div className={`main-layout ${isMobile ? "mobile-mode" : ""} ${isSelectionMode ? "selection-mode-active" : ""}`} style={{ touchAction: "pan-y" }}>
+      <div 
+        className={`main-layout ${isMobile ? "mobile-mode" : ""} ${isSelectionMode ? "selection-mode-active" : ""}`} 
+        style={{ touchAction: "pan-y" }}
+        onDragOver={handleDragOver}
+        onDragEnter={handleDragEnter}
+        onDragLeave={handleDragLeave}
+        onDrop={handleDrop}
+      >
         
         <div 
             className={`tg-in-app-notification ${inAppNotif.visible ? 'visible' : ''}`}
@@ -3298,6 +3402,16 @@ function Chat({ socket, username, room, setRoom, handleLogout }) {
             isVideoOff={isVideoOff}
             isIncoming={callStatus === 'receiving'}
         />
+        
+        <DragDropOverlay 
+            isOpen={isDragOverlayOpen}
+            files={dragFiles}
+            onSend={handleDragSend}
+            onCancel={handleDragCancel}
+            onRemoveFile={handleRemoveDragFile}
+            isUploading={isUploading}
+        />
+
       </div>
     );
 }
