@@ -253,7 +253,21 @@ input, textarea {
 .chat-body::-webkit-scrollbar-thumb { background: #444; border-radius: 10px; }
 
 /* MESSAGES */
-.message { display: flex; flex-direction: column; max-width: none; content-visibility: auto; contain-intrinsic-size: 50px;}
+.message { 
+    display: flex; 
+    flex-direction: column; 
+    max-width: none; 
+    content-visibility: auto; 
+    contain-intrinsic-size: 50px;
+    animation: slideInMessage 0.3s cubic-bezier(0.2, 0.8, 0.2, 1) forwards;
+    will-change: transform, opacity;
+}
+
+@keyframes slideInMessage {
+  from { opacity: 0; transform: translateY(20px) scale(0.95); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
 .message.mine { align-self: none; align-items: flex-end;  }
 .message.theirs { align-self: none; align-items: flex-start; }
 
@@ -950,7 +964,7 @@ input, textarea {
       box-sizing: border-box;
   }
 
-  .chat-input-wrapper {
+    .chat-input-wrapper {
       position: absolute; bottom: 0; left: 0; right: 0;
       margin: 0; border-radius: 0;
       background: rgba(0, 0, 0, 0.65);
@@ -960,7 +974,13 @@ input, textarea {
       padding: 10px 15px;
       padding-bottom: max(10px, env(safe-area-inset-bottom));
       z-index: 50;
-  }
+      transition: box-shadow 0.3s ease, border-color 0.3s ease;
+    }
+
+    .chat-input-wrapper:focus-within {
+        border-color: #2b95ff;
+        box-shadow: 0 0 10px rgba(43, 149, 255, 0.15);
+    }
 
   .chat-body {
       height: 100%;
@@ -1138,7 +1158,21 @@ span { align-items: center; }
 .markdown-content h1, .markdown-content h2, .markdown-content h3 { margin: 12px 0 6px 0; line-height: 1.2; }
 .markdown-content p:last-child { margin-bottom: 0; }
 .chat-textarea { transition: height 0.1s ease; overflow-y: auto !important; }
-.message-mine { align-self: flex-end; align-items: flex-end; min-width: 100%; }
+.message-mine { align-self: flex-end; align-items: flex-end; min-width: 100%; border-bottom-right-radius: 0px; position: relative;}
+.message-mine .bubble:last-child::after {
+  content: '';
+  position: absolute;
+  bottom: 0; right: -8px;
+  width: 16px; height: 16px;
+  background: inherit;
+  clip-path: polygon(0 0, 0% 100%, 100% 100%);
+}
+
+.message.theirs .bubble:last-child {
+  border-bottom-left-radius: 0px;
+  position: relative;
+}
+
 .message.mine .meta-name { display: none !important; }
 
 /* Audio player styles */
