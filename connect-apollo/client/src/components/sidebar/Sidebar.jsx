@@ -36,8 +36,8 @@ const Sidebar = ({
   setFolderToEdit,
   handlePinSelected,
   handleDeleteSelected,
-  onChatClick,
-  onChatLongPress,
+  handleChatClick,
+  handleChatLongPress,
   onDragStart,
   onDragEnter,
   onDragEnd,
@@ -174,8 +174,8 @@ const Sidebar = ({
           isSelectionMode={isSelectionMode}
           username={username}
           chatPreviews={{}}
-          onChatClick={onChatClick}
-          onChatLongPress={onChatLongPress}
+          onChatClick={handleChatClick}
+          onChatLongPress={handleChatLongPress}
           onDragStart={onDragStart}
           onDragEnter={onDragEnter}
           onDragEnd={onDragEnd}

@@ -113,7 +113,11 @@ const MainApp = () => {
   }
 
   if (!user) {
-    return <Auth onLoginSuccess={handleLoginSuccess} />;
+    return (
+      <div className="App">
+        <Auth onLoginSuccess={handleLoginSuccess} />
+      </div>
+    );
   }
 
   return (

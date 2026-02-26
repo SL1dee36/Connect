@@ -27,7 +27,6 @@ const GroupChat = ({
   onAddToGroup,
   showMenu,
   setShowMenu,
-  // ChatInput props
   currentMessage,
   setCurrentMessage,
   attachedFiles,
@@ -61,7 +60,7 @@ const GroupChat = ({
   const canWrite = myRole !== 'guest' || globalRole === 'mod';
 
   return (
-    <div className="group-chat">
+    <>
       <div className="chat-header">
         <div className="header-left">
           <div onClick={onOpenGroupInfo} style={{ cursor: "pointer", display: "flex", flexDirection: "column" }}>
@@ -111,6 +110,8 @@ const GroupChat = ({
         <div ref={messagesEndRef} />
       </div>
 
+      <div className="chat-input-background"></div>
+
       {canWrite ? (
         <ChatInput
           currentMessage={currentMessage}
@@ -148,7 +149,7 @@ const GroupChat = ({
           У вас нет прав писать в этот чат.
         </div>
       )}
-    </div>
+    </>
   );
 };
 
