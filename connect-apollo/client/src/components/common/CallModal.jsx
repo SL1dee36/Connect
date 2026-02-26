@@ -1,33 +1,34 @@
 import React from 'react';
+import { useApp } from '../../context/AppContext';
 
-const CallModal = ({ 
-    callStatus, 
-    localVideoRef, 
-    remoteVideoRef, 
-    callerName, 
-    answerCall, 
-    endCall,
-    toggleMute,
-    toggleVideo,
-    isMuted,
-    isVideoOff,
-    isIncoming
-}) => {
-    if (callStatus === 'idle') return null;
+const CallModal = () => {
+    const { 
+        callStatus, 
+        localVideoRef, 
+        remoteVideoRef, 
+        callerName, 
+        answerCall, 
+        endCall,
+        toggleMute,
+        toggleVideo,
+        isMuted,
+        isVideoOff
+    } = useApp();
+
+    const isIncoming = callStatus === 'receiving';
+
+    if (!callStatus || callStatus === 'idle') return null;
 
     return (
         <div className="call-modal-overlay">
             <div className="call-content">
                 
-                {/* Видео сетка */}
                 <div className="video-grid">
-                    {/* Мое видео (маленькое) */}
                     <div className="local-video-wrapper">
                         <video ref={localVideoRef} autoPlay playsInline muted className="local-video" />
                         <div className="video-label">Вы</div>
                     </div>
 
-                    {/* Видео собеседника (большое) */}
                     <div className="remote-video-wrapper">
                         {callStatus === 'connected' ? (
                              <video ref={remoteVideoRef} autoPlay playsInline className="remote-video" />
@@ -44,7 +45,6 @@ const CallModal = ({
                     </div>
                 </div>
 
-                {/* Панель управления */}
                 <div className="call-controls">
                     {isIncoming && callStatus === 'receiving' ? (
                         <>

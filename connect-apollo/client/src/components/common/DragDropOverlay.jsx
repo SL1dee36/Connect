@@ -12,7 +12,7 @@ const DragDropOverlay = ({
     const [previewUrls, setPreviewUrls] = useState([]);
 
     useEffect(() => {
-        if (files.length > 0) {
+        if (files && files.length > 0) {
             const urls = files.map((file, index) => ({
                 url: URL.createObjectURL(file),
                 name: file.name,
@@ -31,7 +31,7 @@ const DragDropOverlay = ({
         }
     }, [files]);
 
-    if (!isOpen || files.length === 0) return null;
+    if (!isOpen || !files || files.length === 0) return null;
 
   const formatFileSize = (bytes) => {
     if (bytes === 0) return '0 B';
