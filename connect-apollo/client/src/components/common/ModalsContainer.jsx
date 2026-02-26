@@ -16,6 +16,7 @@ import {
   IconLightning,
   IconMore
 } from './Icons';
+import CreateGroupContent from '../chat/CreateGroupContent';
 
 const ModalsContainer = () => {
   const {
@@ -198,14 +199,13 @@ const ModalsContainer = () => {
         </Modal>
       )}
 
-      {/* === Create Group Modal === */}
+     {/* === Create Group Modal === */}
       {activeModal === "createGroup" && (
-        <Modal title="Создать группу" onClose={() => setActiveModal(null)}>
-          <input className="modal-input" placeholder="Название..." value={newChatName} onChange={(e) => setNewChatName(e.target.value)} />
-          <button className="btn-primary" onClick={() => { if (newChatName) socket.emit("create_group", { room: newChatName, username }); }}>
-            Создать
-          </button>
-        </Modal>
+        <CreateGroupContent 
+          username={username} 
+          socket={socket} 
+          onClose={() => setActiveModal(null)} 
+        />
       )}
 
       {/* === Add to Group Modal === */}
@@ -581,6 +581,12 @@ const ModalsContainer = () => {
               {!roomSettings.avatar_url && room.substring(0, 2)}
             </div>
             <div className="profile-name">{room}</div>
+                  {roomSettings.username && (
+              <div className="profile-status" style={{ color: '#2b95ff', marginTop: 4 }}>
+                @{roomSettings.username}
+              </div>
+            )}
+            
             <div className="profile-status">{groupMembersList.length} members</div>
           </div>
 
