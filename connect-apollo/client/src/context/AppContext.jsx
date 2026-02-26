@@ -34,6 +34,8 @@ export const AppProvider = ({ children, socket, username, handleLogout }) => {
   const [showMenu, setShowMenu] = useState(false);
   const [swipeX, setSwipeX] = useState(0);
   const[isSwiping, setIsSwiping] = useState(false);
+  const[showScrollBottomBtn, setShowScrollBottomBtn] = useState(false);
+  const[unreadScrollCount, setUnreadScrollCount] = useState(0);
   
   // === FOLDERS & ORDER ===
   const[folders, setFolders] = useState(() => { try { return JSON.parse(localStorage.getItem("apollo_folders")) ||[{id: 'all', name: 'All', chatIds: []}]; } catch { return[{id: 'all', name: 'All', chatIds: []}]; } });
@@ -659,11 +661,28 @@ export const AppProvider = ({ children, socket, username, handleLogout }) => {
   }, [currentMessage]);
 
   const onScroll = useCallback((e) => {
-    if (e.target.scrollTop === 0 && hasMore && !isLoadingHistory && messageList.length > 0) {
-        setIsLoadingHistory(true); previousScrollHeight.current = e.target.scrollHeight;
+    const { scrollTop, scrollHeight, clientHeight } = e.target;
+    const distanceFromBottom = scrollHeight - scrollTop - clientHeight;
+
+    if (distanceFromBottom > 150) {
+      setShowScrollBottomBtn(true);
+    } else {
+      setShowScrollBottomBtn(false);
+      setUnreadScrollCount(0);
+    }
+
+    if (scrollTop === 0 && hasMore && !isLoadingHistory && messageList.length > 0) {
+        setIsLoadingHistory(true); 
+        previousScrollHeight.current = scrollHeight;
         socket.emit("load_more_messages", { room, offset: messageList.length });
     }
-  }, [hasMore, isLoadingHistory, messageList.length, room, socket]);
+  },[hasMore, isLoadingHistory, messageList.length, room, socket]);
+
+  const scrollToBottom = useCallback(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    setShowScrollBottomBtn(false);
+    setUnreadScrollCount(0);
+  },[]);
 
   const onContextMenu = useCallback((e, msg, x, y) => {
     let menuX = x; let menuY = y - 70; 
@@ -831,6 +850,30 @@ export const AppProvider = ({ children, socket, username, handleLogout }) => {
   };
   const onTouchDragEnd = () => { if (chatLongPressTimer.current) clearTimeout(chatLongPressTimer.current); setIsMobileDragging(false); setDraggedItemId(null); };
 
+  useEffect(() => {
+    setShowScrollBottomBtn(false);
+    setUnreadScrollCount(0);
+  }, [room]);
+
+  useEffect(() => {
+    if (!chatBodyRef.current || messageList.length === 0) return;
+
+    const { scrollTop, scrollHeight, clientHeight } = chatBodyRef.current;
+    const distanceFromBottom = scrollHeight - scrollTop - clientHeight;
+    const lastMsg = messageList[messageList.length - 1];
+
+    if (distanceFromBottom < 150 || lastMsg.author === username) {
+      setTimeout(() => {
+        messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+      }, 50);
+      setUnreadScrollCount(0);
+      setShowScrollBottomBtn(false);
+    } 
+    else if (lastMsg.author !== username && lastMsg.status !== 'uploading') {
+      setUnreadScrollCount(prev => prev + 1);
+    }
+  }, [messageList, username]);
+
   // === EXPORTING ===
   const value = {
     username, myProfile, setMyProfile, friends, setFriends, myChats, setMyChats, globalRole, setGlobalRole,
@@ -871,6 +914,7 @@ export const AppProvider = ({ children, socket, username, handleLogout }) => {
     onFileChange, handleSaveAvatar, handleProfileMediaSelect, uploadProfileMedia, handleSaveFriendOverride,
     fetchBugReports, resolveBug, copyProfileLink, leaveGroup, removeFriend, blockUser,
     createNewFolder, removeFolder, handleAddToFolder, handlePinSelected, handleDeleteSelected, handleChatClick, handleChatLongPress,
+    showScrollBottomBtn, unreadScrollCount, scrollToBottom,
     
     onAddToGroup: () => setActiveModal("addToGroup"),
     onOpenGroupInfo: () => {

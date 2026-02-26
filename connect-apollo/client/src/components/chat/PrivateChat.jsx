@@ -9,7 +9,8 @@ const PrivateChat = ({
   isRecording, isLocked, recordingTime, recordedMedia, videoShape, setVideoShape,
   isEmojiPickerOpen, setIsEmojiPickerOpen, isUploading, inputMode, textareaRef, fileInputRef,
   onSendMessage, onFileSelect, onRemoveAttachment, onEmojiSelect, onTyping, onRecordStart,
-  onRecordMove, onRecordEnd, onCancelRecording, onSendRecorded, formatTime, onStartCall
+  onRecordMove, onRecordEnd, onCancelRecording, onSendRecorded, formatTime, onStartCall,
+  showScrollBottomBtn, unreadScrollCount, scrollToBottom
 }) => {
   const partnerUsername = room.split('_').find(u => u !== username);
 
@@ -51,6 +52,17 @@ const PrivateChat = ({
       </div>
 
       <div className="chat-input-background"></div>
+
+      {showScrollBottomBtn && (
+        <div className="scroll-bottom-btn" onClick={scrollToBottom}>
+          {unreadScrollCount > 0 && (
+            <span className="unread-badge">{unreadScrollCount}</span>
+          )}
+          <svg viewBox="0 0 24 24" width="24" height="24">
+            <path fill="currentColor" d="M7.41 8.59L12 13.17l4.59-4.58L18 10l-6 6-6-6 1.41-1.41z"/>
+          </svg>
+        </div>
+      )}
 
       <ChatInput
         currentMessage={currentMessage}

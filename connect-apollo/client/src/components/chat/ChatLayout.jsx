@@ -78,7 +78,10 @@ const ChatLayout = ({
   onSendRecorded,
   formatTime,
   activeVideoState,
-  setActiveVideoState
+  setActiveVideoState,
+  showScrollBottomBtn,
+  unreadScrollCount,
+  scrollToBottom,
 }) => {
   const isPrivateChat = room?.includes('_');
   const { startCall } = useApp();
@@ -127,7 +130,10 @@ const ChatLayout = ({
     onRecordEnd,
     onCancelRecording,
     onSendRecorded,
-    formatTime
+    formatTime,
+    showScrollBottomBtn,
+    unreadScrollCount,
+    scrollToBottom,
   };
 
   return (

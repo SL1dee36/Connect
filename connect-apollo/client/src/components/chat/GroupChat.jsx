@@ -55,7 +55,10 @@ const GroupChat = ({
   onRecordEnd,
   onCancelRecording,
   onSendRecorded,
-  formatTime
+  formatTime,
+  showScrollBottomBtn, 
+  unreadScrollCount, 
+  scrollToBottom
 }) => {
   const canWrite = myRole !== 'guest' || globalRole === 'mod';
 
@@ -111,6 +114,17 @@ const GroupChat = ({
       </div>
 
       <div className="chat-input-background"></div>
+
+      {showScrollBottomBtn && (
+        <div className="scroll-bottom-btn" onClick={scrollToBottom}>
+          {unreadScrollCount > 0 && (
+            <span className="unread-badge">{unreadScrollCount}</span>
+          )}
+          <svg viewBox="0 0 24 24" width="24" height="24">
+            <path fill="currentColor" d="M7.41 8.59L12 13.17l4.59-4.58L18 10l-6 6-6-6 1.41-1.41z"/>
+          </svg>
+        </div>
+      )}
 
       {canWrite ? (
         <ChatInput
