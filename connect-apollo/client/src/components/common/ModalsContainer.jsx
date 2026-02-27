@@ -610,7 +610,19 @@ const ModalsContainer = () => {
           )}
 
           <div className="settings-list" style={{ padding: "0 15px"}}>
+            {roomSettings.description && (
+              <div className="settings-item" style={{ alignItems: 'flex-start' }}>
+                <div className="settings-label">
+                  <div style={{ fontSize: "15px", whiteSpace: "pre-wrap", wordBreak: "break-word" }}>
+                    {roomSettings.description}
+                  </div>
+                  <div style={{ fontSize: "12px", color: "#888", marginTop: "4px" }}>Описание</div>
+                </div>
+              </div>
+            )}
+            
             <div style={{ color: "#8774e1", padding: "10px 0", fontSize: "14px", fontWeight: "bold" }}>Members</div>
+            
             {groupMembersList.map((m, i) => (
               <div key={i} className="settings-item" onClick={(e) => {
                 e.stopPropagation();

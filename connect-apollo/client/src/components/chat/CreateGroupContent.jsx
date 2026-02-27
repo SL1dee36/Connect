@@ -5,6 +5,7 @@ import { IconCamera } from '../common/Icons';
 const CreateGroupContent = ({ username, socket, onClose }) => {
   const[groupName, setGroupName] = useState("");
   const [groupUsername, setGroupUsername] = useState("");
+  const [description, setDescription] = useState("");
   const[isPrivate, setIsPrivate] = useState(false);
   const [avatarFile, setAvatarFile] = useState(null);
   const [avatarPreview, setAvatarPreview] = useState(null);
@@ -48,7 +49,8 @@ const CreateGroupContent = ({ username, socket, onClose }) => {
       group_username: groupUsername, // Ссылка (например: my_group)
       is_private: isPrivate,         // true/false
       avatar_url: finalAvatarUrl,    // Ссылка на загруженную картинку
-      owner: username                // Кто создатель
+      owner: username,                // Кто создатель
+      description: description // Описание группы
     });
 
     setIsCreating(false);
@@ -102,6 +104,19 @@ const CreateGroupContent = ({ username, socket, onClose }) => {
             <span style={{ fontSize: '12px', color: '#666', marginTop: '5px' }}>
               Люди смогут найти вашу группу по этой ссылке.
             </span>
+          </div>
+
+          {/* Описание */}
+           <div className="input-group" style={{ marginTop: '15px' }}>
+            <label>Описание</label>
+            <textarea 
+              className="modal-input" 
+              placeholder="О чем эта группа?" 
+              rows={3}
+              value={description} 
+              onChange={(e) => setDescription(e.target.value)}
+              style={{ resize: 'vertical', minHeight: '60px' }}
+            />
           </div>
 
           {/* Приватность */}
