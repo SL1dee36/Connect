@@ -259,7 +259,11 @@ const MessageItem = React.memo(({ msg, username, display_name, setImageModalSrc,
                              <span>Загрузка...</span>
                         </div>
                     ) : content}
-                    <span className="meta">{msg.time}{isMine && msg.status === 'sent' && <IconCheck />}</span>
+                    <span className="meta">
+                        {msg.time}
+                        {msg.is_edited && <span style={{ marginLeft: 4, fontStyle: 'italic', opacity: 0.7 }}>изм.</span>}
+                        {isMine && msg.status === 'sent' && <IconCheck />}
+                    </span>
                 </div>
             </div>
         </div>

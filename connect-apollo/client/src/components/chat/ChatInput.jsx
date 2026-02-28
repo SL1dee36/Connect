@@ -33,7 +33,9 @@ const ChatInput = ({
   onCancelRecording,
   onSendRecorded,
   onKeyDown,
-  formatTime
+  formatTime,
+  editingMessage,
+  setEditingMessage
 }) => {
   const handleKeyDown = (e) => {
     if (e.key === 'Enter' && !e.shiftKey) {
@@ -106,6 +108,18 @@ const ChatInput = ({
               </div>
               <button onClick={() => setReplyingTo(null)} style={{ background: "none", border: "none", color: "#888", cursor: "pointer", fontSize: 24 }}>&times;</button>
             </div>
+          )}
+
+          {editingMessage && (
+              <div className="edit-preview-banner" style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 12px', background: '#2a2a2a', borderLeft: '3px solid #4CAF50' }}>
+                  <div>
+                      <div style={{ color: '#4CAF50', fontSize: '13px', fontWeight: 'bold' }}>Редактирование сообщения</div>
+                      <div style={{ color: '#aaa', fontSize: '13px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '300px' }}>
+                          {editingMessage.message}
+                      </div>
+                  </div>
+                  <button onClick={() => { setEditingMessage(null); setCurrentMessage(''); }} style={{ background: 'none', border: 'none', color: '#aaa', cursor: 'pointer' }}>✕</button>
+              </div>
           )}
           
           {attachedFiles.length > 0 && (

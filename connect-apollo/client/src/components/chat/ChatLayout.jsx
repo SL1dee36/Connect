@@ -85,6 +85,7 @@ const ChatLayout = ({
 }) => {
   const isPrivateChat = room?.includes('_');
   const { startCall } = useApp();
+  const { editingMessage, setEditingMessage } = useApp();
 
   const chatProps = {
     socket,
@@ -134,6 +135,8 @@ const ChatLayout = ({
     showScrollBottomBtn,
     unreadScrollCount,
     scrollToBottom,
+    editingMessage,
+    setEditingMessage
   };
 
   return (
@@ -183,6 +186,14 @@ const ChatLayout = ({
                 onCopy={() => onCopy(contextMenu.msg.message)}
                 onDeleteRequest={() => onDeleteMessageRequest(contextMenu.msg.id)}
                 canDelete={canDeleteMessage(contextMenu.msg)}
+                canEdit={contextMenu.msg.author === username && contextMenu.msg.type === 'text'}
+                onEditRequest={() => {
+                    setEditingMessage(contextMenu.msg); 
+                    setCurrentMessage(contextMenu.msg.message);
+                    setReplyingTo(null);
+                    setContextMenu(null); 
+                    setTimeout(() => textareaRef.current?.focus(), 50);
+                }}
               />
             )}
 
@@ -190,6 +201,8 @@ const ChatLayout = ({
               <PrivateChat
                 {...chatProps}
                 onStartCall={startCall}
+                editingMessage={editingMessage}
+                setEditingMessage={setEditingMessage}
               />
             ) : (
               <GroupChat
@@ -202,6 +215,8 @@ const ChatLayout = ({
                 setShowMenu={setShowMenu}
                 onOpenGroupInfo={onOpenGroupInfo}
                 onAddToGroup={onAddToGroup}
+                editingMessage={editingMessage}
+                setEditingMessage={setEditingMessage}
               />
             )}
 

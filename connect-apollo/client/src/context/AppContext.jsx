@@ -86,6 +86,7 @@ export const AppProvider = ({ children, socket, username, handleLogout }) => {
   const [dragFiles, setDragFiles] = useState([]);
   const[isMobileDragging, setIsMobileDragging] = useState(false);
   const [draggedItemId, setDraggedItemId] = useState(null);
+  const [editingMessage, setEditingMessage] = useState(null);
   
   // === CALLS (WEBRTC) ===
   const[callStatus, setCallStatus] = useState('idle');
@@ -340,6 +341,25 @@ export const AppProvider = ({ children, socket, username, handleLogout }) => {
     socket.emit("join_room", { username, room });
     if (!room.includes("_")) socket.emit("get_group_info", room);
   },[room, socket, username]);
+
+  useEffect(() => {
+    const handleMessageEdited = ({ messageId, newText }) => {
+        setMessageList((prevList) => 
+            prevList.map((msg) => 
+                msg.id === messageId 
+                    ? { ...msg, message: newText, is_edited: true } 
+                    : msg
+            )
+        );
+    };
+
+    socket.on("message_edited", handleMessageEdited);
+
+    return () => {
+        socket.off("message_edited", handleMessageEdited);
+    };
+}, [socket]);
+
 
   // === PROFILE, SETTINGS & UPLOADS ===
   const openSettings = useCallback(() => {
@@ -606,6 +626,34 @@ export const AppProvider = ({ children, socket, username, handleLogout }) => {
 
   const onSendMessage = useCallback(async () => {
     if ((!currentMessage.trim() && attachedFiles.length === 0) || isUploading) return;
+
+    if (editingMessage) {
+      if (!currentMessage.trim() || isUploading) return;
+      setIsUploading(true);
+      try {
+        setMessageList(prev =>
+            prev.map(msg =>
+              msg.id === editingMessage.id
+                ? { ...msg, message: currentMessage, is_edited: true }
+                : msg
+            )
+        );
+        socket.emit("edit_message", {
+          messageId: editingMessage.id,
+          newText: currentMessage,
+          room,
+        });
+        setEditingMessage(null);
+        setCurrentMessage("");
+        setReplyingTo(null);
+      } catch (error) {
+        console.error("Error editing message:", error);
+      } finally {
+        setIsUploading(false);
+      }
+      return;
+    }
+
     setIsUploading(true); previousScrollHeight.current = 0;
     const time = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
     const timestamp = Date.now();
@@ -641,7 +689,7 @@ export const AppProvider = ({ children, socket, username, handleLogout }) => {
         }
         setReplyingTo(null);
     } catch (e) { alert("Error sending message"); } finally { setIsUploading(false); }
-  },[currentMessage, attachedFiles, isUploading, replyingTo, room, username, socket]);
+  },[editingMessage, currentMessage, attachedFiles, isUploading, replyingTo, room, username, socket]);
 
   const onFileSelect = useCallback((e) => {
     const files = Array.from(e.target.files);
@@ -934,7 +982,7 @@ export const AppProvider = ({ children, socket, username, handleLogout }) => {
     onFileChange, handleSaveAvatar, handleProfileMediaSelect, uploadProfileMedia, handleSaveFriendOverride,
     fetchBugReports, resolveBug, copyProfileLink, leaveGroup, removeFriend, blockUser,
     createNewFolder, removeFolder, handleAddToFolder, handlePinSelected, handleDeleteSelected, handleChatClick, handleChatLongPress,
-    showScrollBottomBtn, unreadScrollCount, scrollToBottom,
+    showScrollBottomBtn, unreadScrollCount, scrollToBottom, editingMessage, setEditingMessage,
     
     onAddToGroup: () => setActiveModal("addToGroup"),
     onOpenGroupInfo: () => {

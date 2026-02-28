@@ -1,8 +1,8 @@
 import React, { useLayoutEffect, useRef, useState } from 'react';
 import ReactDOM from 'react-dom';
-import { IconReply, IconCopy, IconTrash } from '../common/Icons';
+import { IconReply, IconCopy, IconTrash, IconEdit } from '../common/Icons';
 
-const ContextMenu = ({ x, y, msg, onClose, onReply, onCopy, onDeleteRequest, canDelete }) => {
+const ContextMenu = ({ x, y, msg, onClose, onReply, onCopy, onDeleteRequest, canDelete, onEditRequest, canEdit }) => {
   const menuRef = useRef(null);
   const [position, setPosition] = useState({ left: x, top: y, opacity: 0 });
 
@@ -68,6 +68,13 @@ const ContextMenu = ({ x, y, msg, onClose, onReply, onCopy, onDeleteRequest, can
           <IconTrash/> Удалить
         </div>
       )}
+
+      {canEdit && (
+        <div className="menu-item" onClick={onEditRequest} style={itemStyle}>
+          <IconEdit/> Изменить
+        </div>
+      )}
+
     </div>
   );
 

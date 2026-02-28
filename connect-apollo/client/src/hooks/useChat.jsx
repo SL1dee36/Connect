@@ -104,6 +104,15 @@ export const useChat = (socket, username, room, socketActions) => {
       setMessageList((prev) => prev.filter((msg) => msg.id !== (data.id || data)));
     };
 
+    const handleMessageEdited = (data) => {
+      console.log('message_edited received:', data);
+      setMessageList((prev) =>
+        prev.map((msg) =>
+          msg.id === data.id ? { ...msg, message: data.message, is_edited: data.is_edited } : msg
+        )
+      );
+    };
+
     socket.on("receive_message", handleReceiveMessage);
     socket.on("chat_history", handleChatHistory);
     socket.on("more_messages_loaded", handleMoreMessages);
@@ -112,6 +121,7 @@ export const useChat = (socket, username, room, socketActions) => {
     socket.on("group_info_data", handleGroupInfo);
     socket.on("group_info_updated", handleGroupInfoUpdated);
     socket.on("message_deleted", handleMessageDeleted);
+    socket.on("message_edited", handleMessageEdited);
 
     return () => {
       socket.off("receive_message", handleReceiveMessage);
@@ -122,6 +132,7 @@ export const useChat = (socket, username, room, socketActions) => {
       socket.off("group_info_data", handleGroupInfo);
       socket.off("group_info_updated", handleGroupInfoUpdated);
       socket.off("message_deleted", handleMessageDeleted);
+      socket.off("message_edited", handleMessageEdited);
     };
   }, [room, socket, username, socketActions]);
 
