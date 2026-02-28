@@ -685,12 +685,8 @@ export const AppProvider = ({ children, socket, username, handleLogout }) => {
   },[]);
 
   const onContextMenu = useCallback((e, msg, x, y) => {
-    let menuX = x; let menuY = y - 70; 
-    if (menuX + 150 > window.innerWidth) menuX = window.innerWidth - 160;
-    if (menuY < 50) menuY = y + 20; 
-    if (menuY + 150 > window.innerHeight) menuY = window.innerHeight - 160;
-    setContextMenu({ x: menuX, y: menuY, msg: msg });
-  },[]);
+    setContextMenu({ x, y, msg });
+  }, []);
 
   const onReply = useCallback((msg) => { setReplyingTo(msg); textareaRef.current?.focus(); setContextMenu(null); },[]);
   const onCopy = useCallback((text) => { navigator.clipboard.writeText(text); setContextMenu(null); },[]);
@@ -873,6 +869,30 @@ export const AppProvider = ({ children, socket, username, handleLogout }) => {
       setUnreadScrollCount(prev => prev + 1);
     }
   }, [messageList, username]);
+
+  useEffect(() => {
+    if (!contextMenu) return;
+
+    const handleClickOutside = () => {
+        setContextMenu(null);
+    };
+
+    const handleEsc = (e) => {
+        if (e.key === "Escape") {
+            setContextMenu(null);
+        }
+    };
+
+    window.addEventListener("click", handleClickOutside);
+    window.addEventListener("contextmenu", handleClickOutside);
+    window.addEventListener("keydown", handleEsc);
+
+    return () => {
+        window.removeEventListener("click", handleClickOutside);
+        window.removeEventListener("contextmenu", handleClickOutside);
+        window.removeEventListener("keydown", handleEsc);
+    };
+}, [contextMenu]);
 
   // === EXPORTING ===
   const value = {

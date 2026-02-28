@@ -191,18 +191,41 @@ const MessageItem = React.memo(({ msg, username, display_name, setImageModalSrc,
         setTranslateX(0);
     };
     
-    const handleRightClick = (e) => { e.preventDefault(); onContextMenu(e, msg, e.clientX, e.clientY); };
+    const handleRightClick = (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+
+        let targetX = e.clientX;
+        let targetY = e.clientY;
+
+        if (!targetX && !targetY) {
+            const rect = e.currentTarget.getBoundingClientRect();
+            targetX = rect.left + rect.width / 2;
+            targetY = rect.top + rect.height / 2;
+        } else {
+            targetX += 4;
+            targetY += 4;
+        }
+
+        onContextMenu(
+            e,
+            msg,
+            targetX,
+            targetY
+        );
+    };
 
     return (
         <div 
             id={`message-${msg.id}`}
             className={`message ${isMine ? "mine" : "theirs"}`} 
             style={{ opacity: msg.status === 'pending' || msg.status === 'uploading' ? 0.7 : 1, position: 'relative' }}
-            onContextMenu={handleRightClick}
             onTouchStart={handleTouchStart}
             onTouchMove={handleTouchMove}
             onTouchEnd={handleTouchEnd}
+            
         >
+  
             <div style={{
                 position: 'absolute', left: isMine ? 'auto' : -40, right: isMine ? -40 : 'auto', top: '50%', transform: 'translateY(-50%)',
                 opacity: Math.min(translateX / 80, 1), transition: 'opacity 0.2s', color: '#888'
@@ -211,7 +234,9 @@ const MessageItem = React.memo(({ msg, username, display_name, setImageModalSrc,
             </div>
 
             <div className={`bubble-container ${isLongPress ? 'long-press-active' : ''}`} style={{ transform: `translateX(${translateX}px)`, transition: translateX === 0 ? 'transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275)' : 'none' }}>
-                <div className={`bubble ${msg.type === 'video' ? 'video-bubble' : ''} ${isTransparentBubble ? 'transparent-bubble' : ''}`}>
+                <div className={`bubble ${msg.type === 'video' ? 'video-bubble' : ''} ${isTransparentBubble ? 'transparent-bubble' : ''}`}
+                onContextMenu={handleRightClick}
+                >
                     <span className="meta-name" style={{display:'flex', alignItems:'center', gap: '4px'}}>
                         {msg.author_display_name || msg.author}
                         {msg.author_badges && msg.author_badges.map((b, i) => (
