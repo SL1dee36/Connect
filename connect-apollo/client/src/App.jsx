@@ -1,7 +1,6 @@
 import { useState, useEffect } from "react";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
-import "./App.css";
-import "./components/common/style/CallStyle.css";
+import "./styles/main.css";
 import io from "socket.io-client";
 import Auth from "./Auth";
 import UserAgreement from "./legal/UserAgreement";
@@ -23,8 +22,51 @@ const socket = io.connect(import.meta.env.VITE_BACKEND_URL || "http://localhost:
 const ChatContainer = () => {
   const appState = useApp();
 
+  // Глобальные обработчики для Drag & Drop
+  const handleDragOver = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (!appState.isDragOverlayOpen) {
+      appState.setIsDragOverlayOpen(true);
+    }
+  };
+
+  const handleDragLeave = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    // Закрываем оверлей только если мышь покинула пределы окна браузера
+    if (e.relatedTarget === null || e.relatedTarget === document.documentElement) {
+        appState.setIsDragOverlayOpen(false);
+    }
+  };
+
+  const handleDrop = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    
+    if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+      const droppedFiles = Array.from(e.dataTransfer.files);
+      
+      // Добавляем новые файлы к уже существующим (максимум 10)
+      appState.setDragFiles(prev => {
+          const combined = [...(prev || []), ...droppedFiles];
+          return combined.slice(0, 10); 
+      });
+      
+      appState.setIsDragOverlayOpen(true);
+    } else {
+      appState.setIsDragOverlayOpen(false);
+    }
+  };
+
   return (
-    <div className={`main-layout ${appState.isMobile ? "mobile-mode" : ""} ${appState.isSelectionMode ? "selection-mode-active" : ""}`} style={{ touchAction: "pan-y" }}>
+    <div 
+      className={`main-layout ${appState.isMobile ? "mobile-mode" : ""} ${appState.isSelectionMode ? "selection-mode-active" : ""}`} 
+      style={{ touchAction: "pan-y" }}
+      onDragOver={handleDragOver}
+      onDragLeave={handleDragLeave}
+      onDrop={handleDrop}
+    >
       
       <div className={`tg-in-app-notification ${appState.inAppNotif?.visible ? 'visible' : ''}`} onClick={appState.handleInAppNotifClick}>
         <div className="tg-notif-avatar" style={appState.inAppNotif?.avatar ? {backgroundImage: `url(${appState.inAppNotif.avatar})`} : {}}>
@@ -44,7 +86,24 @@ const ChatContainer = () => {
       <DragDropOverlay 
         isOpen={appState.isDragOverlayOpen}
         files={appState.dragFiles}
-        onCancel={() => appState.setIsDragOverlayOpen(false)}
+        onCancel={() => {
+            appState.setIsDragOverlayOpen(false);
+            appState.setDragFiles([]);
+        }}
+        onRemoveFile={(index) => {
+            appState.setDragFiles(prev => prev.filter((_, i) => i !== index));
+            if (appState.dragFiles.length <= 1) {
+                appState.setIsDragOverlayOpen(false);
+            }
+        }}
+        onSend={() => {
+            appState.setAttachedFiles(prev => {
+                const combined = [...prev, ...appState.dragFiles];
+                return combined.slice(0, 10);
+            });
+            appState.setIsDragOverlayOpen(false);
+            appState.setDragFiles([]);
+        }}
         isUploading={appState.isUploading}
       />
     </div>

@@ -1,0 +1,21 @@
+.btn-primary { background: #1a7bd6; color: white; padding: 12px; border-radius: 8px; margin-top: 20px; font-size: 15px; font-weight: 600; width: 100%; border: none; cursor: pointer; }
+.btn-danger { background: transparent; color: #ff5959; text-align: left; padding: 15px 10px; width: 100%; margin-top: 0; border: none; cursor: pointer; font-size: 15px; }
+.btn-danger:hover { background: rgba(255, 89, 89, 0.1); }
+.btn-accept { background: #2b95ff; border: none; color: white; padding: 6px 12px; border-radius: 6px; cursor: pointer; font-size: 13px; transition: 0.2s; }
+.btn-accept:hover { background: #1a7bd6; }
+.btn-decline { background: #333; border: none; color: #ff4d4d; padding: 6px 12px; border-radius: 6px; cursor: pointer; font-size: 13px; }
+
+.toggle-switch { width: 40px; height: 22px; background: #444; border-radius: 11px; position: relative; cursor: pointer; transition: background 0.2s; }
+.toggle-switch.on { background: #1a7bd6; }
+.toggle-switch .knob { width: 18px; height: 18px; background: white; border-radius: 50%; position: absolute; top: 2px; left: 2px; transition: transform 0.2s; }
+.toggle-switch.on .knob { transform: translateX(18px); }
+
+.spinner { width: 18px; height: 18px; border: 2px solid #ffffff; border-bottom-color: transparent; border-radius: 50%; display: inline-block; box-sizing: border-box; animation: rotation 1s linear infinite; }
+@keyframes rotation { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+
+.tg-in-app-notification { position: fixed; top: -100px; left: 10px; right: 10px; background: rgba(30, 30, 30, 0.95); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); color: white; padding: 12px 16px; border-radius: 14px; box-shadow: 0 10px 30px rgba(0,0,0,0.5); z-index: 99999; display: flex; align-items: center; gap: 15px; transition: top 0.4s cubic-bezier(0.19, 1, 0.22, 1); border: 1px solid rgba(255, 255, 255, 0.1); max-width: 500px; margin: 0 auto; cursor: pointer; }
+.tg-in-app-notification.visible { top: 20px; }
+.tg-notif-avatar { width: 45px; height: 45px; border-radius: 50%; background-color: #2b95ff; background-size: cover; background-position: center; flex-shrink: 0; display: flex; align-items: center; justify-content: center; font-weight: bold; font-size: 18px; color: #fff; border: 2px solid #333; }
+.tg-notif-content { flex: 1; overflow: hidden; display: flex; flex-direction: column; justify-content: center; gap: 3px; }
+.tg-notif-title { font-weight: 600; font-size: 15px; color: #fff; }
+.tg-notif-body { font-size: 14px; color: #ccc; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }

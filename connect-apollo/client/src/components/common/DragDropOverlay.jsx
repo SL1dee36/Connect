@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import './style/DragDropOverlay.css';
+import "../../styles/dragdrop.css";
 
 const DragDropOverlay = ({
     isOpen,

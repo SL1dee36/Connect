@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
-import './style/VideoPlayer.css';
+import "../../styles/video.css";
 
 const CustomVideoPlayer = ({ src, shape = 'circle', width = '240px', align = 'left', author, time }) => {
     const videoRef = useRef(null);
