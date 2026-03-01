@@ -1,4 +1,4 @@
-import React, { useLayoutEffect, useRef, useState } from 'react';
+import React, { useLayoutEffect, useEffect, useRef, useState } from 'react';
 import ReactDOM from 'react-dom';
 import { IconReply, IconCopy, IconTrash, IconEdit } from '../common/Icons';
 
@@ -30,6 +30,22 @@ const ContextMenu = ({ x, y, msg, onClose, onReply, onCopy, onDeleteRequest, can
     setPosition({ left: newX, top: newY, opacity: 1 });
 
   }, [x, y]);
+
+  useEffect(() => {
+    const handleClickOutside = (e) => {
+      if (menuRef.current && !menuRef.current.contains(e.target)) {
+        onClose();
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    document.addEventListener('touchstart', handleClickOutside);
+
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+      document.removeEventListener('touchstart', handleClickOutside);
+    };
+  }, [onClose]);
 
   const menuContent = (
     <div
