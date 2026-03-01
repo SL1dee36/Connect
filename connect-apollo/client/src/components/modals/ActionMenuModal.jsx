@@ -1,10 +1,29 @@
 import React from 'react';
-import { useApp } from '../../context/AppContext';
 import Modal from '../common/Modal';
 import { IconBug, IconShield } from '../common/Icons';
+import { useUIStore } from '../../stores/uiStore';
+import { useAuthStore } from '../../stores/authStore';
+import { useChatStore } from '../../stores/chatStore';
+import { useSettingsStore } from '../../stores/settingsStore';
 
 const ActionMenuModal = () => {
-  const { setActiveModal, username, myRole, globalRole, fetchBugReports } = useApp();
+  const setActiveModal = useUIStore(s => s.setActiveModal);
+  const username = useAuthStore(s => s.username);
+  const myRole = useChatStore(s => s.myRole);
+  const globalRole = useChatStore(s => s.globalRole);
+  const setAdminBugList = useSettingsStore(s => s.setAdminBugList);
+
+  const fetchBugReports = async () => {
+    try {
+      const token = localStorage.getItem("apollo_token");
+      const res = await fetch(`${import.meta.env.VITE_BACKEND_URL || 'http://localhost:3001'}/admin/bugs`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      if (res.ok) setAdminBugList(await res.json());
+    } catch (e) {
+      console.error(e);
+    }
+  };
 
   return (
     <Modal title="NEW MESSAGE" onClose={() => setActiveModal(null)}>

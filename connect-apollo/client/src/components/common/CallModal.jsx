@@ -1,20 +1,32 @@
-import React from 'react';
-import { useApp } from '../../context/AppContext';
+import React, { useEffect, useRef } from 'react';
+import { useCallStore } from '../../stores/callStore';
+import { useCallLogic } from '../../hooks/useCallLogic';
 import "../../styles/calls.css";
 
 const CallModal = () => {
-    const { 
-        callStatus, 
-        localVideoRef, 
-        remoteVideoRef, 
-        callerName, 
-        answerCall, 
-        endCall,
-        toggleMute,
-        toggleVideo,
-        isMuted,
-        isVideoOff
-    } = useApp();
+    const callStatus = useCallStore(s => s.callStatus);
+    const callerName = useCallStore(s => s.callerName);
+    const isMuted = useCallStore(s => s.isMuted);
+    const isVideoOff = useCallStore(s => s.isVideoOff);
+    const localStream = useCallStore(s => s.localStream);
+    const remoteStream = useCallStore(s => s.remoteStream);
+
+    const { answerCall, endCall, toggleMute, toggleVideo } = useCallLogic();
+
+    const localVideoRef = useRef(null);
+    const remoteVideoRef = useRef(null);
+
+    useEffect(() => {
+        if (localVideoRef.current && localStream) {
+            localVideoRef.current.srcObject = localStream;
+        }
+    }, [localStream]);
+
+    useEffect(() => {
+        if (remoteVideoRef.current && remoteStream) {
+            remoteVideoRef.current.srcObject = remoteStream;
+        }
+    }, [remoteStream]);
 
     const isIncoming = callStatus === 'receiving';
 
@@ -23,7 +35,6 @@ const CallModal = () => {
     return (
         <div className="call-modal-overlay">
             <div className="call-content">
-                
                 <div className="video-grid">
                     <div className="local-video-wrapper">
                         <video ref={localVideoRef} autoPlay playsInline muted className="local-video" />

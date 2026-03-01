@@ -1,0 +1,110 @@
+import { create } from 'zustand';
+
+export const useChatStore = create((set, get) => ({
+  // Активный чат (комната)
+  room: localStorage.getItem("apollo_room") || "",
+  setRoom: (room) => {
+    localStorage.setItem("apollo_room", room);
+    set({ room });
+  },
+
+  roomSettings: { is_private: 0, slow_mode: 0, avatar_url: '' },
+  setRoomSettings: (settings) => set((state) => ({
+    roomSettings: typeof settings === 'function' ? settings(state.roomSettings) : settings
+  })),
+
+  groupMembers: [],
+  setGroupMembers: (groupMembers) => set({ groupMembers }),
+
+  myRole: "member",
+  setMyRole: (myRole) => set({ myRole }),
+
+  globalRole: "member",
+  setGlobalRole: (globalRole) => set({ globalRole }),
+
+  typingText: "",
+  setTypingText: (typingText) => set({ typingText }),
+
+  // Превью чатов в боковом меню
+  chatPreviews: JSON.parse(localStorage.getItem("apollo_chat_previews")) || {},
+  setChatPreviews: (previews) => {
+    const nextPreviews = typeof previews === 'function' ? previews(get().chatPreviews) : previews;
+    localStorage.setItem("apollo_chat_previews", JSON.stringify(nextPreviews));
+    set({ chatPreviews: nextPreviews });
+  },
+
+  // Сообщения
+  messageList: [],
+  setMessageList: (updater) => set((state) => ({
+    messageList: typeof updater === 'function' ? updater(state.messageList) : updater
+  })),
+
+  hasMore: true,
+  setHasMore: (hasMore) => set({ hasMore }),
+
+  isLoadingHistory: false,
+  setIsLoadingHistory: (isLoadingHistory) => set({ isLoadingHistory }),
+
+  messageToDelete: null,
+  setMessageToDelete: (messageToDelete) => set({ messageToDelete }),
+
+  editingMessage: null,
+  setEditingMessage: (editingMessage) => set({ editingMessage }),
+
+  // Ввод сообщения и запись (ввод)
+  currentMessage: "",
+  setCurrentMessage: (currentMessage) => set({ currentMessage }),
+
+  attachedFiles: [],
+  setAttachedFiles: (updater) => set((state) => ({
+    attachedFiles: typeof updater === 'function' ? updater(state.attachedFiles) : updater
+  })),
+
+  replyingTo: null,
+  setReplyingTo: (replyingTo) => set({ replyingTo }),
+
+  isUploading: false,
+  setIsUploading: (isUploading) => set({ isUploading }),
+
+  inputMode: 'audio', // 'audio' | 'video'
+  setInputMode: (updater) => set((state) => ({
+    inputMode: typeof updater === 'function' ? updater(state.inputMode) : updater
+  })),
+
+  isRecording: false,
+  setIsRecording: (isRecording) => set({ isRecording }),
+
+  isLocked: false,
+  setIsLocked: (isLocked) => set({ isLocked }),
+
+  recordingTime: 0,
+  setRecordingTime: (recordingTime) => set({ recordingTime }),
+
+  recordedMedia: null,
+  setRecordedMedia: (recordedMedia) => set({ recordedMedia }),
+
+  videoShape: 'circle',
+  setVideoShape: (videoShape) => set({ videoShape }),
+
+  activeVideoState: null,
+  setActiveVideoState: (activeVideoState) => set({ activeVideoState }),
+
+  // Звонки 
+  callStatus: 'idle', // 'idle' | 'calling' | 'receiving' | 'connected'
+  setCallStatus: (callStatus) => set({ callStatus }),
+  
+  callSignal: null,
+  setCallSignal: (callSignal) => set({ callSignal }),
+
+  caller: "",
+  setCaller: (caller) => set({ caller }),
+
+  callerName: "",
+  setCallerName: (callerName) => set({ callerName }),
+
+  isMuted: false,
+  setIsMuted: (isMuted) => set({ isMuted }),
+
+  isVideoOff: false,
+  setIsVideoOff: (isVideoOff) => set({ isVideoOff }),
+}));

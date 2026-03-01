@@ -1,16 +1,54 @@
-import React from 'react';
-import { useApp } from '../../context/AppContext';
+import React, { useRef } from 'react';
 import Modal from '../common/Modal';
+import { useUIStore } from '../../stores/uiStore';
+import { useProfileStore } from '../../stores/profileStore';
+import { useAuthStore } from '../../stores/authStore';
 
 const EditFriendProfileModal = () => {
-  const { 
-    setActiveModal, 
-    viewProfileData, 
-    friendOverrideForm, 
-    setFriendOverrideForm, 
-    friendAvatarInputRef, 
-    handleSaveFriendOverride 
-  } = useApp();
+  const setActiveModal = useUIStore(s => s.setActiveModal);
+  
+  const viewProfileData = useProfileStore(s => s.viewProfileData);
+  const friendOverrideForm = useProfileStore(s => s.friendOverrideForm);
+  const setFriendOverrideForm = useProfileStore(s => s.setFriendOverrideForm);
+  
+  const socket = useAuthStore(s => s.socket);
+  const friendAvatarInputRef = useRef(null);
+
+  const handleSaveFriendOverride = async (isReset = false) => {
+    if (!viewProfileData) return;
+    const formData = new FormData();
+    formData.append('friend_username', viewProfileData.username);
+    
+    if (isReset) {
+      formData.append('reset', 'true');
+    } else {
+      formData.append('local_display_name', friendOverrideForm.local_display_name);
+      if (friendOverrideForm.local_avatar_file) {
+        formData.append('local_avatar', friendOverrideForm.local_avatar_file);
+      } else {
+        formData.append('local_avatar_url', friendOverrideForm.preview_avatar);
+      }
+    }
+
+    try {
+      const token = localStorage.getItem("apollo_token");
+      const res = await fetch(`${import.meta.env.VITE_BACKEND_URL || 'http://localhost:3001'}/update-friend-override`, {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${token}` },
+        body: formData
+      });
+      if (res.ok) {
+        socket.emit("get_initial_data");
+        socket.emit("get_user_profile", viewProfileData.username);
+        setActiveModal('userProfile');
+      } else {
+        alert("Ошибка сохранения");
+      }
+    } catch (e) {
+      console.error(e);
+      alert("Сетевая ошибка");
+    }
+  };
 
   return (
     <Modal title="Редактировать контакт" onClose={() => setActiveModal('userProfile')}>

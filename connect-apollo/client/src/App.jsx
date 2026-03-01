@@ -7,134 +7,126 @@ import UserAgreement from "./legal/UserAgreement";
 import License from "./legal/License";
 import { jwtDecode } from "jwt-decode";
 import { registerPushNotifications } from "./utils/pushSubscription";
+import { useAuthStore } from "./stores/authStore";
+import SocketManager from "./components/SocketManager";
+import { useUIStore } from "./stores/uiStore";
+import { useChatStore } from "./stores/chatStore";
 
-import { AppProvider, useApp } from "./context/AppContext";
+
 import Sidebar from "./components/sidebar/Sidebar";
 import ChatLayout from "./components/chat/ChatLayout";
 import ModalsContainer from "./components/common/ModalsContainer";
 import CallModal from "./components/common/CallModal";
 import DragDropOverlay from "./components/common/DragDropOverlay";
 
+
 const socket = io.connect(import.meta.env.VITE_BACKEND_URL || "http://localhost:3001", {
   autoConnect: false
 });
 
 const ChatContainer = () => {
-  const appState = useApp();
+  const isMobile = useUIStore(s => s.isMobile);
+  const isSelectionMode = useUIStore(s => s.isSelectionMode);
+  const isDragOverlayOpen = useUIStore(s => s.isDragOverlayOpen);
+  const setIsDragOverlayOpen = useUIStore(s => s.setIsDragOverlayOpen);
+  const dragFiles = useUIStore(s => s.dragFiles);
+  const setDragFiles = useUIStore(s => s.setDragFiles);
+  const inAppNotif = useUIStore(s => s.inAppNotif);
+  const hideInAppNotif = useUIStore(s => s.hideInAppNotif);
+  
+  const setAttachedFiles = useChatStore(s => s.setAttachedFiles);
+  const isUploading = useChatStore(s => s.isUploading);
 
-  // Глобальные обработчики для Drag & Drop
   const handleDragOver = (e) => {
     e.preventDefault();
     e.stopPropagation();
-    if (!appState.isDragOverlayOpen) {
-      appState.setIsDragOverlayOpen(true);
-    }
+    if (!isDragOverlayOpen) setIsDragOverlayOpen(true);
   };
 
   const handleDragLeave = (e) => {
     e.preventDefault();
     e.stopPropagation();
-    // Закрываем оверлей только если мышь покинула пределы окна браузера
     if (e.relatedTarget === null || e.relatedTarget === document.documentElement) {
-        appState.setIsDragOverlayOpen(false);
+        setIsDragOverlayOpen(false);
     }
   };
 
   const handleDrop = (e) => {
     e.preventDefault();
     e.stopPropagation();
-    
     if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
       const droppedFiles = Array.from(e.dataTransfer.files);
-      
-      // Добавляем новые файлы к уже существующим (максимум 10)
-      appState.setDragFiles(prev => {
-          const combined = [...(prev || []), ...droppedFiles];
-          return combined.slice(0, 10); 
-      });
-      
-      appState.setIsDragOverlayOpen(true);
+      setDragFiles([...(dragFiles || []), ...droppedFiles].slice(0, 10));
+      setIsDragOverlayOpen(true);
     } else {
-      appState.setIsDragOverlayOpen(false);
+      setIsDragOverlayOpen(false);
     }
   };
 
+  useEffect(() => {
+    const handleResize = () => useUIStore.getState().setIsMobile(window.innerWidth <= 768);
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+
   return (
     <div 
-      className={`main-layout ${appState.isMobile ? "mobile-mode" : ""} ${appState.isSelectionMode ? "selection-mode-active" : ""}`} 
-      style={{ touchAction: "pan-y" }}
-      onDragOver={handleDragOver}
-      onDragLeave={handleDragLeave}
-      onDrop={handleDrop}
+      className={`main-layout ${isMobile ? "mobile-mode" : ""} ${isSelectionMode ? "selection-mode-active" : ""}`} 
+      onDragOver={handleDragOver} onDragLeave={handleDragLeave} onDrop={handleDrop}
     >
-      
-      <div className={`tg-in-app-notification ${appState.inAppNotif?.visible ? 'visible' : ''}`} onClick={appState.handleInAppNotifClick}>
-        <div className="tg-notif-avatar" style={appState.inAppNotif?.avatar ? {backgroundImage: `url(${appState.inAppNotif.avatar})`} : {}}>
-            {!appState.inAppNotif?.avatar && appState.inAppNotif?.title?.[0]?.toUpperCase()}
-        </div>
-        <div className="tg-notif-content">
-            <div className="tg-notif-title">{appState.inAppNotif?.title}</div>
-            <div className="tg-notif-body">{appState.inAppNotif?.body}</div>
-        </div>
+      <div className={`tg-in-app-notification ${inAppNotif?.visible ? 'visible' : ''}`} onClick={hideInAppNotif}>
       </div>
 
-      <Sidebar {...appState} />
-      <ChatLayout {...appState} />
-      
+      <Sidebar />
+      <ChatLayout />
       <ModalsContainer />        
       <CallModal />
       <DragDropOverlay 
-        isOpen={appState.isDragOverlayOpen}
-        files={appState.dragFiles}
-        onCancel={() => {
-            appState.setIsDragOverlayOpen(false);
-            appState.setDragFiles([]);
-        }}
+        isOpen={isDragOverlayOpen}
+        files={dragFiles}
+        onCancel={() => { setIsDragOverlayOpen(false); setDragFiles([]); }}
         onRemoveFile={(index) => {
-            appState.setDragFiles(prev => prev.filter((_, i) => i !== index));
-            if (appState.dragFiles.length <= 1) {
-                appState.setIsDragOverlayOpen(false);
-            }
+            const newFiles = dragFiles.filter((_, i) => i !== index);
+            setDragFiles(newFiles);
+            if (newFiles.length <= 1) setIsDragOverlayOpen(false);
         }}
         onSend={() => {
-            appState.setAttachedFiles(prev => {
-                const combined = [...prev, ...appState.dragFiles];
-                return combined.slice(0, 10);
-            });
-            appState.setIsDragOverlayOpen(false);
-            appState.setDragFiles([]);
+            setAttachedFiles(prev => [...prev, ...dragFiles].slice(0, 10));
+            setIsDragOverlayOpen(false);
+            setDragFiles([]);
         }}
-        isUploading={appState.isUploading}
+        isUploading={isUploading}
       />
     </div>
   );
 };
 
 const MainApp = () => {
-  const [user, setUser] = useState(null);
-  const [room, setRoom] = useState("");
+  const username = useAuthStore(s => s.username);
+  const setUsername = useAuthStore(s => s.setUsername);
+  const setSocket = useAuthStore(s => s.setSocket);
+  
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
     if ('serviceWorker' in navigator) {
       navigator.serviceWorker.addEventListener('message', (event) => {
         if (event.data?.type === 'NAVIGATE' && event.data.room) {
-          setRoom(event.data.room);
+          useChatStore.getState().setRoom(event.data.room);
         }
       });
     }
-  },[]);
+  }, []);
 
   useEffect(() => {
     const token = localStorage.getItem("apollo_token");
-    const storedRoom = localStorage.getItem("apollo_room");
-
     if (token) {
       try {
         const decodedUser = jwtDecode(token);
         if (decodedUser.exp * 1000 > Date.now()) {
-          setUser(decodedUser);
-          setRoom(storedRoom || "");
+          setUsername(decodedUser.username);
+          setSocket(socket);
+          
           socket.auth = { token };
           socket.connect();
           socket.emit("authenticate", { token });
@@ -148,30 +140,26 @@ const MainApp = () => {
       }
     }
     setIsLoading(false);
-  },[]);
+  }, []);
 
   const handleLoginSuccess = (token) => {
     localStorage.setItem("apollo_token", token);
     const decodedUser = jwtDecode(token);
-    setUser(decodedUser);
+    
+    setUsername(decodedUser.username);
+    setSocket(socket);
+    
     socket.auth = { token };
     socket.connect();
     socket.emit("authenticate", { token });
     registerPushNotifications(token);
   };
 
-  const handleLogout = () => {
-    localStorage.removeItem("apollo_token");
-    setUser(null);
-    socket.disconnect();
-    window.location.reload();
-  };
-  
   if (isLoading) {
     return <div className="App">Загрузка...</div>;
   }
 
-  if (!user) {
+  if (!username) {
     return (
       <div className="App">
         <Auth onLoginSuccess={handleLoginSuccess} />
@@ -180,11 +168,10 @@ const MainApp = () => {
   }
 
   return (
-    <AppProvider socket={socket} username={user?.username} handleLogout={handleLogout}>
-      <div className="App">
-        <ChatContainer />
-      </div>
-    </AppProvider>
+    <div className="App">
+      <SocketManager />
+      <ChatContainer />
+    </div>
   );
 };
 

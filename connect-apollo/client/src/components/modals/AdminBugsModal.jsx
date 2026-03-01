@@ -1,9 +1,26 @@
 import React from 'react';
-import { useApp } from '../../context/AppContext';
 import Modal from '../common/Modal';
+import { useUIStore } from '../../stores/uiStore';
+import { useSettingsStore } from '../../stores/settingsStore';
 
 const AdminBugsModal = () => {
-  const { setActiveModal, adminBugList, resolveBug, setImageModalSrc } = useApp();
+  const setActiveModal = useUIStore(s => s.setActiveModal);
+  const setImageModalSrc = useUIStore(s => s.setImageModalSrc);
+  const adminBugList = useSettingsStore(s => s.adminBugList);
+  const setAdminBugList = useSettingsStore(s => s.setAdminBugList);
+
+  const resolveBug = async (id) => {
+    try {
+      const token = localStorage.getItem("apollo_token");
+      await fetch(`${import.meta.env.VITE_BACKEND_URL || 'http://localhost:3001'}/admin/resolve-bug/${id}`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      setAdminBugList(adminBugList.map(b => b.id === id ? { ...b, status: 'resolved' } : b));
+    } catch (e) {
+      console.error(e);
+    }
+  };
 
   return (
     <Modal title="Bug Reports" onClose={() => setActiveModal(null)}>

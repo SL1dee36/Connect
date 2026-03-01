@@ -1,158 +1,83 @@
-import React, { useState } from 'react';
+import React from 'react';
 import PrivateChat from './PrivateChat';
 import GroupChat from './GroupChat';
-import { useApp } from '../../context/AppContext';
 import ContextMenu from './ContextMenu';
 import EmojiPickerPanel from '../common/EmojiPickerPanel';
 import GlobalVideoPlayer from '../common/GlobalVideoPlayer';
 import { IconMessage } from '../common/Icons';
 
-const ChatLayout = ({
-  isMobile,
-  showMobileChat,
-  swipeX,
-  isSwiping,
-  setIsSwiping,
-  room,
-  username,
-  socket,
-  // Message list
-  messageList,
-  isLoadingHistory,
-  hasMore,
-  chatBodyRef,
-  messagesEndRef,
-  onScroll,
-  // Context menu
-  contextMenu,
-  setContextMenu,
-  canDeleteMessage,
-  onReply,
-  onCopy,
-  onDeleteMessageRequest,
-  // Other
-  setImageModalSrc,
-  onMentionClick,
-  scrollToMessage,
-  onContextMenu,
-  typingText,
-  // Group specific
-  groupMembers,
-  roomSettings,
-  myRole,
-  globalRole,
-  showMenu,
-  setShowMenu,
-  onOpenGroupInfo,
-  onAddToGroup,
-  // Call
-  onStartCall,
-  // ChatInput
-  currentMessage,
-  setCurrentMessage,
-  attachedFiles,
-  setAttachedFiles,
-  replyingTo,
-  setReplyingTo,
-  isRecording,
-  isLocked,
-  recordingTime,
-  recordedMedia,
-  videoShape,
-  setVideoShape,
-  isEmojiPickerOpen,
-  setIsEmojiPickerOpen,
-  isUploading,
-  inputMode,
-  textareaRef,
-  fileInputRef,
-  onSendMessage,
-  onFileSelect,
-  onRemoveAttachment,
-  onEmojiSelect,
-  onTyping,
-  onRecordStart,
-  onRecordMove,
-  onRecordEnd,
-  onCancelRecording,
-  onSendRecorded,
-  formatTime,
-  activeVideoState,
-  setActiveVideoState,
-  showScrollBottomBtn,
-  unreadScrollCount,
-  scrollToBottom,
-}) => {
-  const isPrivateChat = room?.includes('_');
-  const { startCall } = useApp();
-  const { editingMessage, setEditingMessage } = useApp();
+import { useAuthStore } from '../../stores/authStore';
+import { useUIStore } from '../../stores/uiStore';
+import { useChatStore } from '../../stores/chatStore';
 
-  const chatProps = {
-    socket,
-    username,
-    room,
-    messageList,
-    isLoadingHistory,
-    hasMore,
-    typingText,
-    chatBodyRef,
-    messagesEndRef,
-    onScroll,
-    onContextMenu,
-    onReply,
-    scrollToMessage,
-    onMentionClick,
-    setImageModalSrc,
-    currentMessage,
-    setCurrentMessage,
-    attachedFiles,
-    setAttachedFiles,
-    replyingTo,
-    setReplyingTo,
-    isRecording,
-    isLocked,
-    recordingTime,
-    recordedMedia,
-    videoShape,
-    setVideoShape,
-    isEmojiPickerOpen,
-    setIsEmojiPickerOpen,
-    isUploading,
-    inputMode,
-    textareaRef,
-    fileInputRef,
-    onSendMessage,
-    onFileSelect,
-    onRemoveAttachment,
-    onEmojiSelect,
-    onTyping,
-    onRecordStart,
-    onRecordMove,
-    onRecordEnd,
-    onCancelRecording,
-    onSendRecorded,
-    formatTime,
-    showScrollBottomBtn,
-    unreadScrollCount,
-    scrollToBottom,
-    editingMessage,
-    setEditingMessage
+const ChatLayout = () => {
+  // Сторы
+  const username = useAuthStore(s => s.username);
+  
+  const isMobile = useUIStore(s => s.isMobile);
+  const showMobileChat = useUIStore(s => s.showMobileChat);
+  const swipeX = useUIStore(s => s.swipeX);
+  const isSwiping = useUIStore(s => s.isSwiping);
+  const contextMenu = useUIStore(s => s.contextMenu);
+  const setContextMenu = useUIStore(s => s.setContextMenu);
+  const isEmojiPickerOpen = useUIStore(s => s.isEmojiPickerOpen);
+  const setIsEmojiPickerOpen = useUIStore(s => s.setIsEmojiPickerOpen);
+  const setActiveModal = useUIStore(s => s.setActiveModal);
+
+  const room = useChatStore(s => s.room);
+  const activeVideoState = useChatStore(s => s.activeVideoState);
+  const setActiveVideoState = useChatStore(s => s.setActiveVideoState);
+  const setEditingMessage = useChatStore(s => s.setEditingMessage);
+  const setCurrentMessage = useChatStore(s => s.setCurrentMessage);
+  const setReplyingTo = useChatStore(s => s.setReplyingTo);
+  const setMessageToDelete = useChatStore(s => s.setMessageToDelete);
+  const myRole = useChatStore(s => s.myRole);
+  const globalRole = useChatStore(s => s.globalRole);
+
+  const isPrivateChat = room?.includes('_');
+
+  // Логика контекстного меню
+  const canDeleteMessage = (msg) => {
+    const isAuthor = msg.author === username;
+    const canManage = (myRole === 'owner' || myRole === 'editor' || globalRole === 'mod');
+    return isAuthor || (canManage && !msg.room.includes('_'));
+  };
+
+  const handleReply = () => {
+    setReplyingTo(contextMenu.msg);
+    setContextMenu(null);
+  };
+
+  const handleCopy = () => {
+    navigator.clipboard.writeText(contextMenu.msg.message);
+    setContextMenu(null);
+  };
+
+  const handleDeleteRequest = () => {
+    setMessageToDelete(contextMenu.msg.id);
+    setActiveModal('deleteConfirm');
+    setContextMenu(null);
+  };
+
+  const handleEditRequest = () => {
+    setEditingMessage(contextMenu.msg);
+    setCurrentMessage(contextMenu.msg.message);
+    setReplyingTo(null);
+    setContextMenu(null);
+  };
+
+  const handleEmojiSelect = (emoji) => {
+    setCurrentMessage(useChatStore.getState().currentMessage + emoji);
   };
 
   return (
     <div
       className={`right-panel ${isMobile && !showMobileChat ? "hidden" : ""}`}
       style={{
-        transform: isMobile
-          ? (showMobileChat ? `translateX(${swipeX}px)` : `translateX(100%)`)
-          : 'none',
+        transform: isMobile ? (showMobileChat ? `translateX(${swipeX}px)` : `translateX(100%)`) : 'none',
         transition: isSwiping ? 'none' : 'transform 0.3s cubic-bezier(0.2, 0.8, 0.2, 1)',
         position: isMobile ? 'fixed' : 'relative',
-        top: 0,
-        left: 0,
-        width: '100%',
-        height: '100%',
-        zIndex: 100
+        top: 0, left: 0, width: '100%', height: '100%', zIndex: 100
       }}
     >
       <div className="glass-chat">
@@ -182,48 +107,21 @@ const ChatLayout = ({
                 y={contextMenu.y}
                 msg={contextMenu.msg}
                 onClose={() => setContextMenu(null)}
-                onReply={() => onReply(contextMenu.msg)}
-                onCopy={() => onCopy(contextMenu.msg.message)}
-                onDeleteRequest={() => onDeleteMessageRequest(contextMenu.msg.id)}
+                onReply={handleReply}
+                onCopy={handleCopy}
+                onDeleteRequest={handleDeleteRequest}
                 canDelete={canDeleteMessage(contextMenu.msg)}
                 canEdit={contextMenu.msg.author === username && contextMenu.msg.type === 'text'}
-                onEditRequest={() => {
-                    setEditingMessage(contextMenu.msg); 
-                    setCurrentMessage(contextMenu.msg.message);
-                    setReplyingTo(null);
-                    setContextMenu(null); 
-                    setTimeout(() => textareaRef.current?.focus(), 50);
-                }}
+                onEditRequest={handleEditRequest}
               />
             )}
 
-            {isPrivateChat ? (
-              <PrivateChat
-                {...chatProps}
-                onStartCall={startCall}
-                editingMessage={editingMessage}
-                setEditingMessage={setEditingMessage}
-              />
-            ) : (
-              <GroupChat
-                {...chatProps}
-                groupMembers={groupMembers}
-                roomSettings={roomSettings}
-                myRole={myRole}
-                globalRole={globalRole}
-                showMenu={showMenu}
-                setShowMenu={setShowMenu}
-                onOpenGroupInfo={onOpenGroupInfo}
-                onAddToGroup={onAddToGroup}
-                editingMessage={editingMessage}
-                setEditingMessage={setEditingMessage}
-              />
-            )}
+            {isPrivateChat ? <PrivateChat /> : <GroupChat />}
 
             <EmojiPickerPanel
               isOpen={isEmojiPickerOpen}
               onClose={() => setIsEmojiPickerOpen(false)}
-              onEmojiSelect={onEmojiSelect}
+              onEmojiSelect={handleEmojiSelect}
             />
           </>
         )}

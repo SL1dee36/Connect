@@ -1,72 +1,127 @@
-import React, { useEffect, useState } from 'react';
-import MessageItem from "../common/MessageItem"
+import React, { useRef, useEffect } from 'react';
+import MessageItem from "../common/MessageItem";
 import ChatInput from './ChatInput';
-import { IconMore } from '../common/Icons';
 
-const GroupChat = ({
-  socket,
-  username,
-  room,
-  messageList = [],
-  isLoadingHistory,
-  hasMore,
-  typingText,
-  groupMembers,
-  roomSettings,
-  myRole,
-  globalRole,
-  chatBodyRef,
-  messagesEndRef,
-  onScroll,
-  onContextMenu,
-  onReply,
-  scrollToMessage,
-  onMentionClick,
-  setImageModalSrc,
-  onOpenGroupInfo,
-  onAddToGroup,
-  showMenu,
-  setShowMenu,
-  currentMessage,
-  setCurrentMessage,
-  attachedFiles,
-  setAttachedFiles,
-  replyingTo,
-  setReplyingTo,
-  isRecording,
-  isLocked,
-  recordingTime,
-  recordedMedia,
-  videoShape,
-  setVideoShape,
-  isEmojiPickerOpen,
-  setIsEmojiPickerOpen,
-  isUploading,
-  inputMode,
-  textareaRef,
-  fileInputRef,
-  onSendMessage,
-  onFileSelect,
-  onRemoveAttachment,
-  onEmojiSelect,
-  onTyping,
-  onRecordStart,
-  onRecordMove,
-  onRecordEnd,
-  onCancelRecording,
-  onSendRecorded,
-  formatTime,
-  showScrollBottomBtn, 
-  unreadScrollCount, 
-  scrollToBottom
-}) => {
+import { useAuthStore } from '../../stores/authStore';
+import { useUIStore } from '../../stores/uiStore';
+import { useChatStore } from '../../stores/chatStore';
+
+const GroupChat = () => {
+  const username = useAuthStore(s => s.username);
+  const socket = useAuthStore(s => s.socket);
+  
+  const room = useChatStore(s => s.room);
+  const messageList = useChatStore(s => s.messageList);
+  const isLoadingHistory = useChatStore(s => s.isLoadingHistory);
+  const typingText = useChatStore(s => s.typingText);
+  const groupMembers = useChatStore(s => s.groupMembers);
+  const roomSettings = useChatStore(s => s.roomSettings);
+  const myRole = useChatStore(s => s.myRole);
+  const globalRole = useChatStore(s => s.globalRole);
+  
+  const isEmojiPickerOpen = useUIStore(s => s.isEmojiPickerOpen);
+  const showMenu = useUIStore(s => s.showMenu);
+  const setShowMenu = useUIStore(s => s.setShowMenu);
+  const setActiveModal = useUIStore(s => s.setActiveModal);
+  const setImageModalSrc = useUIStore(s => s.setImageModalSrc);
+  const showScrollBottomBtn = useUIStore(s => s.showScrollBottomBtn);
+  const unreadScrollCount = useUIStore(s => s.unreadScrollCount);
+  const setContextMenu = useUIStore(s => s.setContextMenu);
+
   const canWrite = myRole !== 'guest' || globalRole === 'mod';
+
+  const chatBodyRef = useRef(null);
+  const messagesEndRef = useRef(null);
+  const prevScrollHeight = useRef(0);
+  const isInitialLoad = useRef(true);
+  const prevMessageCount = useRef(0);
+
+  useEffect(() => {
+    isInitialLoad.current = true;
+    prevMessageCount.current = 0;
+    prevScrollHeight.current = 0;
+  }, [room]);
+
+  useEffect(() => {
+    const scrollElem = chatBodyRef.current;
+    if (!scrollElem || !messagesEndRef.current) return;
+
+    if (prevScrollHeight.current > 0) {
+      const diff = scrollElem.scrollHeight - prevScrollHeight.current;
+      if (diff > 0) {
+        scrollElem.scrollTop = diff;
+      }
+      prevScrollHeight.current = 0;
+      prevMessageCount.current = messageList.length;
+      return; 
+    }
+
+    if (isInitialLoad.current && messageList.length > 0) {
+      messagesEndRef.current.scrollIntoView({ behavior: 'auto' });
+      isInitialLoad.current = false;
+      prevMessageCount.current = messageList.length;
+      return;
+    }
+
+    if (messageList.length > prevMessageCount.current && !isLoadingHistory) {
+      const lastMsg = messageList[messageList.length - 1];
+      const isMine = lastMsg?.author === username;
+      const distanceFromBottom = scrollElem.scrollHeight - scrollElem.scrollTop - scrollElem.clientHeight;
+      const isNearBottom = distanceFromBottom < 300; 
+
+      if (isNearBottom || isMine) {
+        messagesEndRef.current.scrollIntoView({ behavior: 'smooth' });
+        useUIStore.getState().setShowScrollBottomBtn(false);
+        useUIStore.getState().setUnreadScrollCount(0);
+      } else if (!isMine) {
+        useUIStore.getState().setUnreadScrollCount(useUIStore.getState().unreadScrollCount + 1);
+        useUIStore.getState().setShowScrollBottomBtn(true);
+      }
+    }
+
+    prevMessageCount.current = messageList.length;
+  }, [messageList, isLoadingHistory, username]);
+
+  const scrollToBottom = () => {
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    useUIStore.getState().setShowScrollBottomBtn(false);
+    useUIStore.getState().setUnreadScrollCount(0);
+  };
+
+  const onContextMenu = (e, msg, x, y) => {
+    setContextMenu({ x, y, msg });
+  };
+
+  const handleScroll = (e) => {
+    const { scrollTop, scrollHeight, clientHeight } = e.target;
+    const distanceFromBottom = scrollHeight - scrollTop - clientHeight;
+
+    if (distanceFromBottom > 150) {
+      useUIStore.getState().setShowScrollBottomBtn(true);
+    } else {
+      useUIStore.getState().setShowScrollBottomBtn(false);
+      useUIStore.getState().setUnreadScrollCount(0);
+    }
+
+    const { hasMore } = useChatStore.getState();
+    if (scrollTop === 0 && hasMore && !isLoadingHistory && messageList.length > 0) {
+      useChatStore.getState().setIsLoadingHistory(true);
+      prevScrollHeight.current = scrollHeight; // Запоминаем высоту ДО подгрузки
+      socket.emit("load_more_messages", { room, offset: messageList.length });
+    }
+  };
+
+  const leaveGroup = () => {
+    if (window.confirm(myRole === "owner" ? "Удалить группу?" : "Выйти из группы?")) {
+      socket.emit("leave_group", { room });
+    }
+  };
 
   return (
     <>
       <div className="chat-header">
         <div className="header-left">
-          <div onClick={onOpenGroupInfo} style={{ cursor: "pointer", display: "flex", flexDirection: "column" }}>
+          <div onClick={() => setActiveModal("groupInfo")} style={{ cursor: "pointer", display: "flex", flexDirection: "column" }}>
             <h3 style={{ margin: 0 }}>{room}</h3>
             <span style={{ fontSize: 12, color: "#777" }}>
               {typingText || `${groupMembers?.length} участников`}
@@ -80,12 +135,10 @@ const GroupChat = ({
             </button>
             {showMenu && (
               <div className="dropdown-menu">
-                <div className="menu-item" onClick={onOpenGroupInfo}>
-                  <svg xmlns="http://www.w3.org/2000/svg" width="32" height="24" viewBox="0 0 24 24"><path fill="#ffffff" d="M6 3h14v2h2v6h-2v8h-2V5H6V3zm8 14v-2H6V5H4v10H2v4h2v2h14v-2h-2v-2h-2zm0 0v2H4v-2h10zM8 7h8v2H8V7zm8 4H8v2h8v-2z"/></svg>
+                <div className="menu-item" onClick={() => setActiveModal("groupInfo")}>
                   Информация
                 </div>
-                <div className="menu-item" onClick={onAddToGroup}>
-                  <svg xmlns="http://www.w3.org/2000/svg" width="32" height="24" viewBox="0 0 24 24"><path fill="#ffffff" d="M18 2h-6v2h-2v6h2V4h6V2zm0 8h-6v2h6v-2zm0-6h2v6h-2V4zM7 16h2v-2h12v2H9v4h12v-4h2v6H7v-6zM3 8h2v2h2v2H5v2H3v-2H1v-2h2V8z"/></svg>
+                <div className="menu-item" onClick={() => setActiveModal("addToGroup")}>
                   Добавить в группу
                 </div>
               </div>
@@ -94,10 +147,11 @@ const GroupChat = ({
         </div>
       </div>
 
-      <div className={`chat-body ${isEmojiPickerOpen ? 'emoji-open' : ''}`} ref={chatBodyRef} onScroll={onScroll}>
+      <div className={`chat-body ${isEmojiPickerOpen ? 'emoji-open' : ''}`} ref={chatBodyRef} onScroll={handleScroll}>
         {isLoadingHistory && (
           <div style={{ textAlign: "center", fontSize: 12, color: "#666", padding: 10 }}>Загрузка истории...</div>
         )}
+        
         {messageList.map((msg, index) => (
           <MessageItem
             key={msg.id || index}
@@ -105,9 +159,14 @@ const GroupChat = ({
             username={username}
             setImageModalSrc={setImageModalSrc}
             onContextMenu={onContextMenu}
-            onReplyTrigger={onReply}
-            scrollToMessage={scrollToMessage}
-            onMentionClick={onMentionClick}
+            onReplyTrigger={(msg) => useChatStore.getState().setReplyingTo(msg)}
+            onMentionClick={(user) => {
+               socket.emit("get_user_profile", user);
+            }}
+            scrollToMessage={(id) => {
+               const el = document.getElementById(`message-${id}`);
+               if (el) { el.scrollIntoView({behavior: 'smooth', block: 'center'}); el.classList.add('highlighted'); setTimeout(() => el.classList.remove('highlighted'), 1500); }
+            }}
           />
         ))}
         <div ref={messagesEndRef} />
@@ -117,9 +176,7 @@ const GroupChat = ({
 
       {showScrollBottomBtn && (
         <div className="scroll-bottom-btn" onClick={scrollToBottom}>
-          {unreadScrollCount > 0 && (
-            <span className="unread-badge">{unreadScrollCount}</span>
-          )}
+          {unreadScrollCount > 0 && <span className="unread-badge">{unreadScrollCount}</span>}
           <svg viewBox="0 0 24 24" width="24" height="24">
             <path fill="currentColor" d="M7.41 8.59L12 13.17l4.59-4.58L18 10l-6 6-6-6 1.41-1.41z"/>
           </svg>
@@ -127,37 +184,7 @@ const GroupChat = ({
       )}
 
       {canWrite ? (
-        <ChatInput
-          currentMessage={currentMessage}
-          setCurrentMessage={setCurrentMessage}
-          attachedFiles={attachedFiles}
-          setAttachedFiles={setAttachedFiles}
-          replyingTo={replyingTo}
-          setReplyingTo={setReplyingTo}
-          isRecording={isRecording}
-          isLocked={isLocked}
-          recordingTime={recordingTime}
-          recordedMedia={recordedMedia}
-          videoShape={videoShape}
-          setVideoShape={setVideoShape}
-          isEmojiPickerOpen={isEmojiPickerOpen}
-          setIsEmojiPickerOpen={setIsEmojiPickerOpen}
-          isUploading={isUploading}
-          inputMode={inputMode}
-          textareaRef={textareaRef}
-          fileInputRef={fileInputRef}
-          onSendMessage={onSendMessage}
-          onFileSelect={onFileSelect}
-          onRemoveAttachment={onRemoveAttachment}
-          onEmojiSelect={onEmojiSelect}
-          onTyping={onTyping}
-          onRecordStart={onRecordStart}
-          onRecordMove={onRecordMove}
-          onRecordEnd={onRecordEnd}
-          onCancelRecording={onCancelRecording}
-          onSendRecorded={onSendRecorded}
-          formatTime={formatTime}
-        />
+        <ChatInput />
       ) : (
         <div style={{ padding: 20, textAlign: 'center', color: '#666', fontSize: 13 }}>
           У вас нет прав писать в этот чат.

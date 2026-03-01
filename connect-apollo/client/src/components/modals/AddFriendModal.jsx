@@ -1,17 +1,15 @@
 import React from 'react';
-import { useApp } from '../../context/AppContext';
 import Modal from '../common/Modal';
+import { useUIStore } from '../../stores/uiStore';
+import { useProfileStore } from '../../stores/profileStore';
+import { useAuthStore } from '../../stores/authStore';
 
 const AddFriendModal = () => {
+  const setActiveModal = useUIStore(s => s.setActiveModal);
+  const socket = useAuthStore(s => s.socket);
   const { 
-    setActiveModal, 
-    searchQuery, 
-    setSearchQuery, 
-    isSearching, 
-    searchResults, 
-    friends, 
-    socket 
-  } = useApp();
+    searchQuery, setSearchQuery, isSearching, searchResults, friends 
+  } = useProfileStore();
 
   return (
     <Modal title="Поиск людей" onClose={() => { setActiveModal(null); setSearchQuery(""); }}>

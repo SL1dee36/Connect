@@ -1,14 +1,59 @@
 import React from 'react';
-import { useApp } from '../../context/AppContext';
 import Modal from '../common/Modal';
 import { IconMessage, IconCall, IconLightning, IconMore, IconShare } from '../common/Icons';
+import { useUIStore } from '../../stores/uiStore';
+import { useProfileStore } from '../../stores/profileStore';
+import { useAuthStore } from '../../stores/authStore';
+import { useChatStore } from '../../stores/chatStore';
+import { useCallLogic } from '../../hooks/useCallLogic';
 
 const UserProfileModal = () => {
-  const {
-    setActiveModal, viewProfileData, username, room, switchChat, startCall,
-    setFriendOverrideForm, copyProfileLink, isMediaExpanded, setIsMediaExpanded,
-    setImageModalSrc, removeFriend, blockUser
-  } = useApp();
+  const setActiveModal = useUIStore(s => s.setActiveModal);
+  const setImageModalSrc = useUIStore(s => s.setImageModalSrc);
+  const isMobile = useUIStore(s => s.isMobile);
+  const setSwipeX = useUIStore(s => s.setSwipeX);
+  const setShowMobileChat = useUIStore(s => s.setShowMobileChat);
+
+  const viewProfileData = useProfileStore(s => s.viewProfileData);
+  const setFriendOverrideForm = useProfileStore(s => s.setFriendOverrideForm);
+  const isMediaExpanded = useProfileStore(s => s.isMediaExpanded);
+  const setIsMediaExpanded = useProfileStore(s => s.setIsMediaExpanded);
+
+  const username = useAuthStore(s => s.username);
+  const socket = useAuthStore(s => s.socket);
+  
+  const room = useChatStore(s => s.room);
+  const setRoom = useChatStore(s => s.setRoom);
+
+  const { startCall } = useCallLogic();
+
+  const switchChat = (targetName) => {
+    if (targetName !== room) setRoom(targetName);
+    if (isMobile) {
+      setSwipeX(0);
+      setShowMobileChat(true);
+    }
+  };
+
+  const copyProfileLink = (targetUser) => {
+    const link = `${window.location.origin}?user=${targetUser}`;
+    navigator.clipboard.writeText(link);
+    alert("Ссылка на профиль скопирована!");
+  };
+
+  const removeFriend = (targetUser) => {
+    if (window.confirm(`Удалить ${targetUser}?`)) {
+      socket.emit("remove_friend", targetUser);
+      setActiveModal(null);
+    }
+  };
+
+  const blockUser = (targetUser) => {
+    if (window.confirm(`Заблокировать ${targetUser}?`)) {
+      socket.emit("block_user", targetUser);
+      setActiveModal(null);
+    }
+  };
 
   return (
     <Modal title="Info" onClose={() => setActiveModal(null)}>

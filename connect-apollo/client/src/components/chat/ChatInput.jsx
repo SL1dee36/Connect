@@ -1,42 +1,56 @@
-import React, { useRef, useState } from 'react';
+import React, { useRef } from 'react';
 import { IconPaperclip, IconMic, IconCamera, IconTrash } from '../common/Icons';
 import CustomAudioPlayer from '../common/CustomAudioPlayer';
 import CustomVideoPlayer from '../common/CustomVideoPlayer';
 
-const ChatInput = ({
-  currentMessage = '',
-  setCurrentMessage,
-  attachedFiles = [],
-  setAttachedFiles,
-  replyingTo,
-  setReplyingTo,
-  isRecording,
-  isLocked,
-  recordingTime,
-  recordedMedia,
-  videoShape,
-  setVideoShape,
-  isEmojiPickerOpen,
-  setIsEmojiPickerOpen,
-  isUploading,
-  inputMode,
-  textareaRef,
-  fileInputRef,
-  onSendMessage,
-  onFileSelect,
-  onRemoveAttachment,
-  onEmojiSelect,
-  onTyping,
-  onRecordStart,
-  onRecordMove,
-  onRecordEnd,
-  onCancelRecording,
-  onSendRecorded,
-  onKeyDown,
-  formatTime,
-  editingMessage,
-  setEditingMessage
-}) => {
+import { useAuthStore } from '../../stores/authStore';
+import { useUIStore } from '../../stores/uiStore';
+import { useChatStore } from '../../stores/chatStore';
+import { useChatLogic } from '../../hooks/useChatLogic';
+
+const ChatInput = () => {
+  // Сторы
+  const username = useAuthStore(s => s.username);
+  const socket = useAuthStore(s => s.socket);
+  const room = useChatStore(s => s.room);
+  
+  const currentMessage = useChatStore(s => s.currentMessage);
+  const setCurrentMessage = useChatStore(s => s.setCurrentMessage);
+  const attachedFiles = useChatStore(s => s.attachedFiles);
+  const setAttachedFiles = useChatStore(s => s.setAttachedFiles);
+  const replyingTo = useChatStore(s => s.replyingTo);
+  const setReplyingTo = useChatStore(s => s.setReplyingTo);
+  const editingMessage = useChatStore(s => s.editingMessage);
+  const setEditingMessage = useChatStore(s => s.setEditingMessage);
+  const isUploading = useChatStore(s => s.isUploading);
+
+  const isRecording = useChatStore(s => s.isRecording);
+  const isLocked = useChatStore(s => s.isLocked);
+  const recordingTime = useChatStore(s => s.recordingTime);
+  const recordedMedia = useChatStore(s => s.recordedMedia);
+  const videoShape = useChatStore(s => s.videoShape);
+  const setVideoShape = useChatStore(s => s.setVideoShape);
+  const inputMode = useChatStore(s => s.inputMode);
+
+  const isEmojiPickerOpen = useUIStore(s => s.isEmojiPickerOpen);
+  const setIsEmojiPickerOpen = useUIStore(s => s.setIsEmojiPickerOpen);
+
+  // Локальные рефы
+  const textareaRef = useRef(null);
+  const fileInputRef = useRef(null);
+
+  const {
+    onSendMessage,
+    onRecordStart,
+    onRecordMove,
+    onRecordEnd,
+    onCancelRecording,
+    onSendRecorded,
+    onTyping,
+    formatTime
+  } = useChatLogic();
+
+  // Локальная логика
   const handleKeyDown = (e) => {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
@@ -52,6 +66,17 @@ const ChatInput = ({
       textareaRef.current?.blur();
       setIsEmojiPickerOpen(true);
     }
+  };
+
+  const handleFileSelect = (e) => {
+    const files = Array.from(e.target.files);
+    if (attachedFiles.length + files.length > 10) return;
+    setAttachedFiles(prev => [...prev, ...files]);
+    e.target.value = "";
+  };
+
+  const removeAttachment = (index) => {
+    setAttachedFiles(prev => prev.filter((_, i) => i !== index));
   };
 
   return (
@@ -111,15 +136,15 @@ const ChatInput = ({
           )}
 
           {editingMessage && (
-              <div className="edit-preview-banner" style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 12px', background: '#2a2a2a', borderLeft: '3px solid #4CAF50' }}>
-                  <div>
-                      <div style={{ color: '#4CAF50', fontSize: '13px', fontWeight: 'bold' }}>Редактирование сообщения</div>
-                      <div style={{ color: '#aaa', fontSize: '13px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '300px' }}>
-                          {editingMessage.message}
-                      </div>
-                  </div>
-                  <button onClick={() => { setEditingMessage(null); setCurrentMessage(''); }} style={{ background: 'none', border: 'none', color: '#aaa', cursor: 'pointer' }}>✕</button>
+            <div className="edit-preview-banner" style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 12px', background: '#2a2a2a', borderLeft: '3px solid #4CAF50' }}>
+              <div>
+                <div style={{ color: '#4CAF50', fontSize: '13px', fontWeight: 'bold' }}>Редактирование сообщения</div>
+                <div style={{ color: '#aaa', fontSize: '13px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '300px' }}>
+                  {editingMessage.message}
+                </div>
               </div>
+              <button onClick={() => { setEditingMessage(null); setCurrentMessage(''); }} style={{ background: 'none', border: 'none', color: '#aaa', cursor: 'pointer' }}>✕</button>
+            </div>
           )}
           
           {attachedFiles.length > 0 && (
@@ -127,7 +152,7 @@ const ChatInput = ({
               {attachedFiles.map((f, i) => (
                 <div key={i} className="attachment-thumb">
                   <img src={URL.createObjectURL(f)} alt="preview" />
-                  <button onClick={() => onRemoveAttachment(i)}>&times;</button>
+                  <button onClick={() => removeAttachment(i)}>&times;</button>
                 </div>
               ))}
             </div>
@@ -157,7 +182,7 @@ const ChatInput = ({
           
           <div className="input-toolbar">
             <div className="toolbar-left" style={{opacity: isRecording ? 0 : 1, pointerEvents: isRecording ? 'none' : 'auto', transition: '0.2s'}}>
-              <input type="file" className="hidden-input" multiple ref={fileInputRef} onChange={onFileSelect} accept="image/*" />
+              <input type="file" className="hidden-input" multiple ref={fileInputRef} onChange={handleFileSelect} accept="image/*" />
               <button className="tool-btn" onClick={() => fileInputRef.current.click()} title="Прикрепить фото">
                 <IconPaperclip />
               </button>

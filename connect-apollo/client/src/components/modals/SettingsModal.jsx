@@ -1,16 +1,140 @@
-import React from 'react';
-import { useApp } from '../../context/AppContext';
+import React, { useRef } from 'react';
 import Modal from '../common/Modal';
 import { IconBell, IconCamera, IconMic, IconFolder, IconShare } from '../common/Icons';
+import { useUIStore } from '../../stores/uiStore';
+import { useProfileStore } from '../../stores/profileStore';
+import { useAuthStore } from '../../stores/authStore';
 
 const SettingsModal = () => {
-  const {
-    setActiveModal, myProfile, username, profileForm, setProfileForm, 
-    avatarInputRef, requestNotificationPermission, requestMediaPermissions, 
-    requestFilePermission, copyProfileLink, avatarHistory, socket, setImageModalSrc,
-    profileMediaInputRef, isMediaExpanded, setIsMediaExpanded, handleProfileMediaSelect,
-    saveProfile, handleLogout
-  } = useApp();
+  const setActiveModal = useUIStore(s => s.setActiveModal);
+  const setImageModalSrc = useUIStore(s => s.setImageModalSrc);
+
+  const myProfile = useProfileStore(s => s.myProfile);
+  const setMyProfile = useProfileStore(s => s.setMyProfile);
+  const profileForm = useProfileStore(s => s.profileForm);
+  const setProfileForm = useProfileStore(s => s.setProfileForm);
+  const avatarHistory = useProfileStore(s => s.avatarHistory);
+  const isMediaExpanded = useProfileStore(s => s.isMediaExpanded);
+  const setIsMediaExpanded = useProfileStore(s => s.setIsMediaExpanded);
+  const setAvatarEditor = useProfileStore(s => s.setAvatarEditor);
+
+  const username = useAuthStore(s => s.username);
+  const socket = useAuthStore(s => s.socket);
+  const handleLogout = useAuthStore(s => s.handleLogout);
+
+  const avatarInputRef = useRef(null);
+  const profileMediaInputRef = useRef(null);
+
+  const requestNotificationPermission = () => {
+    socket.emit("update_profile", { 
+      ...myProfile, 
+      notifications_enabled: !profileForm.notifications_enabled 
+    });
+    setProfileForm(prev => ({ 
+      ...prev, 
+      notifications_enabled: !prev.notifications_enabled 
+    }));
+  };
+
+  const requestMediaPermissions = async (type) => {
+    try {
+      const constraints = type === 'video'
+        ? { audio: true, video: { facingMode: "user" } }
+        : { audio: true };
+      const stream = await navigator.mediaDevices.getUserMedia(constraints);
+      stream.getTracks().forEach(track => track.stop());
+      alert("Доступ к " + (type === 'video' ? "камере и микрофону" : "микрофону") + " получен!");
+    } catch (err) {
+      alert("Доступ отклонен или устройство не поддерживается.");
+    }
+  };
+
+  const requestFilePermission = () => {
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.onchange = () => alert("Доступ к файлам подтвержден!");
+    input.click();
+  };
+
+  const copyProfileLink = () => {
+    const link = `${window.location.origin}?user=${username}`;
+    navigator.clipboard.writeText(link);
+    alert("Ссылка на профиль скопирована!");
+  };
+
+  const saveProfile = () => {
+    if (profileForm.username !== username) {
+      const usernameRegex = /^[a-zA-Z0-9]{3,}$/;
+      if (!usernameRegex.test(profileForm.username)) {
+        alert("Nametag должен содержать только латинские буквы и цифры, минимум 3 символа.");
+        return;
+      }
+    }
+    
+    socket.emit("update_profile", {
+      username,
+      bio: profileForm.bio,
+      phone: profileForm.phone,
+      display_name: profileForm.display_name,
+      notifications_enabled: profileForm.notifications_enabled,
+      newUsername: profileForm.username
+    });
+    setActiveModal(null);
+  };
+
+  const handleProfileMediaSelect = async (e) => {
+    if (e.target.files && e.target.files.length > 0) {
+      const file = e.target.files[0];
+      const formData = new FormData();
+      formData.append('file', file);
+      formData.append('username', username);
+      const localUrl = URL.createObjectURL(file);
+      const tempId = Date.now();
+      
+      const tempMediaItem = { id: tempId, url: localUrl, type: file.type.startsWith('video') ? 'video' : 'image', temp: true };
+      
+      setMyProfile({ ...myProfile, media: [...(myProfile.media || []), tempMediaItem] });
+      
+      try {
+        const res = await fetch(`${import.meta.env.VITE_BACKEND_URL || 'http://localhost:3001'}/upload-profile-media`, { 
+          method: 'POST', 
+          body: formData 
+        });
+        const data = await res.json();
+        if (data.url) {
+          setMyProfile(prev => ({
+            ...prev,
+            media: prev.media.map(m => m.id === tempId ? { ...m, url: data.url, temp: false } : m)
+          }));
+        }
+      } catch (e) {
+        console.error(e);
+        alert("Ошибка загрузки медиа");
+        setMyProfile(prev => ({
+          ...prev,
+          media: prev.media.filter(m => m.id !== tempId)
+        }));
+      }
+    }
+  };
+
+  const onAvatarFileChange = (e) => {
+    if (e.target.files && e.target.files.length > 0) {
+      const file = e.target.files[0];
+      const reader = new FileReader();
+      reader.onload = () => {
+        setAvatarEditor({ 
+          isOpen: true, 
+          image: reader.result, 
+          crop: { x: 0, y: 0 }, 
+          zoom: 1, 
+          filters: { brightness: 100, contrast: 100, saturate: 100, blur: 0 } 
+        });
+        setActiveModal(null);
+      };
+      reader.readAsDataURL(file);
+    }
+  };
 
   return (
     <Modal title="My Profile" onClose={() => setActiveModal(null)}>
@@ -32,12 +156,9 @@ const SettingsModal = () => {
         </div>
       </div>
 
-      <div style={{ color: "#2b95ff", padding: "15px 10px 5px 10px", fontSize: "13px", fontWeight: "bold", textTransform: "uppercase" }}>
-        Аккаунт
-      </div>
+      <div style={{ color: "#2b95ff", padding: "15px 10px 5px 10px", fontSize: "13px", fontWeight: "bold", textTransform: "uppercase" }}>Аккаунт</div>
 
       <div className="settings-list">
-        {/* Поля ввода (Display Name, Nametag, Mobile, Bio) */}
         <div className="settings-item">
           <div className="form-container" style={{ flex: 1, padding: 0, margin: 0 }}>
             <div className="input-group">
@@ -68,43 +189,34 @@ const SettingsModal = () => {
         </div>
       </div>
 
-      <div style={{ color: "#2b95ff", padding: "15px 10px 5px 10px", fontSize: "13px", fontWeight: "bold", textTransform: "uppercase" }}>
-        Настройки
-      </div>
+      <div style={{ color: "#2b95ff", padding: "15px 10px 5px 10px", fontSize: "13px", fontWeight: "bold", textTransform: "uppercase" }}>Настройки</div>
 
       <div className="settings-list">
         <div className="settings-item" onClick={requestNotificationPermission}>
           <div className="settings-icon"><IconBell hasUnread={false}/></div>
           <div style={{ flex: 1, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <div className="settings-label">Push-уведомления</div>
-            <div className={`toggle-switch ${profileForm.notifications_enabled ? 'on' : ''}`}>
-              <div className="knob"></div>
-            </div>
+            <div className={`toggle-switch ${profileForm.notifications_enabled ? 'on' : ''}`}><div className="knob"></div></div>
           </div>
         </div>
-
         <div className="settings-item" onClick={() => requestMediaPermissions('video')}>
           <div className="settings-icon"><IconCamera /></div>
           <div className="settings-label">Доступ к камере и микрофону</div>
         </div>
-
         <div className="settings-item" onClick={() => requestMediaPermissions('audio')}>
           <div className="settings-icon"><IconMic /></div>
           <div className="settings-label">Доступ к микрофону</div>
         </div>
-
         <div className="settings-item" onClick={requestFilePermission}>
           <div className="settings-icon"><IconFolder /></div>
           <div className="settings-label">Доступ к файлам</div>
         </div>
-
-        <div className="settings-item" onClick={() => copyProfileLink(username)}>
+        <div className="settings-item" onClick={copyProfileLink}>
           <div className="settings-icon"><IconShare/></div>
           <div className="settings-label">Поделиться профилем</div>
         </div>
       </div>
 
-      {/* История аватаров */}
       <div className="avatar-history" style={{ padding: "0 20px" }}>
         <h4>История аватаров</h4>
         <div className="avatar-history-container">
@@ -117,11 +229,8 @@ const SettingsModal = () => {
         </div>
       </div>
 
-      {/* Медиа */}
       <div className="profile-media-section">
-        <div className="profile-media-header">
-          <h4>Медиа профиля ({myProfile.media ? myProfile.media.length : 0})</h4>
-        </div>
+        <div className="profile-media-header"><h4>Медиа профиля ({myProfile.media ? myProfile.media.length : 0})</h4></div>
         <div className="media-grid">
           <div className="media-grid-add-btn" onClick={() => profileMediaInputRef.current.click()}>+</div>
           {myProfile.media && (isMediaExpanded ? myProfile.media : myProfile.media.slice(-5).reverse()).map((item, idx) => (
@@ -142,6 +251,10 @@ const SettingsModal = () => {
         <button className="btn-primary" style={{ width: "100%" }} onClick={saveProfile}>Save Changes</button>
         <button className="btn-danger" style={{ marginTop: 10, textAlign: "center", width: "100%" }} onClick={handleLogout}>Log Out</button>
       </div>
+
+      {/* Скрытые инпуты */}
+      <input type="file" ref={avatarInputRef} className="hidden-input" onChange={onAvatarFileChange} accept="image/*" />
+      <input type="file" ref={profileMediaInputRef} className="hidden-input" accept="image/*,video/*" onChange={handleProfileMediaSelect} />
     </Modal>
   );
 };

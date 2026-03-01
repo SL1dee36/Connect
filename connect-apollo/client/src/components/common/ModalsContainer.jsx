@@ -1,7 +1,10 @@
 import React from 'react';
-import { useApp } from '../../context/AppContext';
+import { useUIStore } from '../../stores/uiStore';
+import { useChatStore } from '../../stores/chatStore';
+import { useAuthStore } from '../../stores/authStore';
+import { useSettingsStore } from '../../stores/settingsStore';
+import { useProfileStore } from '../../stores/profileStore';
 import Modal from './Modal';
-import AdminPanel from '../admin/AdminPanel';
 
 import CreateGroupContent from '../modals/CreateGroupContent';
 import GroupInfoModal from '../modals/GroupInfoModal';
@@ -21,22 +24,26 @@ import EditFriendProfileModal from '../modals/EditFriendProfileModal';
 import UserProfileModal from '../modals/UserProfileModal';
 
 const ModalsContainer = () => {
-  const {
-    activeModal,
-    setActiveModal,
-    messageToDelete,
-    setMessageToDelete,
-    confirmDelete,
-    myRole,
-    globalRole,
-    messageList,
-    username,
-    onFileChange,
-    avatarInputRef,
-    socket,
-    folderToEdit,
-    viewProfileData
-  } = useApp();
+  const activeModal = useUIStore(state => state.activeModal);
+  const setActiveModal = useUIStore(state => state.setActiveModal);
+
+  const messageToDelete = useChatStore(s => s.messageToDelete);
+  const setMessageToDelete = useChatStore(s => s.setMessageToDelete);
+  const messageList = useChatStore(s => s.messageList);
+  const myRole = useChatStore(s => s.myRole);
+  const globalRole = useChatStore(s => s.globalRole);
+  const username = useAuthStore(s => s.username);
+  const socket = useAuthStore(s => s.socket);
+  const folderToEdit = useSettingsStore(s => s.folderToEdit);
+  const viewProfileData = useProfileStore(s => s.viewProfileData);
+
+  const confirmDelete = (forEveryone) => {
+    if (!messageToDelete) return;
+    socket.emit("delete_message", { id: messageToDelete, forEveryone });
+    useChatStore.getState().setMessageList(prev => prev.filter(msg => msg.id !== messageToDelete));
+    setMessageToDelete(null);
+    setActiveModal(null);
+  };
 
   return (
     <>
@@ -55,6 +62,7 @@ const ModalsContainer = () => {
       {activeModal === "groupInfo" && <GroupInfoModal />}
       {activeModal === "editFriendProfile" && viewProfileData && <EditFriendProfileModal />}
       {activeModal === "userProfile" && viewProfileData && <UserProfileModal />}
+      
       <AvatarEditorModal />
 
       {activeModal === 'deleteConfirm' && (
@@ -72,8 +80,6 @@ const ModalsContainer = () => {
       {activeModal === "adminPanel" && (
         <AdminPanel token={localStorage.getItem("apollo_token")} socket={socket} onClose={() => setActiveModal(null)} />
       )}
-
-      <input type="file" ref={avatarInputRef} className="hidden-input" onChange={onFileChange} accept="image/*" />
     </>
   );
 };

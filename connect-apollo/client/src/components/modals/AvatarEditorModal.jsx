@@ -1,15 +1,80 @@
-import React from 'react';
-import { useApp } from '../../context/AppContext';
+import React, { useCallback } from 'react';
 import Modal from '../common/Modal';
 import Cropper from 'react-easy-crop';
+import { useProfileStore } from '../../stores/profileStore';
+import { useAuthStore } from '../../stores/authStore';
+import { useUIStore } from '../../stores/uiStore';
 
 const AvatarEditorModal = () => {
-  const { avatarEditor, setAvatarEditor, handleSaveAvatar } = useApp();
+  const avatarEditor = useProfileStore(s => s.avatarEditor);
+  const setAvatarEditor = useProfileStore(s => s.setAvatarEditor);
+  const setMyProfile = useProfileStore(s => s.setMyProfile);
+  
+  const username = useAuthStore(s => s.username);
+  const socket = useAuthStore(s => s.socket);
+  const setActiveModal = useUIStore(s => s.setActiveModal);
+
+  const createImage = useCallback((url) => {
+    return new Promise((resolve, reject) => {
+      const img = new Image();
+      img.addEventListener('load', () => resolve(img));
+      img.addEventListener('error', (error) => reject(error));
+      img.setAttribute('crossOrigin', 'anonymous');
+      img.src = url;
+    });
+  }, []);
+
+  const getCroppedImg = useCallback(async (imageSrc, pixelCrop, filters) => {
+    const img = await createImage(imageSrc);
+    const canvas = document.createElement('canvas');
+    canvas.width = pixelCrop.width;
+    canvas.height = pixelCrop.height;
+    const ctx = canvas.getContext('2d');
+    
+    if (!ctx) return null;
+    ctx.filter = `brightness(${filters.brightness}%) contrast(${filters.contrast}%) saturate(${filters.saturate}%) blur(${filters.blur}px)`;
+    ctx.drawImage(img, pixelCrop.x, pixelCrop.y, pixelCrop.width, pixelCrop.height, 0, 0, pixelCrop.width, pixelCrop.height);
+    
+    return new Promise((resolve) => {
+      canvas.toBlob((blob) => {
+        if (blob) resolve(blob);
+      }, 'image/webp', 0.8);
+    });
+  }, [createImage]);
+
+  const handleSaveAvatar = async () => {
+    if (!avatarEditor.croppedAreaPixels || !avatarEditor.image) return;
+    
+    const croppedImageBlob = await getCroppedImg(avatarEditor.image, avatarEditor.croppedAreaPixels, avatarEditor.filters);
+    const formData = new FormData();
+    formData.append('avatar', croppedImageBlob, 'avatar.webp');
+    formData.append('username', username);
+
+    try {
+      const res = await fetch(`${import.meta.env.VITE_BACKEND_URL || 'http://localhost:3001'}/upload-avatar`, { 
+        method: 'POST', 
+        body: formData 
+      });
+      const data = await res.json();
+      if (data.profile) {
+        setMyProfile(prev => ({ ...prev, ...data.profile }));
+        socket.emit("get_avatar_history", username);
+      }
+    } catch (error) {
+      console.error(error);
+    } finally {
+      setAvatarEditor({ ...avatarEditor, isOpen: false, image: null });
+      setActiveModal('settings');
+    }
+  };
 
   if (!avatarEditor.isOpen) return null;
 
   return (
-    <Modal title="Редактор Аватара" onClose={() => setAvatarEditor({ ...avatarEditor, isOpen: false })}>
+    <Modal title="Редактор Аватара" onClose={() => {
+      setAvatarEditor({ ...avatarEditor, isOpen: false, image: null });
+      setActiveModal('settings');
+    }}>
       <div className="avatar-editor-content">
         <div className="crop-container">
           <Cropper

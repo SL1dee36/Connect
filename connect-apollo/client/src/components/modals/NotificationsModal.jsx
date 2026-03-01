@@ -1,17 +1,31 @@
 import React from "react";
-import { useApp } from "../../context/AppContext";
 import Modal from "../common/Modal";
+import { useUIStore } from "../../stores/uiStore";
+import { useSettingsStore } from "../../stores/settingsStore";
+import { useAuthStore } from "../../stores/authStore";
+import { useChatStore } from "../../stores/chatStore";
 
 const NotificationsModal = () => {
-    const {
-        setActiveModal,
-        setHasUnreadNotifs,
-        setNotifications,
-        notifications,
-        switchChat,
-        socket,
+    const setActiveModal = useUIStore(s => s.setActiveModal);
+    const isMobile = useUIStore(s => s.isMobile);
+    const setSwipeX = useUIStore(s => s.setSwipeX);
+    const setShowMobileChat = useUIStore(s => s.setShowMobileChat);
+    
+    const notifications = useSettingsStore(s => s.notifications);
+    const setNotifications = useSettingsStore(s => s.setNotifications);
+    const setHasUnreadNotifs = useSettingsStore(s => s.setHasUnreadNotifs);
+    
+    const socket = useAuthStore(s => s.socket);
+    const setRoom = useChatStore(s => s.setRoom);
 
-    } = useApp();
+    const switchChat = (targetName) => {
+      setRoom(targetName);
+      if (isMobile) {
+        setSwipeX(0);
+        setShowMobileChat(true);
+      }
+      setActiveModal(null);
+    };
 
     return (
         <Modal title="Уведомления" onClose={() => { setActiveModal(null); setHasUnreadNotifs(false); }}>

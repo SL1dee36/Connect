@@ -1,19 +1,27 @@
 import React from 'react';
-import { useApp } from '../../context/AppContext';
 import Modal from '../common/Modal';
+import { useUIStore } from '../../stores/uiStore';
+import { useChatStore } from '../../stores/chatStore';
+import { useAuthStore } from '../../stores/authStore';
 
 const GroupInfoModal = () => {
-  const {
-    setActiveModal,
-    roomSettings,
-    room,
-    groupMembers: groupMembersList,
-    myRole,
-    globalRole,
-    username,
-    socket,
-    leaveGroup
-  } = useApp();
+  const setActiveModal = useUIStore(s => s.setActiveModal);
+  
+  const roomSettings = useChatStore(s => s.roomSettings);
+  const room = useChatStore(s => s.room);
+  const groupMembersList = useChatStore(s => s.groupMembers);
+  const myRole = useChatStore(s => s.myRole);
+  const globalRole = useChatStore(s => s.globalRole);
+  
+  const username = useAuthStore(s => s.username);
+  const socket = useAuthStore(s => s.socket);
+
+  const leaveGroup = () => {
+    if (window.confirm(myRole === "owner" ? "Удалить группу?" : "Выйти из группы?")) {
+      socket.emit("leave_group", { room });
+      setActiveModal(null);
+    }
+  };
 
   return (
     <Modal title="Group Info" onClose={() => setActiveModal(null)}>

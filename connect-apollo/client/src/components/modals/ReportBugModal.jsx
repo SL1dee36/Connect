@@ -1,16 +1,17 @@
 import React from "react";
-import { useApp } from "../../context/AppContext";
 import Modal from "../common/Modal";
+import { useUIStore } from "../../stores/uiStore";
+import { useSettingsStore } from "../../stores/settingsStore";
+import { useAuthStore } from "../../stores/authStore";
 
 const ReportBugModal = () => {
-    const {
-        setActiveModal,
-        setBugDescription,
-        setBugFiles,
-        bugFiles,
-        bugDescription,
-        username
-    } = useApp();
+    const setActiveModal = useUIStore(s => s.setActiveModal);
+    const username = useAuthStore(s => s.username);
+    
+    const bugDescription = useSettingsStore(s => s.bugDescription);
+    const setBugDescription = useSettingsStore(s => s.setBugDescription);
+    const bugFiles = useSettingsStore(s => s.bugFiles);
+    const setBugFiles = useSettingsStore(s => s.setBugFiles);
 
     return (
          <Modal title="Сообщить о баге" onClose={() => setActiveModal(null)}>

@@ -1,13 +1,15 @@
 import React from 'react';
-import { IconFolder } from '../common/Icons';
+import { useSettingsStore } from '../../stores/settingsStore';
+import { useUIStore } from '../../stores/uiStore';
 
-const FolderTabs = ({ 
-  folders, 
-  activeFolderId, 
-  setActiveFolderId, 
-  setFolderToEdit, 
-  setActiveModal 
-}) => {
+const FolderTabs = () => {
+  const folders = useSettingsStore(s => s.folders);
+  const activeFolderId = useSettingsStore(s => s.activeFolderId);
+  const setActiveFolderId = useSettingsStore(s => s.setActiveFolderId);
+  const setFolderToEdit = useSettingsStore(s => s.setFolderToEdit);
+  
+  const setActiveModal = useUIStore(s => s.setActiveModal);
+
   return (
     <div className="folder-tabs">
       {folders.map(f => (

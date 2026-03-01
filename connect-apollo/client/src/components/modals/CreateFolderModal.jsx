@@ -1,14 +1,23 @@
 import React from "react";
-import { useApp } from "../../context/AppContext";
+import { useSettingsStore } from "../../stores/settingsStore";
+import { useUIStore } from "../../stores/uiStore";
 import Modal from "../common/Modal";
 
 const CreateFolderModal = () => {
-    const {
-        setActiveModal,
-        setNewFolderName,
-        newFolderName,
-        createNewFolder
-    } = useApp();
+    const setActiveModal = useUIStore(s => s.setActiveModal);
+    const newFolderName = useSettingsStore(s => s.newFolderName);
+    const setNewFolderName = useSettingsStore(s => s.setNewFolderName);
+    
+    const folders = useSettingsStore(s => s.folders);
+    const setFolders = useSettingsStore(s => s.setFolders);
+
+    const createNewFolder = () => {
+      if (!newFolderName.trim()) return;
+      const newFolder = { id: Date.now().toString(), name: newFolderName, chatIds: [] };
+      setFolders([...folders, newFolder]);
+      setNewFolderName("");
+      setActiveModal(null);
+    };
 
     return (
         <Modal title="Новая папка" onClose={() => setActiveModal(null)}>
@@ -22,5 +31,4 @@ const CreateFolderModal = () => {
         </Modal>
     );
 }
-
 export default CreateFolderModal;
