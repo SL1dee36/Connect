@@ -1,4 +1,4 @@
-const CACHE_NAME = 'connect-apollo-v2.0.1.5';
+const CACHE_NAME = 'connect-apollo-v2.0.50.2';
 const urlsToCache = [
   '/',
   '/index.html',

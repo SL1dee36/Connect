@@ -58,8 +58,8 @@ input, textarea {
 }
 
 .bubble {
-  user-select: text;
   -webkit-user-select: text;
+  user-select: text;
 }
 
 .App {
@@ -470,8 +470,8 @@ input, textarea {
   z-index: 9999;
   /* Анимация появления фона */
   animation: fadeIn 0.2s ease-out forwards;
-  backdrop-filter: blur(5px);
   -webkit-backdrop-filter: blur(5px);
+  backdrop-filter: blur(5px);
 }
 
 /* Контейнер модалки (Desktop по умолчанию) */
@@ -640,6 +640,14 @@ input, textarea {
 /* --- Списки настроек (Items) --- */
 .settings-list { display: flex; flex-direction: column; gap: 0; }
 
+#notifications, #adminbugs{
+    margin-top: 100px
+}
+
+#myprofile {
+    
+}
+
 .settings-item { 
   display: flex; 
   align-items: center; 
@@ -746,8 +754,8 @@ input, textarea {
     align-items: flex-end; /* Прижимаем к низу */
     background: rgba(0,0,0,0.6);
     /* На мобилке можно убрать блюр для производительности, но можно и оставить */
-    backdrop-filter: blur(8px);
     -webkit-backdrop-filter: blur(8px);
+    backdrop-filter: blur(8px);
   }
 
   .modal-content {
@@ -803,7 +811,7 @@ input, textarea {
   .settings-list {
       background: #1c1c1d;
       padding: 0 0px;
-      margin-top: 80px;
+      /* margin-top: 80px; */
   }
   
   /* Увеличенные тач-зоны */
@@ -890,7 +898,7 @@ input, textarea {
     flex-direction: row; justify-content: space-between;
     width: 100%; padding: 20px 20px; box-sizing: border-box;
     background: rgba(0, 0, 0, 0.85);
-    backdrop-filter: blur(15px); -webkit-backdrop-filter: blur(15px);
+    -webkit-backdrop-filter: blur(15px); backdrop-filter: blur(15px);
     border-bottom: 1px solid #222;
     position: sticky; top: 0; z-index: 10;
   }
@@ -943,7 +951,7 @@ input, textarea {
       position: absolute; top: 0; left: 0; right: 0;
       padding: 42px 15px 42px 20px;
       background: rgba(0, 0, 0, 0.65);
-      backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px); backdrop-filter: blur(20px);
       border-bottom: 1px solid rgba(255, 255, 255, 0.05);
       z-index: 50;
       height: 60px;
@@ -954,7 +962,7 @@ input, textarea {
       position: absolute; bottom: 0; left: 0; right: 0;
       margin: 0; border-radius: 0;
       background: rgba(0, 0, 0, 0.65);
-      backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px); backdrop-filter: blur(20px);
       border-top: 1px solid rgba(255, 255, 255, 0.05);
       border-left: none; border-right: none; border-bottom: none;
       padding: 10px 15px;
@@ -1116,7 +1124,7 @@ span { align-items: center; }
   }
 }
 
-.bubble-container { user-select: none; -webkit-user-select: none; max-width: 90%; min-width: 20%;}
+.bubble-container { -webkit-user-select: none; user-select: none; max-width: 90%; min-width: 20%;}
 .long-press-active { filter: brightness(0.7); transition: filter 0.2s; }
 .reply-preview-bubble { position: relative; padding-inline: 24px; cursor: pointer; background: #44444480; border-radius: 8px; border-left: 3px solid; }
 .reply-content { display: flex; flex-direction: column; overflow: hidden; }
@@ -1167,7 +1175,7 @@ p { margin: 0px; }
 .btn-accept:hover { background: #1a7bd6; }
 .btn-decline { background: #333; border: none; color: #ff4d4d; padding: 6px 12px; border-radius: 6px; cursor: pointer; font-size: 13px; }
 
-.tg-in-app-notification { position: fixed; top: -100px; left: 10px; right: 10px; background: rgba(30, 30, 30, 0.95); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); color: white; padding: 12px 16px; border-radius: 14px; box-shadow: 0 10px 30px rgba(0,0,0,0.5); z-index: 99999; display: flex; align-items: center; gap: 15px; transition: top 0.4s cubic-bezier(0.19, 1, 0.22, 1); border: 1px solid rgba(255, 255, 255, 0.1); max-width: 500px; margin: 0 auto; cursor: pointer; }
+.tg-in-app-notification { position: fixed; top: -100px; left: 10px; right: 10px; background: rgba(30, 30, 30, 0.95); -webkit-backdrop-filter: blur(12px); backdrop-filter: blur(12px); color: white; padding: 12px 16px; border-radius: 14px; box-shadow: 0 10px 30px rgba(0,0,0,0.5); z-index: 99999; display: flex; align-items: center; gap: 15px; transition: top 0.4s cubic-bezier(0.19, 1, 0.22, 1); border: 1px solid rgba(255, 255, 255, 0.1); max-width: 500px; margin: 0 auto; cursor: pointer; }
 .tg-in-app-notification.visible { top: 20px; }
 .tg-notif-avatar { width: 45px; height: 45px; border-radius: 50%; background-color: #2b95ff; background-size: cover; background-position: center; flex-shrink: 0; display: flex; align-items: center; justify-content: center; font-weight: bold; font-size: 18px; color: #fff; border: 2px solid #333; }
 .tg-notif-content { flex: 1; overflow: hidden; display: flex; flex-direction: column; justify-content: center; gap: 3px; }

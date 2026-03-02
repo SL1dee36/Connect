@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom'; 
-import "./legal/Legal.css";
+import "./custom/legal/Legal.css";
 const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || "http://localhost:3001";
 
 function Auth({ onLoginSuccess }) {
