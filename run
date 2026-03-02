@@ -1,0 +1,2 @@
+#!/bin/bash
+cd connect-apollo/client && npm run dev

@@ -1,27 +1,28 @@
-import React from 'react';
+import React, { Suspense } from 'react';
 import { useUIStore } from '../../stores/uiStore';
 import { useChatStore } from '../../stores/chatStore';
 import { useAuthStore } from '../../stores/authStore';
 import { useSettingsStore } from '../../stores/settingsStore';
 import { useProfileStore } from '../../stores/profileStore';
-import Modal from './Modal';
+import Modal from './Modal'; 
 
-import CreateGroupContent from '../modals/CreateGroupContent';
-import GroupInfoModal from '../modals/GroupInfoModal';
-import SettingsModal from '../modals/SettingsModal';
-import NotificationsModal from '../modals/NotificationsModal';
-import AddFriendModal from '../modals/AddFriendModal';
-import CreateFolderModal from "../modals/CreateFolderModal";
-import EditFolderModal from '../modals/EditFolderModal';
-import AddToFolderModal from '../modals/AddToFolderModal';
-import AddToGroupModal from '../modals/AddToGroupModal';
-import SearchGroupModal from '../modals/SearchGroupModal';
-import ReportBugModal from '../modals/ReportBugModal';
-import ActionMenuModal from '../modals/ActionMenuModal';
-import AdminBugsModal from '../modals/AdminBugsModal';
-import AvatarEditorModal from '../modals/AvatarEditorModal';
-import EditFriendProfileModal from '../modals/EditFriendProfileModal';
-import UserProfileModal from '../modals/UserProfileModal';
+const NotificationsModal = React.lazy(() => import('../modals/NotificationsModal'));
+const CreateFolderModal = React.lazy(() => import('../modals/CreateFolderModal'));
+const EditFolderModal = React.lazy(() => import('../modals/EditFolderModal'));
+const AddToFolderModal = React.lazy(() => import('../modals/AddToFolderModal'));
+const ActionMenuModal = React.lazy(() => import('../modals/ActionMenuModal'));
+const CreateGroupContent = React.lazy(() => import('../modals/CreateGroupContent'));
+const AddToGroupModal = React.lazy(() => import('../modals/AddToGroupModal'));
+const SearchGroupModal = React.lazy(() => import('../modals/SearchGroupModal'));
+const AddFriendModal = React.lazy(() => import('../modals/AddFriendModal'));
+const ReportBugModal = React.lazy(() => import('../modals/ReportBugModal'));
+const AdminBugsModal = React.lazy(() => import('../modals/AdminBugsModal'));
+const SettingsModal = React.lazy(() => import('../modals/SettingsModal'));
+const GroupInfoModal = React.lazy(() => import('../modals/GroupInfoModal'));
+const EditFriendProfileModal = React.lazy(() => import('../modals/EditFriendProfileModal'));
+const UserProfileModal = React.lazy(() => import('../modals/UserProfileModal'));
+const AvatarEditorModal = React.lazy(() => import('../modals/AvatarEditorModal'));
+const AdminPanel = React.lazy(() => import('../admin/AdminPanel'));
 
 const ModalsContainer = () => {
   const activeModal = useUIStore(state => state.activeModal);
@@ -45,8 +46,10 @@ const ModalsContainer = () => {
     setActiveModal(null);
   };
 
+  if (!activeModal && !useProfileStore.getState().avatarEditor.isOpen) return null;
+
   return (
-    <>
+    <Suspense fallback={null}>
       {activeModal === "notifications" && <NotificationsModal />}
       {activeModal === "createFolder" && <CreateFolderModal />}
       {activeModal === "editFolder" && folderToEdit && <EditFolderModal />}
@@ -80,7 +83,7 @@ const ModalsContainer = () => {
       {activeModal === "adminPanel" && (
         <AdminPanel token={localStorage.getItem("apollo_token")} socket={socket} onClose={() => setActiveModal(null)} />
       )}
-    </>
+    </Suspense>
   );
 };
 
