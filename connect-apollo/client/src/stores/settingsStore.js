@@ -1,58 +1,71 @@
 import { create } from 'zustand';
+import { persist } from 'zustand/middleware';
 
-export const useSettingsStore = create((set, get) => ({
-  // Папки
-  folders: JSON.parse(localStorage.getItem("apollo_folders")) || [{id: 'all', name: 'All', chatIds: []}],
-  setFolders: (updater) => {
-    const nextFolders = typeof updater === 'function' ? updater(get().folders) : updater;
-    localStorage.setItem("apollo_folders", JSON.stringify(nextFolders));
-    set({ folders: nextFolders });
-  },
+export const useSettingsStore = create(
+  persist(
+    (set, get) => ({
+      // Папки
+      folders: [{ id: 'all', name: 'All', chatIds: [] }],
+      setFolders: (updater) =>
+        set((state) => ({
+          folders: typeof updater === 'function' ? updater(state.folders) : updater,
+        })),
 
-  activeFolderId: 'all',
-  setActiveFolderId: (activeFolderId) => set({ activeFolderId }),
+      activeFolderId: 'all',
+      setActiveFolderId: (activeFolderId) => set({ activeFolderId }),
 
-  folderToEdit: null,
-  setFolderToEdit: (folderToEdit) => set({ folderToEdit }),
+      folderToEdit: null,
+      setFolderToEdit: (folderToEdit) => set({ folderToEdit }),
 
-  newFolderName: "",
-  setNewFolderName: (newFolderName) => set({ newFolderName }),
+      newFolderName: '',
+      setNewFolderName: (newFolderName) => set({ newFolderName }),
 
-  // Сортировка и закрепление
-  pinnedChats: JSON.parse(localStorage.getItem("apollo_pinned_chats")) || [],
-  setPinnedChats: (updater) => {
-    const nextPinned = typeof updater === 'function' ? updater(get().pinnedChats) : updater;
-    localStorage.setItem("apollo_pinned_chats", JSON.stringify(nextPinned));
-    set({ pinnedChats: nextPinned });
-  },
+      // Сортировка и закрепление
+      pinnedChats: [],
+      setPinnedChats: (updater) =>
+        set((state) => ({
+          pinnedChats: typeof updater === 'function' ? updater(state.pinnedChats) : updater,
+        })),
 
-  customChatOrder: JSON.parse(localStorage.getItem("apollo_chat_order")) || [],
-  setCustomChatOrder: (updater) => {
-    const nextOrder = typeof updater === 'function' ? updater(get().customChatOrder) : updater;
-    localStorage.setItem("apollo_chat_order", JSON.stringify(nextOrder));
-    set({ customChatOrder: nextOrder });
-  },
+      customChatOrder: [],
+      setCustomChatOrder: (updater) =>
+        set((state) => ({
+          customChatOrder: typeof updater === 'function' ? updater(state.customChatOrder) : updater,
+        })),
 
-  // Уведомления
-  notifications: [],
-  setNotifications: (updater) => set((state) => ({ 
-    notifications: typeof updater === 'function' ? updater(state.notifications) : updater 
-  })),
-  
-  hasUnreadNotifs: false,
-  setHasUnreadNotifs: (hasUnreadNotifs) => set({ hasUnreadNotifs }),
+      // Уведомления
+      notifications: [],
+      setNotifications: (updater) =>
+        set((state) => ({
+          notifications: typeof updater === 'function' ? updater(state.notifications) : updater,
+        })),
 
-  // Баги и админка
-  bugDescription: "",
-  setBugDescription: (bugDescription) => set({ bugDescription }),
-  
-  bugFiles: [],
-  setBugFiles: (bugFiles) => set({ bugFiles }),
-  
-  adminBugList: [],
-  setAdminBugList: (adminBugList) => set({ adminBugList }),
+      hasUnreadNotifs: false,
+      setHasUnreadNotifs: (hasUnreadNotifs) => set({ hasUnreadNotifs }),
 
-  // Общее
-  totalNetworkUsers: 0,
-  setTotalNetworkUsers: (totalNetworkUsers) => set({ totalNetworkUsers }),
-}));
+      // Баги и админка
+      bugDescription: '',
+      setBugDescription: (bugDescription) => set({ bugDescription }),
+
+      bugFiles: [],
+      setBugFiles: (bugFiles) => set({ bugFiles }),
+
+      adminBugList: [],
+      setAdminBugList: (adminBugList) => set({ adminBugList }),
+
+      // Общее
+      totalNetworkUsers: 0,
+      setTotalNetworkUsers: (totalNetworkUsers) => set({ totalNetworkUsers }),
+    }),
+
+    {
+      name: 'apollo-settings-storage',
+
+      partialize: (state) => ({
+        folders: state.folders,
+        pinnedChats: state.pinnedChats,
+        customChatOrder: state.customChatOrder,
+      }),
+    }
+  )
+);

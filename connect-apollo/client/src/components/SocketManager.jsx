@@ -173,7 +173,8 @@ const SocketManager = () => {
         }
       },
       "chat_history": (h) => { 
-        useChatStore.getState().setMessageList(h.map(m => ({...m, status: 'sent'}))); 
+        const formatted = h.map(m => ({...m, status: 'sent'}));
+        useChatStore.getState().setMessageList(formatted); 
         useChatStore.getState().setHasMore(h.length >= 30); 
         useChatStore.getState().setIsLoadingHistory(false); 
       },

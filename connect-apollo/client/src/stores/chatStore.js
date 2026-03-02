@@ -1,11 +1,13 @@
 import { create } from 'zustand';
+import { get, set as idbSet } from 'idb-keyval';
 
 export const useChatStore = create((set, get) => ({
   // Активный чат (комната)
   room: localStorage.getItem("apollo_room") || "",
   setRoom: (room) => {
     localStorage.setItem("apollo_room", room);
-    set({ room });
+    set({ room, messageList: [] });
+    get().loadCachedMessages(room);
   },
 
   roomSettings: { is_private: 0, slow_mode: 0, avatar_url: '' },
@@ -35,9 +37,33 @@ export const useChatStore = create((set, get) => ({
 
   // Сообщения
   messageList: [],
-  setMessageList: (updater) => set((state) => ({
-    messageList: typeof updater === 'function' ? updater(state.messageList) : updater
-  })),
+  setMessageList: (updater) => set((state) => {
+    const newList = typeof updater === 'function' ? updater(state.messageList) : updater;
+
+    if (state.room) {
+      const key = `chat_history_${state.room}`;
+      idbSet(key, newList.slice(-100))
+        .then(() => {
+        })
+        .catch(err => {
+          console.warn('Ошибка сохранения в IndexedDB:', err);
+        });
+    }
+
+    return { messageList: newList };
+  }),
+
+  loadCachedMessages: async (roomName) => {
+    try {
+      const cached = await get(`chat_history_${roomName}`);
+      if (cached && cached.length > 0) {
+        set({ messageList: cached });
+      }
+    } catch (e) {
+      console.error("Ошибка загрузки кэша:", e);
+    }
+  },
+
 
   hasMore: true,
   setHasMore: (hasMore) => set({ hasMore }),
