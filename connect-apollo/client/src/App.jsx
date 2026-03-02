@@ -5,8 +5,8 @@ import "./custom/style/CallStyle.css"
 import io from "socket.io-client";
 import Chat from "./Chat";
 import Auth from "./Auth";
-import UserAgreement from "./legal/UserAgreement";
-import License from "./legal/License";
+import UserAgreement from "./custom/legal/UserAgreement";
+import License from "./custom/legal/License";
 import { jwtDecode } from "jwt-decode";
 import { registerPushNotifications } from "./custom/pushSubscription";
 
