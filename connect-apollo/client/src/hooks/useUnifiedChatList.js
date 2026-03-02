@@ -55,6 +55,7 @@ export const useUnifiedChatList = () => {
       }
     }
 
+    // ДЁРГАНИЕ ЗДЕСЬ (ЕСЛИ УБРАТЬ ТО НЕ БУДЕТ)
     all.sort((a, b) => {
       const isPinnedA = pinnedChats.includes(a.originalId);
       const isPinnedB = pinnedChats.includes(b.originalId);
