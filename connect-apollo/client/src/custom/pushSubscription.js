@@ -1,3 +1,5 @@
+// client/src/pushSubscription.js
+
 const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || "http://localhost:3001";
 
 function urlBase64ToUint8Array(base64String) {

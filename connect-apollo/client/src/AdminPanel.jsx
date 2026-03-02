@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import Modal from "../common/Modal";
+import Modal from './custom/Modal';
 const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || "http://localhost:3001";
 
 const AdminPanel = ({ token, onClose, socket }) => {
