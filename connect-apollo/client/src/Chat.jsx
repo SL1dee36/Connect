@@ -21,7 +21,24 @@ const formatTime = (seconds) => {
     return `${mins}:${secs < 10 ? '0' : ''}${secs}`;
 };
 
-// БЕЗОПАСНЫЙ компонент для рендера эмодзи в тексте чата
+export const getAuthMediaUrl = (url) => {
+    if (!url || typeof url !== 'string' || !url.includes('/uploads/')) return url;
+    
+    const token = localStorage.getItem("apollo_token");
+    if (!token) return url;
+    
+    try {
+        const urlObj = new URL(url);
+        urlObj.searchParams.set('token', token);
+        return urlObj.toString();
+    } catch(e) {
+        // Если URL относительный или парсинг не удался
+        const separator = url.includes('?') ? '&' : '?';
+        return `${url}${separator}token=${token}`;
+    }
+};
+
+
 const InlineAnimatedEmoji = React.memo(({ nativeEmoji, autoAnimate = false, sizeClass = 'inline' }) => {
     const [isAnimated, setIsAnimated] = useState(autoAnimate);
     const [failed, setFailed] = useState(false);
@@ -175,7 +192,7 @@ const MessageItem = React.memo(({ msg, username, display_name, setImageModalSrc,
         
         content = (
             <CustomVideoPlayer 
-                src={videoData.url} 
+                src={getAuthMediaUrl(videoData.url)} 
                 shape={videoData.shape || 'circle'} 
                 width="240px" 
                 align={isMine ? 'right' : 'left'}
@@ -184,16 +201,16 @@ const MessageItem = React.memo(({ msg, username, display_name, setImageModalSrc,
             />
         );
     } else if (msg.type === 'image') {
-        content = <img src={msg.message} alt="attachment" className="chat-image" loading="lazy" onClick={() => setImageModalSrc(msg.message)} />;
+        content = <img src={getAuthMediaUrl(msg.message)} alt="attachment" className="chat-image" loading="lazy" onClick={() => setImageModalSrc(msg.message)} />;
     } else if (msg.type === 'gallery') {
         const images = JSON.parse(msg.message);
         content = (
             <div className="gallery-grid">
-                {images.map((img, i) => <img key={i} src={img} alt="gallery" className="gallery-image" loading="lazy" onClick={() => setImageModalSrc(img)} />)}
+                {images.map((img, i) => <img key={i} src={getAuthMediaUrl(img)} alt="gallery" className="gallery-image" loading="lazy" onClick={() => setImageModalSrc(img)} />)}
             </div>
         );
     } else if (msg.type === 'audio') {
-        content = <CustomAudioPlayer src={msg.message} />;
+        content = <CustomAudioPlayer src={getAuthMediaUrl(msg.message)} />;
     } else {
         const processedText = msg.message.replace(/@(\w+)/g, '[@$1]($1)');
 
@@ -1851,7 +1868,7 @@ function Chat({ socket, username, room, setRoom, handleLogout }) {
     
     
     const roomAvatar = roomSettings.avatar_url || '';
-    const getAvatarStyle = (imgUrl) => imgUrl ? { backgroundImage: `url(${imgUrl})`, backgroundSize: 'cover', backgroundPosition: 'center', backgroundColor: '#333', color: 'transparent', } : { backgroundColor: '#333' };
+    const getAvatarStyle = (imgUrl) => imgUrl ? { backgroundImage: `url(${getAuthMediaUrl(imgUrl)})`, backgroundSize: 'cover', backgroundPosition: 'center', backgroundColor: '#333', color: 'transparent', } : { backgroundColor: '#333' };
 
     let headerSubtitle = "";
     if (typingText) {
@@ -2282,7 +2299,7 @@ function Chat({ socket, username, room, setRoom, handleLogout }) {
             className={`tg-in-app-notification ${inAppNotif.visible ? 'visible' : ''}`}
             onClick={handleInAppNotifClick}
         >
-            <div className="tg-notif-avatar" style={inAppNotif.avatar ? {backgroundImage: `url(${inAppNotif.avatar})`} : {}}>
+            <div className="tg-notif-avatar" style={inAppNotif.avatar ? {backgroundImage: `url(${getAuthMediaUrl(inAppNotif.avatar)})`} : {}}>
                 {!inAppNotif.avatar && inAppNotif.title[0]?.toUpperCase()}
             </div>
             <div className="tg-notif-content">
@@ -2306,7 +2323,7 @@ function Chat({ socket, username, room, setRoom, handleLogout }) {
 
         {imageModalSrc && (
           <div className="image-modal-overlay" onClick={() => setImageModalSrc(null)}>
-            <div className="image-modal-content"> <img src={imageModalSrc} alt="Full view" /> <button className="close-img-btn" onClick={() => setImageModalSrc(null)}>&times;</button> </div>
+            <div className="image-modal-content"> <img src={getAuthMediaUrl(imageModalSrc)} alt="Full view" /> <button className="close-img-btn" onClick={() => setImageModalSrc(null)}>&times;</button> </div>
           </div>
         )}
 
@@ -2817,7 +2834,7 @@ function Chat({ socket, username, room, setRoom, handleLogout }) {
                         .map((friend) => (
                             <div key={friend.username} className="settings-item">
                                 <div className="friend-avatar" style={{ 
-                                    backgroundImage: friend.avatar_url ? `url(${friend.avatar_url})` : 'none',
+                                    backgroundImage: friend.avatar_url ? `url(${getAuthMediaUrl(friend.avatar_url)})` : 'none',
                                     backgroundColor: '#333'
                                 }}>
                                     {!friend.avatar_url && friend.username[0].toUpperCase()}
@@ -2873,7 +2890,7 @@ function Chat({ socket, username, room, setRoom, handleLogout }) {
               {searchResults.length === 0 && searchQuery && !isSearching && (<div style={{ textAlign: "center", color: "#666", padding: 10 }}>Ничего не найдено</div>)}
               {searchResults.map((u, i) => (
                 <div key={i} className="search-item">
-                  <div className="member-info"> <div className="friend-avatar" style={{ fontSize: 12, backgroundImage: `url(${u.avatar_url})` }}>{!u.avatar_url && u.username[0]}</div> 
+                  <div className="member-info"> <div className="friend-avatar" style={{ fontSize: 12, backgroundImage: `url(${getAuthMediaUrl(u.avatar_url)})` }}>{!u.avatar_url && u.username[0]}</div> 
                     <div style={{display: 'flex', flexDirection: 'column', alignItems: 'flex-start', justifyContent: 'space-evenly' }}>
                         <span style={{lineHeight: 1}}>{u.display_name}</span>
                         <span style={{fontSize: 11, color: '#888'}}>@{u.username}</span>
@@ -2922,7 +2939,7 @@ function Chat({ socket, username, room, setRoom, handleLogout }) {
                             {bug.media_urls && JSON.parse(bug.media_urls).length > 0 && (
                                 <div className="gallery-grid" style={{marginBottom: 10}}>
                                     {JSON.parse(bug.media_urls).map((url, i) => (
-                                        <img key={i} src={url} className="gallery-image" onClick={() => setImageModalSrc(url)} />
+                                        <img key={i} src={getAuthMediaUrl(url)} className="gallery-image" onClick={() => setImageModalSrc(url)} />
                                     ))}
                                 </div>
                             )}
@@ -3023,7 +3040,7 @@ function Chat({ socket, username, room, setRoom, handleLogout }) {
             
             <div className="avatar-history" style={{ padding: "0 20px" }}>
               <h4>История аватаров</h4>
-              <div className="avatar-history-container"> {avatarHistory.map((avatar) => ( <div key={avatar.id} className="avatar-history-item"> <img src={avatar.avatar_url} alt="old avatar" onClick={() => setImageModalSrc(avatar.avatar_url)} /> <button className="delete-avatar-btn" onClick={() => socket.emit("delete_avatar", { avatarId: avatar.id })}>⨉</button> </div> ))} </div>
+              <div className="avatar-history-container"> {avatarHistory.map((avatar) => ( <div key={avatar.id} className="avatar-history-item"> <img src={getAuthMediaUrl(avatar.avatar_url)} alt="old avatar" onClick={() => setImageModalSrc(avatar.avatar_url)} /> <button className="delete-avatar-btn" onClick={() => socket.emit("delete_avatar", { avatarId: avatar.id })}>⨉</button> </div> ))} </div>
             </div>
 
             <div className="profile-media-section">
@@ -3035,7 +3052,7 @@ function Chat({ socket, username, room, setRoom, handleLogout }) {
                     {myProfile.media && (isMediaExpanded ? myProfile.media : myProfile.media.slice(-5).reverse()).map((item, idx) => (
                         <div key={idx} className="media-grid-item" onClick={() => setImageModalSrc(item.url)}>
                             {item.temp && <div className="uploading-overlay"><div className="spinner"></div></div>}
-                            {item.type === 'video' ? <video src={item.url} muted /> : <img src={item.url} alt="media" />}
+                            {item.type === 'video' ? <video src={getAuthMediaUrl(item.url)} muted /> : <img src={getAuthMediaUrl(item.url)} alt="media" />}
                             <button className="delete-media-btn" onClick={(e) => { e.stopPropagation(); /* Logic to delete */ }}>&times;</button>
                         </div>
                     ))}
@@ -3106,7 +3123,7 @@ function Chat({ socket, username, room, setRoom, handleLogout }) {
                     <div className="friend-avatar" style={{ 
                         fontSize: 12, 
                         marginRight: 15,
-                        backgroundImage: m.avatar_url ? `url(${m.avatar_url})` : 'none',
+                        backgroundImage: m.avatar_url ? `url(${getAuthMediaUrl(m.avatar_url)})` : 'none',
                         backgroundSize: 'cover',
                         backgroundPosition: 'center',
                         color: m.avatar_url ? 'transparent' : 'white',
