@@ -28,8 +28,8 @@
   "start_url": "/",
   "display": "standalone",
   "orientation": "portrait",
-  "theme_color": "#000000",
-  "background_color": "#000000",
+  "theme_color": "#cccccc",
+  "background_color": "#f2f2f2",
   "scope": "/",
   "lang": "ru"
 }
