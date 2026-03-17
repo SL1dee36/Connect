@@ -578,7 +578,7 @@ input, textarea {
   background-size: cover;
   box-shadow: 0 8px 20px rgba(0,0,0,0.4);
   border: 2px solid #2a2a2a;
-  margin-top: 100px;
+  /* margin-top: 100px; */
   z-index: 100;
 }
 
@@ -641,7 +641,7 @@ input, textarea {
 .settings-list { display: flex; flex-direction: column; gap: 0; }
 
 #notifications, #adminbugs{
-    margin-top: 100px
+    /* margin-top: 100px */
 }
 
 #myprofile {
@@ -718,7 +718,7 @@ input, textarea {
 .btn-danger:hover { background: rgba(255, 89, 89, 0.1); }
 
 /* --- Grid кнопок действий --- */
-.action-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; padding: 24px; margin-top: 80px;}
+.action-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; padding: 24px;}
 .action-card {
     background: #2c2c2c;
     padding: 15px;
@@ -805,7 +805,7 @@ input, textarea {
       padding: 0px !important;
       /* border-bottom: 10px solid #000; */
       border-bottom: 1px solid #00000000;
-      margin-top: 80px;
+      /* margin-top: 80px; */
   }
 
   .settings-list {
@@ -817,9 +817,6 @@ input, textarea {
   /* Увеличенные тач-зоны */
   .settings-item { padding: 8px 16px; }
   .close-btn { width: 40px; height: 40px; font-size: 32px; }
-  .avatar-editor-content {
-    margin-top: 80px;
-  }
 }
 
 @keyframes slideUpMobile {
@@ -1060,7 +1057,7 @@ span { align-items: center; }
 
 @media (max-width: 768px) {
  .modal-scroll-container { margin-top: 0px; }
- #search-input { margin-top: 100px; margin-inline: 15px;}
+ #search-input {margin-inline: 15px;}
 }
 
 @media (max-width: 768px) {
@@ -1139,7 +1136,6 @@ span { align-items: center; }
 .toggle-switch.on { background: #1a7bd6; }
 .toggle-switch .knob { width: 18px; height: 18px; background: white; border-radius: 50%; position: absolute; top: 2px; left: 2px; transition: transform 0.2s; }
 .toggle-switch.on .knob { transform: translateX(18px); }
-#plus-icon { margin-top: -3px; }
 .markdown-content { word-break: break-word; }
 .markdown-content ul, .markdown-content ol { padding-left: 20px; margin: 8px 0; }
 .markdown-content li { margin-bottom: 4px; }
@@ -1548,7 +1544,7 @@ p { margin: 0px; }
     flex-direction: column;
     gap: 10px;
     padding: 20px;
-    margin-top: 80px;
+    /* margin-top: 80px; */
 }
 
 .btn-delete-everyone {
@@ -1597,7 +1593,7 @@ p { margin: 0px; }
 }
 
 .addToGroupbar {
-    margin-top: 100px;
+    /* margin-top: 100px; */
 }
 
 /* Кнопка "Показать больше/меньше" */

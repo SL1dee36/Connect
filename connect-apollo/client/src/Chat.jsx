@@ -2349,7 +2349,7 @@ function Chat({ socket, username, room, setRoom, handleLogout }) {
                   {isMobile && <div className="mobile-app-title">Connect</div>}
                 </div>
                 <div className="actMenu" style={{display: 'flex', gap: 15, alignItems: 'center'}}>
-                    <div onClick={() => setActiveModal("notifications")} title="notifications"><Icons.IconBell hasUnread={hasUnreadNotifs} /></div>
+                    <div onClick={() => setActiveModal("notifications")} id="notifications-btn" title="notifications"><Icons.IconBell hasUnread={hasUnreadNotifs} /></div>
                     
                     {globalRole === 'mod' && (
                        <button className="fab-btn" style={{backgroundColor: '#444', width: 40, height: 40}} onClick={() => setActiveModal("adminPanel")}>
@@ -2392,8 +2392,8 @@ function Chat({ socket, username, room, setRoom, handleLogout }) {
                                 {f.name}
                             </div>
                         ))}
-                        <div className="add-folder-btn" onClick={() => setActiveModal("createFolder")}>+</div>
-                        <div className="background-folder-btn" onClick={() => setActiveModal("createFolder")}>+</div>
+                        <div className="add-folder-btn" onClick={() => setActiveModal("createFolder")}><Icons.IconPlus /></div>
+                        {/* <div className="background-folder-btn" onClick={() => setActiveModal("createFolder")}>+</div> */}
                     </div>
                 )}
                 
@@ -2776,7 +2776,9 @@ function Chat({ socket, username, room, setRoom, handleLogout }) {
                     value={newFolderName} 
                     onChange={(e) => setNewFolderName(e.target.value)} 
                 />
+                <div className="btn">
                 <button className="btn-primary" onClick={createNewFolder}>Создать</button>
+                </div>
             </Modal>
         )}
 
@@ -2810,7 +2812,7 @@ function Chat({ socket, username, room, setRoom, handleLogout }) {
           </Modal>
         )}
 
-        {activeModal === "createGroup" && (<Modal title="Создать группу" onClose={() => setActiveModal(null)}> <input id="search-input" className="modal-input" placeholder="Название..." value={newChatName} onChange={(e) => setNewChatName(e.target.value)} /> <button className="btn-primary" onClick={() => { if (newChatName) socket.emit("create_group", { room: newChatName, username }); }}> Создать </button> </Modal>)}
+        {activeModal === "createGroup" && (<Modal title="Создать группу" onClose={() => setActiveModal(null)}> <input id="search-input" className="modal-input" placeholder="Название..." value={newChatName} onChange={(e) => setNewChatName(e.target.value)} /> <div className="btn"><button className="btn-primary" onClick={() => { if (newChatName) socket.emit("create_group", { room: newChatName, username }); }}> Создать </button> </div></Modal>)}
         {activeModal === "addToGroup" && (
             <Modal title="Добавить участников" onClose={() => { setActiveModal(null); setSearchQuery(""); }}>
                 <div className="addToGroupbar" style={{ padding: "0 20px" }}>
@@ -2896,7 +2898,7 @@ function Chat({ socket, username, room, setRoom, handleLogout }) {
                         <span style={{fontSize: 11, color: '#888'}}>@{u.username}</span>
                     </div>
                   </div>
-                  {!friends.includes(u.username) && (<button className="add-btn-small" onClick={() => { socket.emit("send_friend_request_by_name", { toUsername: u.username }); alert("Заявка отправлена!"); }}>+</button>)}
+                  {!friends.includes(u.username) && (<button className="add-btn-small" onClick={() => { socket.emit("send_friend_request_by_name", { toUsername: u.username }); alert("Заявка отправлена!"); }}>Add</button>)}
                 </div>
               ))}
             </div>
@@ -2905,7 +2907,7 @@ function Chat({ socket, username, room, setRoom, handleLogout }) {
 
         {activeModal === "reportBug" && (
             <Modal title="Сообщить о баге" onClose={() => setActiveModal(null)}>
-                <div style={{padding: 20, display: 'flex', flexDirection: 'column', gap: 15, marginTop: '100px'}}>
+                <div style={{padding: 20, display: 'flex', flexDirection: 'column', gap: 15}}>
                     <textarea 
                         className="modal-input" 
                         rows={5} 
@@ -2920,7 +2922,7 @@ function Chat({ socket, username, room, setRoom, handleLogout }) {
                         onChange={(e) => setBugFiles(Array.from(e.target.files))}
                         style={{color: '#aaa'}}
                     />
-                    <button className="btn-primary" onClick={handleBugSubmit}>Отправить отчет</button>
+                    <div className="btn"><button className="btn-primary" onClick={handleBugSubmit}>Отправить отчет</button></div>
                 </div>
             </Modal>
         )}
@@ -2971,208 +2973,207 @@ function Chat({ socket, username, room, setRoom, handleLogout }) {
                 </div>
             </div>
             
-            <div style={{ color: "#2b95ff", padding: "15px 10px 5px 10px", fontSize: "13px", fontWeight: "bold", textTransform: "uppercase" }}>
-                  Аккаунт
-            </div>
             <div className="settings-list" id="myprofile">
-              <div className="settings-item"> 
-                <div className="form-container" style={{ flex: 1, padding: 0, margin: 0 }}> 
-                    <div className="input-group"> 
-                        <label>Display Name</label> 
-                        <input className="modal-input" style={{ padding: "5px 0", borderBottom: "none" }} value={profileForm.display_name} onChange={(e) => setProfileForm({ ...profileForm, display_name: e.target.value })} placeholder="Your Name" /> 
+                <div className="account-settings" style={{ color: "#2b95ff", padding: "15px 10px 5px 10px", fontSize: "13px", fontWeight: "bold", textTransform: "uppercase" }}>Управление Аккаунтом Connect</div>
+
+                <div className="settings-item"> 
+                    <div className="form-container" style={{ flex: 1, padding: 0, margin: 0 }}> 
+                        <div className="input-group"> 
+                            <label>Display Name</label> 
+                            <input className="modal-input" style={{ padding: "5px 0", borderBottom: "none" }} value={profileForm.display_name} onChange={(e) => setProfileForm({ ...profileForm, display_name: e.target.value })} placeholder="Your Name" /> 
+                        </div> 
                     </div> 
-                </div> 
-              </div>
-
-              <div className="settings-item">
-                <div className="settings-icon"><Icons.IconSettings /></div>
-                <div className="form-container" style={{ flex: 1, padding: 0, margin: 0 }}>
-                    <div className="input-group">
-                        <label>Nametag</label>
-                        <input className="modal-input" style={{ padding: "5px 0", borderBottom: "none" }} value={profileForm.username} onChange={(e) => setProfileForm({ ...profileForm, username: e.target.value })} placeholder="@username" />
-                    </div>
                 </div>
-              </div>
 
-              <div className="settings-item"> <div className="settings-icon"><Icons.IconPhone /></div> <div className="form-container" style={{ flex: 1, padding: 0, margin: 0 }}> <div className="input-group"> <label>Mobile</label> <input className="modal-input" style={{ padding: "5px 0", borderBottom: "none" }} value={profileForm.phone} onChange={(e) => setProfileForm({ ...profileForm, phone: e.target.value })} placeholder="Add phone number" /> </div> </div> </div>
-              <div className="settings-item"> <div className="settings-icon"><Icons.IconBio /></div> <div className="form-container" style={{ flex: 1, padding: 0, margin: 0 }}> <div className="input-group"> <label>Bio</label> <input className="modal-input" style={{ padding: "5px 0", borderBottom: "none" }} value={profileForm.bio} onChange={(e) => setProfileForm({ ...profileForm, bio: e.target.value })} placeholder="Add a few words about yourself" /> </div> </div> </div>
-              
-              <div style={{ color: "#2b95ff", padding: "15px 10px 5px 10px", fontSize: "13px", fontWeight: "bold", textTransform: "uppercase" }}>
-                  Настройки
-              </div>
-
-              <div className="settings-item" onClick={requestNotificationPermission}> 
-                <div className="settings-icon"><Icons.IconBell hasUnread={false}/></div> 
-                <div style={{ flex: 1, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                     <div className="settings-label">Push-уведомления</div>
-                     <div className={`toggle-switch ${profileForm.notifications_enabled ? 'on' : ''}`}>
-                         <div className="knob"></div>
-                     </div>
-                </div>
-              </div>
-
-              <div className="settings-item" onClick={() => requestMediaPermissions('video')}> 
-                <div className="settings-icon"><Icons.IconCamera /></div> 
-                <div className="settings-label">Доступ к камере и микрофону</div>
-                <div style={{fontSize: 12, color: '#2b95ff'}}>Запросить</div>
-              </div>
-
-              <div className="settings-item" onClick={() => requestMediaPermissions('audio')}> 
-                <div className="settings-icon"><Icons.IconMic /></div> 
-                <div className="settings-label">Доступ к микрофону</div>
-                <div style={{fontSize: 12, color: '#2b95ff'}}>Запросить</div>
-              </div>
-
-              <div className="settings-item" onClick={requestFilePermission}> 
-                <div className="settings-icon"><Icons.IconFolder /></div> 
-                <div className="settings-label">Доступ к галерее и файлам</div>
-                <div style={{fontSize: 12, color: '#2b95ff'}}>Запросить</div>
-              </div>
-
-              <div style={{ marginBottom: 20 }}></div>
-              
-               <div className="settings-item" onClick={() => copyProfileLink(username)}> 
-                <div className="settings-icon"><Icons.IconShare/></div> 
-                <div className="settings-label">Поделиться профилем</div>
-              </div>
-
-            </div>
-            
-            <div className="avatar-history" style={{ padding: "0 20px" }}>
-              <h4>История аватаров</h4>
-              <div className="avatar-history-container"> {avatarHistory.map((avatar) => ( <div key={avatar.id} className="avatar-history-item"> <img src={getAuthMediaUrl(avatar.avatar_url)} alt="old avatar" onClick={() => setImageModalSrc(avatar.avatar_url)} /> <button className="delete-avatar-btn" onClick={() => socket.emit("delete_avatar", { avatarId: avatar.id })}>⨉</button> </div> ))} </div>
-            </div>
-
-            <div className="profile-media-section">
-                <div className="profile-media-header">
-                    <h4>Медиа профиля ({myProfile.media ? myProfile.media.length : 0})</h4>
-                </div>
-                <div className="media-grid">
-                    <div className="media-grid-add-btn" onClick={() => profileMediaInputRef.current.click()}>+</div>
-                    {myProfile.media && (isMediaExpanded ? myProfile.media : myProfile.media.slice(-5).reverse()).map((item, idx) => (
-                        <div key={idx} className="media-grid-item" onClick={() => setImageModalSrc(item.url)}>
-                            {item.temp && <div className="uploading-overlay"><div className="spinner"></div></div>}
-                            {item.type === 'video' ? <video src={getAuthMediaUrl(item.url)} muted /> : <img src={getAuthMediaUrl(item.url)} alt="media" />}
-                            <button className="delete-media-btn" onClick={(e) => { e.stopPropagation(); /* Logic to delete */ }}>&times;</button>
-                        </div>
-                    ))}
-                </div>
-                {myProfile.media && myProfile.media.length > 5 && (
-                    <button className="media-toggle-btn" onClick={() => setIsMediaExpanded(!isMediaExpanded)}>
-                        {isMediaExpanded ? "Свернуть" : `Показать все (${myProfile.media.length})`}
-                    </button>
-                )}
-                <input type="file" ref={profileMediaInputRef} className="hidden-input" accept="image/*,video/*" onChange={handleProfileMediaSelect} />
-            </div>
-            
-            <div style={{ padding: "20px 20px 20px 20px" }}> <button className="btn-primary" style={{ width: "100%" }} onClick={saveProfile}>Save Changes</button> <button className="btn-danger" style={{ marginTop: 10, textAlign: "center" }} onClick={handleLogout}>Log Out</button> </div>
-          </Modal>
-        )}
-
-        {avatarEditor.isOpen && (
-          <Modal title="Редактор Аватара" onClose={() => setAvatarEditor({ ...avatarEditor, isOpen: false })}>
-            <div className="avatar-editor-content">
-              <div className="crop-container"> <Cropper image={avatarEditor.image} crop={avatarEditor.crop} zoom={avatarEditor.zoom} aspect={1} onCropChange={(crop) => setAvatarEditor((p) => ({ ...p, crop }))} onZoomChange={(zoom) => setAvatarEditor((p) => ({ ...p, zoom }))} onCropComplete={(_, croppedAreaPixels) => setAvatarEditor((p) => ({ ...p, croppedAreaPixels }))} imageStyle={{ filter: `brightness(${avatarEditor.filters.brightness}%) contrast(${avatarEditor.filters.contrast}%) saturate(${avatarEditor.filters.saturate}%) blur(${avatarEditor.filters.blur}px)` }} /> </div>
-              <div className="editor-controls"> <div className="slider-group"> <label>Zoom</label> <input type="range" min={1} max={3} step={0.1} value={avatarEditor.zoom} onChange={(e) => setAvatarEditor((p) => ({ ...p, zoom: e.target.value }))} /> </div> <div className="slider-group"> <label>Яркость</label> <input type="range" min={0} max={200} value={avatarEditor.filters.brightness} onChange={(e) => setAvatarEditor((p) => ({ ...p, filters: { ...p.filters, brightness: e.target.value }, }))} /> </div> <div className="slider-group"> <label>Контраст</label> <input type="range" min={0} max={200} value={avatarEditor.filters.contrast} onChange={(e) => setAvatarEditor((p) => ({ ...p, filters: { ...p.filters, contrast: e.target.value }, }))} /> </div> <div className="slider-group"> <label>Насыщ.</label> <input type="range" min={0} max={200} value={avatarEditor.filters.saturate} onChange={(e) => setAvatarEditor((p) => ({ ...p, filters: { ...p.filters, saturate: e.target.value }, }))} /> </div> <div className="slider-group"> <label>Размытие</label> <input type="range" min={0} max={10} step={0.1} value={avatarEditor.filters.blur} onChange={(e) => setAvatarEditor((p) => ({ ...p, filters: { ...p.filters, blur: e.target.value }, }))} /> </div> </div>
-              <button className="btn-primary" onClick={handleSaveAvatar}>Применить</button>
-            </div>
-          </Modal>
-        )}
-
-        {activeModal === "groupInfo" && (
-          <Modal title="Group Info" onClose={() => setActiveModal(null)}>
-            <div className="profile-hero"> 
-                <div className="profile-avatar-large" style={getAvatarStyle(roomSettings.avatar_url || '')}>{!roomSettings.avatar_url && room.substring(0, 2)}</div> 
-                <div className="profile-name">{room}</div> 
-                <div className="profile-status">{groupMembers.length} members</div>
-            </div>
-            
-            {(myRole === 'owner' || globalRole === 'mod') && (
-                <div style={{padding: '0 20px', marginBottom: 20}}>
-                     <div className="settings-item">
-                        <label>Приватный чат (только по приглашению)</label>
-                        <div className={`toggle-switch ${roomSettings.is_private ? 'on' : ''}`} onClick={() => socket.emit("update_group_settings", { room, is_private: !roomSettings.is_private, slow_mode: roomSettings.slow_mode, avatar_url: roomSettings.avatar_url })}>
-                            <div className="knob"></div>
+                <div className="settings-item">
+                    <div className="settings-icon"><Icons.IconSettings /></div>
+                    <div className="form-container" style={{ flex: 1, padding: 0, margin: 0 }}>
+                        <div className="input-group">
+                            <label>Nametag</label>
+                            <input className="modal-input" style={{ padding: "5px 0", borderBottom: "none" }} value={profileForm.username} onChange={(e) => setProfileForm({ ...profileForm, username: e.target.value })} placeholder="@username" />
                         </div>
                     </div>
-                    <div className="settings-item" style={{flexDirection: 'column', alignItems: 'flex-start'}}>
-                        <label style={{marginBottom: 5}}>Slow Mode (секунды): {roomSettings.slow_mode}</label>
-                        <input type="range" min="0" max="60" value={roomSettings.slow_mode} onChange={(e) => socket.emit("update_group_settings", { room, is_private: roomSettings.is_private, slow_mode: parseInt(e.target.value), avatar_url: roomSettings.avatar_url })} style={{width: '100%'}} />
-                    </div>
-                    <button className="btn-primary" onClick={() => {
-                       const url = prompt("Введите URL аватарки чата:");
-                       if(url) socket.emit("update_group_settings", { room, is_private: roomSettings.is_private, slow_mode: roomSettings.slow_mode, avatar_url: url });
-                    }}>Сменить аватарку чата</button>
                 </div>
+
+                <div className="settings-item"> <div className="settings-icon"><Icons.IconPhone /></div> <div className="form-container" style={{ flex: 1, padding: 0, margin: 0 }}> <div className="input-group"> <label>Mobile</label> <input className="modal-input" style={{ padding: "5px 0", borderBottom: "none" }} value={profileForm.phone} onChange={(e) => setProfileForm({ ...profileForm, phone: e.target.value })} placeholder="Add phone number" /> </div> </div> </div>
+                <div className="settings-item"> <div className="settings-icon"><Icons.IconBio /></div> <div className="form-container" style={{ flex: 1, padding: 0, margin: 0 }}> <div className="input-group"> <label>Bio</label> <input className="modal-input" style={{ padding: "5px 0", borderBottom: "none" }} value={profileForm.bio} onChange={(e) => setProfileForm({ ...profileForm, bio: e.target.value })} placeholder="Add a few words about yourself" /> </div> </div> </div>
+                
+                <div className="privacy-settings-label" style={{ color: "#2b95ff", padding: "15px 10px 5px 10px", fontSize: "13px", fontWeight: "bold", textTransform: "uppercase" }}>privacy settings</div>
+
+                <div className="settings-item" onClick={requestNotificationPermission}> 
+                    <div className="settings-icon"><Icons.IconBell hasUnread={false}/></div> 
+                    <div style={{ flex: 1, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <div className="settings-label" id="push-notify">Push-уведомления
+                            <div className={`toggle-switch ${profileForm.notifications_enabled ? 'on' : ''}`}>
+                                <div className="knob"></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div className="settings-item" onClick={() => requestMediaPermissions('video')}> 
+                    <div className="settings-icon"><Icons.IconCamera /></div> 
+                    <div className="settings-label" id="privacy">Доступ к камере и микрофону<div style={{fontSize: 12, color: '#2b95ff'}}>Запросить</div></div>
+                </div>
+
+                <div className="settings-item" onClick={() => requestMediaPermissions('audio')}> 
+                    <div className="settings-icon"><Icons.IconMic /></div> 
+                    <div className="settings-label" id="privacy">Доступ к микрофону<div style={{fontSize: 12, color: '#2b95ff'}}>Запросить</div></div>
+                </div>
+
+                <div className="settings-item" onClick={requestFilePermission}> 
+                    <div className="settings-icon"><Icons.IconFolder /></div> 
+                    <div className="settings-label" id="privacy">Доступ к галерее и файлам<div style={{fontSize: 12, color: '#2b95ff'}}>Запросить</div></div>
+                </div>
+
+                <div style={{ marginBottom: 20 }}></div>
+                
+                <div className="settings-item" onClick={() => copyProfileLink(username)}> 
+                    <div className="settings-icon"><Icons.IconShare/></div> 
+                    <div className="settings-label" id="share-profile">Поделиться профилем<div style={{fontSize: 12, color: '#2b95ff'}}>Копировать</div></div>
+                </div>
+
+                
+                <div className="avatar-history" style={{ padding: "0 20px" }}>
+                <h4>История аватаров</h4>
+                <div className="avatar-history-container"> {avatarHistory.map((avatar) => ( <div key={avatar.id} className="avatar-history-item"> <img src={getAuthMediaUrl(avatar.avatar_url)} alt="old avatar" onClick={() => setImageModalSrc(avatar.avatar_url)} /> <button className="delete-avatar-btn" onClick={() => socket.emit("delete_avatar", { avatarId: avatar.id })}>⨉</button> </div> ))} </div>
+                </div>
+
+                <div className="profile-media-section">
+                    <div className="profile-media-header">
+                        <h4>Медиа профиля ({myProfile.media ? myProfile.media.length : 0})</h4>
+                    </div>
+                    <div className="media-grid">
+                        <div className="media-grid-add-btn" onClick={() => profileMediaInputRef.current.click()}>+</div>
+                        {myProfile.media && (isMediaExpanded ? myProfile.media : myProfile.media.slice(-5).reverse()).map((item, idx) => (
+                            <div key={idx} className="media-grid-item" onClick={() => setImageModalSrc(item.url)}>
+                                {item.temp && <div className="uploading-overlay"><div className="spinner"></div></div>}
+                                {item.type === 'video' ? <video src={getAuthMediaUrl(item.url)} muted /> : <img src={getAuthMediaUrl(item.url)} alt="media" />}
+                                <button className="delete-media-btn" onClick={(e) => { e.stopPropagation(); /* Logic to delete */ }}>&times;</button>
+                            </div>
+                        ))}
+                    </div>
+                    {myProfile.media && myProfile.media.length > 5 && (
+                        <button className="media-toggle-btn" onClick={() => setIsMediaExpanded(!isMediaExpanded)}>
+                            {isMediaExpanded ? "Свернуть" : `Показать все (${myProfile.media.length})`}
+                        </button>
+                    )}
+                    <input type="file" ref={profileMediaInputRef} className="hidden-input" accept="image/*,video/*" onChange={handleProfileMediaSelect} />
+                </div>
+                
+                </div>
+                
+                <div style={{ padding: "20px 20px 20px 20px" }}> <div className="btn"><button className="btn-primary" style={{}} onClick={saveProfile}>Save Changes</button></div> <button className="btn-danger" style={{ marginTop: 10, textAlign: "center" }} onClick={handleLogout}>Log Out</button> </div>
+            </Modal>
             )}
 
-            <div className="settings-list" style={{ padding: "0 15px"}}>
-              <div style={{ color: "#8774e1", padding: "10px 0", fontSize: "14px", fontWeight: "bold" }}>Members</div>
-              
-              {groupMembers.map((m, i) => ( 
-                  <div 
-                    key={i} 
-                    className="settings-item" 
-                    onClick={(e) => {
-                        e.stopPropagation();
-                        if(m.username !== username) {
-                            socket.emit("get_user_profile", m.username);
-                        }
-                    }}
-                  > 
-                    <div className="friend-avatar" style={{ 
-                        fontSize: 12, 
-                        marginRight: 15,
-                        backgroundImage: m.avatar_url ? `url(${getAuthMediaUrl(m.avatar_url)})` : 'none',
-                        backgroundSize: 'cover',
-                        backgroundPosition: 'center',
-                        color: m.avatar_url ? 'transparent' : 'white',
-                        backgroundColor: '#333'
-                    }}>
-                        {m.username[0].toUpperCase()}
-                    </div> 
-                    
-                    <div className="settings-label" style={{flex: 1}}> 
-                        <div style={{ fontSize: "16px", display: 'flex', alignItems: 'center', gap: 5 }}>
-                            {m.display_name || m.username}
-                            {m.badges && m.badges.map((b, i) => (
-                                <span key={i} title={b.name} style={{width: '14px', height: '14px', display:'inline-flex'}} dangerouslySetInnerHTML={{__html: b.svg_content}} />
-                            ))}
-                        </div> 
-                        <div style={{ fontSize: "12px", color: "#888" }}>
-                            {m.role === "owner" ? "owner" : m.role}
-                            {m.username !== username && <span style={{marginLeft: 5, color: '#1a7bd6'}}>• Профиль</span>}
-                        </div> 
-                    </div> 
-                    
-                    {(myRole === "owner" || globalRole === 'mod') && m.username !== username && (
-                        <div style={{display:'flex', gap: 5}}>
-                             {m.role !== 'owner' && (
-                                <>
-                                    {m.role !== 'editor' && <button className="add-btn-small" title="Сделать редактором" onClick={(e) => {e.stopPropagation(); socket.emit("assign_chat_role", { room, targetUsername: m.username, newRole: 'editor' })}}>↑</button>}
-                                    {m.role === 'editor' && <button className="add-btn-small" title="Разжаловать" onClick={(e) => {e.stopPropagation(); socket.emit("assign_chat_role", { room, targetUsername: m.username, newRole: 'member' })}}>↓</button>}
-                                    <button className="add-btn-small" style={{background:'#ff4d4d'}} title="Выгнать" onClick={(e) => {e.stopPropagation(); socket.emit("assign_chat_role", { room, targetUsername: m.username, newRole: 'kick' })}}>✕</button>
-                                </>
-                             )}
+            {avatarEditor.isOpen && (
+            <Modal title="Редактор Аватара" onClose={() => setAvatarEditor({ ...avatarEditor, isOpen: false })}>
+                <div className="avatar-editor-content">
+                <div className="crop-container"> <Cropper image={avatarEditor.image} crop={avatarEditor.crop} zoom={avatarEditor.zoom} aspect={1} onCropChange={(crop) => setAvatarEditor((p) => ({ ...p, crop }))} onZoomChange={(zoom) => setAvatarEditor((p) => ({ ...p, zoom }))} onCropComplete={(_, croppedAreaPixels) => setAvatarEditor((p) => ({ ...p, croppedAreaPixels }))} imageStyle={{ filter: `brightness(${avatarEditor.filters.brightness}%) contrast(${avatarEditor.filters.contrast}%) saturate(${avatarEditor.filters.saturate}%) blur(${avatarEditor.filters.blur}px)` }} /> </div>
+                <div className="editor-controls"> <div className="slider-group"> <label>Zoom</label> <input type="range" min={1} max={3} step={0.1} value={avatarEditor.zoom} onChange={(e) => setAvatarEditor((p) => ({ ...p, zoom: e.target.value }))} /> </div> <div className="slider-group"> <label>Яркость</label> <input type="range" min={0} max={200} value={avatarEditor.filters.brightness} onChange={(e) => setAvatarEditor((p) => ({ ...p, filters: { ...p.filters, brightness: e.target.value }, }))} /> </div> <div className="slider-group"> <label>Контраст</label> <input type="range" min={0} max={200} value={avatarEditor.filters.contrast} onChange={(e) => setAvatarEditor((p) => ({ ...p, filters: { ...p.filters, contrast: e.target.value }, }))} /> </div> <div className="slider-group"> <label>Насыщ.</label> <input type="range" min={0} max={200} value={avatarEditor.filters.saturate} onChange={(e) => setAvatarEditor((p) => ({ ...p, filters: { ...p.filters, saturate: e.target.value }, }))} /> </div> <div className="slider-group"> <label>Размытие</label> <input type="range" min={0} max={10} step={0.1} value={avatarEditor.filters.blur} onChange={(e) => setAvatarEditor((p) => ({ ...p, filters: { ...p.filters, blur: e.target.value }, }))} /> </div> </div>
+                <div className="btn"><button className="btn-primary" onClick={handleSaveAvatar}>Применить</button></div>
+                </div>
+            </Modal>
+            )}
+
+            {activeModal === "groupInfo" && (
+            <Modal title="Group Info" onClose={() => setActiveModal(null)}>
+                <div id="groupInfo">
+                <div className="profile-hero" id="groupInfo"> 
+                    <div className="profile-avatar-large" style={getAvatarStyle(roomSettings.avatar_url || '')}>{!roomSettings.avatar_url && room.substring(0, 2)}</div> 
+                    <div className="profile-name">{room}</div> 
+                    <div className="profile-status">{groupMembers.length} members</div>
+                </div>
+                
+                {(myRole === 'owner' || globalRole === 'mod') && (
+                    <div id="groupInfo" class="groupSettings" style={{padding: '0 20px', marginBottom: 20}}>
+                        <div className="settings-item" id="groupInfo">
+                            <label>Приватный чат (только по приглашению)</label>
+                            <div className={`toggle-switch ${roomSettings.is_private ? 'on' : ''}`} onClick={() => socket.emit("update_group_settings", { room, is_private: !roomSettings.is_private, slow_mode: roomSettings.slow_mode, avatar_url: roomSettings.avatar_url })}>
+                                <div className="knob"></div>
+                            </div>
                         </div>
-                    )} 
-                  </div> 
-              ))}
+                        <div className="settings-item" id="SlowMode" style={{flexDirection: 'column', alignItems: 'flex-start'}}>
+                            <label style={{marginBottom: 5}}>Slow Mode (секунды): {roomSettings.slow_mode}</label>
+                            <input type="range" min="0" max="60" value={roomSettings.slow_mode} onChange={(e) => socket.emit("update_group_settings", { room, is_private: roomSettings.is_private, slow_mode: parseInt(e.target.value), avatar_url: roomSettings.avatar_url })} style={{width: '100%'}} />
+                        </div>
+                        <div className="btn">
+                        <button className="btn-primary" onClick={() => {
+                        const url = prompt("Введите URL аватарки чата:");
+                        if(url) socket.emit("update_group_settings", { room, is_private: roomSettings.is_private, slow_mode: roomSettings.slow_mode, avatar_url: url });
+                        }}>Сменить аватарку чата</button></div>
+                    </div>
+                )}
+
+                <div className="settings-list" id="MemberLists" style={{ padding: "0 15px"}}>
+                <div id="title" style={{ color: "#8774e1", padding: "10px 0", fontSize: "14px", fontWeight: "bold" }}>Members</div>
+                
+                {groupMembers.map((m, i) => ( 
+                    <div 
+                        key={i} 
+                        className="settings-item"  id="MemberObject"
+                        onClick={(e) => {
+                            e.stopPropagation();
+                            if(m.username !== username) {
+                                socket.emit("get_user_profile", m.username);
+                            }
+                        }}
+                    > 
+                        <div className="friend-avatar" id="MemberAvatar" style={{ 
+                            fontSize: 12, 
+                            marginRight: 15,
+                            backgroundImage: m.avatar_url ? `url(${getAuthMediaUrl(m.avatar_url)})` : 'none',
+                            backgroundSize: 'cover',
+                            backgroundPosition: 'center',
+                            color: m.avatar_url ? 'transparent' : 'white',
+                            backgroundColor: '#333'
+                        }}>
+                            {m.username[0].toUpperCase()}
+                        </div> 
+                        
+                        <div className="settings-label" id="MemberInfo" style={{flex: 1}}> 
+                            <div id="MemberName" style={{ fontSize: "16px", display: 'flex', alignItems: 'center', gap: 5 }}>
+                                {m.display_name || m.username}
+                                {m.badges && m.badges.map((b, i) => (
+                                    <span key={i} title={b.name} style={{width: '14px', height: '14px', display:'inline-flex'}} dangerouslySetInnerHTML={{__html: b.svg_content}} />
+                                ))}
+                            </div> 
+                            <div id="MemberStatus" style={{ fontSize: "12px", color: "#888" }}>
+                                {m.role === "owner" ? "owner" : m.role}
+                                {m.username !== username && <span style={{marginLeft: 5, color: '#1a7bd6'}}>• Профиль</span>}
+                            </div> 
+                        </div> 
+                        
+                        {(myRole === "owner" || globalRole === 'mod') && m.username !== username && (
+                            <div style={{display:'flex', gap: 5}}>
+                                {m.role !== 'owner' && (
+                                    <>
+                                        {m.role !== 'editor' && <button className="add-btn-small" title="Сделать редактором" onClick={(e) => {e.stopPropagation(); socket.emit("assign_chat_role", { room, targetUsername: m.username, newRole: 'editor' })}}>↑</button>}
+                                        {m.role === 'editor' && <button className="add-btn-small" title="Разжаловать" onClick={(e) => {e.stopPropagation(); socket.emit("assign_chat_role", { room, targetUsername: m.username, newRole: 'member' })}}>↓</button>}
+                                        <button className="add-btn-small" style={{background:'#ff4d4d'}} title="Выгнать" onClick={(e) => {e.stopPropagation(); socket.emit("assign_chat_role", { room, targetUsername: m.username, newRole: 'kick' })}}>✕</button>
+                                    </>
+                                )}
+                            </div>
+                        )} 
+                    </div> 
+                ))}
+                </div>
+                <div style={{ padding: "20px" }}>
+                {(myRole === "owner" || myRole === "editor" || globalRole === "mod") && (
+                    <div className="action-card"
+                        onClick={() => setActiveModal("addToGroup")}
+                        style={{ marginBottom: 10, height: "auto", display: "flex", alignItems: "center", justifyContent: "center", flexDirection: "row", gap: 10 }}
+                    >
+                        <Icons.IconAddFriend />
+                        Добавить участника
+                    </div>
+                )}
+                <button className="btn-danger" style={{ textAlign: "center" }} onClick={leaveGroup}>{myRole === "owner" ? "Delete Group" : "Leave Group"}</button>
+                </div>
             </div>
-            <div style={{ padding: "20px" }}>
-              {(myRole === "owner" || myRole === "editor" || globalRole === "mod") && (
-                  <div className="action-card"
-                       onClick={() => setActiveModal("addToGroup")}
-                       style={{ marginBottom: 10, height: "auto", display: "flex", alignItems: "center", justifyContent: "center", flexDirection: "row", gap: 10 }}
-                  >
-                      <Icons.IconAddFriend />
-                      Добавить участника
-                  </div>
-              )}
-              <button className="btn-danger" style={{ textAlign: "center" }} onClick={leaveGroup}>{myRole === "owner" ? "Delete Group" : "Leave Group"}</button>
-            </div>
-          </Modal>
-        )}
+            </Modal>
+            )}
 
         {activeModal === 'editFriendProfile' && viewProfileData && (
             <Modal title="Редактировать контакт" onClose={() => setActiveModal('userProfile')}>
@@ -3197,7 +3198,8 @@ function Chat({ socket, username, room, setRoom, handleLogout }) {
                                 />
                             </div>
                         </div>
-                        <button className="btn-primary" onClick={handleSaveFriendOverride}>Сохранить</button>
+                        <div className="btn">
+                        <button className="btn-primary" onClick={handleSaveFriendOverride}>Сохранить</button></div>
                         <button className="btn-danger" onClick={() => handleSaveFriendOverride(true)}>Сбросить изменения</button>
                     </div>
                 </div>
@@ -3206,7 +3208,7 @@ function Chat({ socket, username, room, setRoom, handleLogout }) {
         
         {activeModal === "userProfile" && viewProfileData && (
           <Modal title="Info" onClose={() => setActiveModal(null)}>
-            <div className="profile-hero">
+            <div className="profile-hero" id="userProfile">
                 <div className="profile-avatar-background" style={getAvatarStyle(viewProfileData.avatar_url)}>
                     <div className="ProfName">
                         <div className="profile-name">{viewProfileData.display_name}</div>
@@ -3247,7 +3249,7 @@ function Chat({ socket, username, room, setRoom, handleLogout }) {
                 </div>
             </div>
 
-            <div className="settings-list">
+            <div className="settings-list" id="userProfile">
               {viewProfileData.badges && viewProfileData.badges.length > 0 && (
                   <div className="settings-item" style={{justifyContent:'center'}}>
                       {viewProfileData.badges.map((b,i) => (
@@ -3257,14 +3259,14 @@ function Chat({ socket, username, room, setRoom, handleLogout }) {
               )}
               {viewProfileData.bio && (<div className="settings-item"> <div className="settings-label"> <div style={{ fontSize: "16px" }}>{viewProfileData.bio}</div> <div style={{ fontSize: "12px", color: "#888", marginTop: "4px" }}>Bio</div> </div> </div>)}
               {viewProfileData.phone && (<div className="settings-item"> <div className="settings-label"> <div style={{ fontSize: "16px" }}>{viewProfileData.phone}</div> <div style={{ fontSize: "12px", color: "#888", marginTop: "4px" }}>Mobile</div> </div> </div>)}
-              <div className="settings-item" onClick={() => copyProfileLink(viewProfileData.username)}> 
+              <div className="settings-item" id="userProfile" onClick={() => copyProfileLink(viewProfileData.username)}> 
                 <div className="settings-icon"><Icons.IconShare/></div> 
                 <div className="settings-label">Поделиться профилем</div>
               </div>
             </div>
             
             {viewProfileData.media && viewProfileData.media.length > 0 && (
-                <div className="profile-media-section">
+                <div className="profile-media-section" id="userProfile">
                     <div className="profile-media-header"><h4>Медиа ({viewProfileData.media.length})</h4></div>
                     <div className="media-grid">
                         {(isMediaExpanded ? viewProfileData.media : viewProfileData.media.slice(-6).reverse()).map((item, idx) => (
