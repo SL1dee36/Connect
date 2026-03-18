@@ -74,7 +74,7 @@ input, textarea {
 
 /* --- LEFT PANEL --- */
 .left-panel {
-  width: 320px; height: 100%;
+  width: 320px; height: 100dvh;
   display: flex; flex-direction: column; gap: 8px;
   transition: width 0.3s;
 }
