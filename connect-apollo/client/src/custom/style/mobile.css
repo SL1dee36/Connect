@@ -42,26 +42,6 @@
 }
 
 @media (max-width: 768px) {
-
-    html, body {
-        background-color: var(--top-bar) !important; 
-        margin: 0 !important;
-        padding: 0 !important;
-        height: 100%;
-    }
-
-    body > div {
-        background-color: var(--chat-body-bg);
-    }
-
-    .modal-content, 
-    .chat-header, 
-    .modal-header {
-        backface-visibility: hidden !important; 
-        -webkit-backface-visibility: hidden !important;
-        outline: 1px solid transparent !important; 
-    }
-
     /* ------------ general ------------ */
 
     .chat-header, 
@@ -136,7 +116,7 @@
 
     .chat-list-scroll-container {
         background: var(--chat-body-bg) !important;
-        height: 100dvh !important;
+        height: 100% !important;
     }
 
     .chat-list-item {
@@ -243,9 +223,9 @@
         touch-action: pan-y !important;;
 
         width: 100vw !important;
-        height: 100dvh !important;
+        height: 100% !important;
         max-width: 100vw !important;
-        max-height: 100dvh !important;
+        max-height: 100% !important;
         border-radius: 0;
         background: var(--modal-bg) !important;
         border: none;
