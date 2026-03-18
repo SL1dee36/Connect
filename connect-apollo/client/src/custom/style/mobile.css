@@ -102,6 +102,10 @@
         border: none !important;
     }
 
+    .sidebar-top {
+        height: 64px !important;
+    }
+
     .chat-list-scroll-container {
         background: var(--chat-body-bg) !important;
         height: 100dvh !important;
@@ -235,7 +239,7 @@
         width: 100%;
         padding: 15px 15px;
         background: var(--modal-bg) !important;
-        height: 82px;
+        height: 64px;
         box-sizing: border-box;
     }
 
@@ -244,7 +248,7 @@
         border-radius: 32px;
         border-bottom-left-radius: 0px;
         border-bottom-right-radius: 0px;
-        margin-top: 82px;
+        margin-top: 64px;
     }
 
     .modal-scroll-container .settings-list{
@@ -458,6 +462,7 @@
         .profile-hero {
             background-color: var(--profile-hero-bg) !important;
             margin-bottom: 16px !important;
+            width: -webkit-fill-available !important;
         }
         .profile-avatar-large {
             margin: 48px !important;
@@ -490,7 +495,7 @@
             flex-direction: row !important;
             input {
                 width: 30%;
-                max-width: 70% !important;
+                max-width: 60% !important;
             }
         }
         #MemberLists {
@@ -586,13 +591,13 @@
 
 /* ------------- Chats ------------- */
     .chat-header{
-        padding: 42px 15px 40px 20px !important;
+        padding: calc(env(safe-area-inset-top) + 0px) 15px 0px 20px !important;
         background: var(--top-bar) !important;
-        max-height: 82px !important;
+        max-height: 64px !important;
         border-bottom: none;
     }
     .chat-body {
-        margin-top: 82px !important;
+        margin-top: 64px !important;
         padding-bottom: 128px !important;
         border-top-left-radius: 32px !important;
         border-top-right-radius: 32px !important;
