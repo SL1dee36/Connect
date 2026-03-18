@@ -169,6 +169,7 @@
     }
 
     .friends-list {
+        margin-top: 64px !important;
         background: var(--chat-body-bg) !important;
         border-radius: 32px !important;
         border-bottom-right-radius: 0px !important;
