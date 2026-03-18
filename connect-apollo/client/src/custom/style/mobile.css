@@ -41,8 +41,36 @@
   }
 }
 
-/* ------------ general ------------ */
 @media (max-width: 768px) {
+
+    html, body {
+        background-color: var(--top-bar) !important; 
+        margin: 0 !important;
+        padding: 0 !important;
+        height: 100%;
+    }
+
+    body > div {
+        background-color: var(--chat-body-bg);
+    }
+
+    .modal-content, 
+    .chat-header, 
+    .modal-header {
+        backface-visibility: hidden !important; 
+        -webkit-backface-visibility: hidden !important;
+        outline: 1px solid transparent !important; 
+    }
+
+    /* ------------ general ------------ */
+
+    .chat-header, 
+    .modal-header, 
+    .sidebar-top, 
+    .left-panel {
+        top: -1px !important; 
+    }
+
     .tg-in-app-notification {
         box-shadow: none !important;
         border: none !important;
