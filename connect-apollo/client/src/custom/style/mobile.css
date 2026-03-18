@@ -600,7 +600,7 @@
 
 /* ------------- Chats ------------- */
     .chat-header{
-        padding: calc(env(safe-area-inset-top) + 0px) 15px 0px 20px !important;
+        padding: 0px 15px 0px 20px !important;
         background: var(--top-bar) !important;
         max-height: 64px !important;
         border-bottom: none;
