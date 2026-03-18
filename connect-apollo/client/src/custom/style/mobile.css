@@ -6,6 +6,10 @@
   --primary-text-color: #2d4855;
   --accent-color: #00AEFF;
   --accent-color-half: #00aeff59;
+  --accent-invert-color: #ff7b00;
+  --accent-invert-color: #ff7b00c7;
+  --accent-bg: #169ce467;
+  --accent-color: #169ce4;
   --hover-color: #32323250;
   --bg-dark: #000000;
   --bg-light: #FFFFFF;
@@ -39,6 +43,10 @@
 
 /* ------------ general ------------ */
 @media (max-width: 768px) {
+    .tg-in-app-notification {
+        box-shadow: none !important;
+        border: none !important;
+    }
 
     .my-avatar {
         width: 40px !important;
@@ -166,7 +174,7 @@
     }
 
     .folder-tab:hover {
-        background-color: var(--hover-color) !important;
+        /* background-color: var(--hover-color) !important; */
         color: var(--text-light) !important;
     }
 
@@ -241,7 +249,7 @@
 
     .modal-scroll-container .settings-list{
         background: transparent;
-        padding-inline: 32px !important;
+        padding-inline: 16px !important;
     }
 
     .crop-container {
@@ -282,7 +290,7 @@
 
     .search-item {
         border-radius: 128px;
-        padding-inline: 24px;
+        padding: 8px;
         background-color: var(--search-item-bg) !important;
     }
 
@@ -319,7 +327,7 @@
         color: var(--primary-text-color) !important;
         display: flex !important;
         border-radius: 128px !important;
-        padding: 8px 8px !important;
+        padding: 16px 8px !important;
         /* border: 1px solid var(--primary-text-color)  !important; */
         align-items: center;
         /* justify-content: center; */
@@ -329,11 +337,13 @@
     .media-grid-add-btn {
         background-color: var(--settings-item-bg) !important;
         color: var(--primary-text-color) !important;
+        border-radius: 16px !important;
         transition: 0.2s;
     }
 
     .media-grid-add-btn:hover {
         background-color: var(--hover-color) !important;
+        border-radius: 64px !important;
         transition: 0.2s;
         /* color: var(--primary-text-color) !important; */
     }
@@ -341,6 +351,17 @@
     #myprofile .settings-item:hover {
         background-color: transparent !important;
         /* background-color: var(--active-color); */
+    }
+
+    .media-toggle-btn {
+        background-color: var(--accent-color-half) !important;
+        color: var(--accent-color) !important;
+    }
+
+    .media-toggle-btn:hover {
+        background-color: var(--accent-color) !important;
+        color: var(--primary-text-color) !important;
+        border-radius: 16px !important;
     }
 
     #push-notify, #privacy, #share-profile {
@@ -353,6 +374,7 @@
     #myprofile .settings-item {
         height: fit-content !important;
         border-bottom: none !important;
+        padding: 0px 16px !important;
 
         .settings-label, .settings-icon {
             color: var(--primary-text-color);
@@ -382,6 +404,33 @@
         .modal-input:active {
             background-color: var(--settings-item-bg) !important;
         }
+    }
+
+    .btns {
+        background-color: var(--accent-color-half) !important;
+        backdrop-filter: blur(8px) !important;;
+        border-radius: 16px !important;
+    }
+
+    .ProfName {
+        display: flex !important;
+        align-items: center !important;
+    }
+
+    .profile-name {
+        border-radius: 8px !important;
+        padding-inline: 16px !important;
+    }
+
+    .profile-status {
+        border-radius: 64px !important;
+        /* background-color: var(--accent-color-half);
+        color: var(--primary-color); */
+
+        background-color: var(--accent-bg);
+        color: var(--accent-color);
+        padding-inline: 16px !important;
+        backdrop-filter: blur(8px) !important;
     }
 
     .search-results .search-item {
@@ -476,8 +525,61 @@
         }
     }
 
+    #userProfile,
+    .report-settings-item,
+    .settings-list {
+        background: transparent !important;
+    }
+
+    .settings-list #userProfile {
+        margin-top: 8px !important;
+    }
+
+    #userProfile .settings-item {
+            background-color: var(--settings-item-bg) !important;
+            border-radius: 32px !important;
+            margin-bottom: 8px !important;
+    }
+
+    .report-settings-item {
+        .settings-item {
+            background-color: var(--settings-item-bg) !important;
+            border-radius: 32px !important;
+            margin-bottom: 8px !important;
+        }
+    }
+
+    #search-btn svg,
+    #shield-btn svg{
+        width: 24px !important;
+        height: 24px !important;
+        padding: 9px !important;
+        border-radius: 100% !important;
+        transition: 0.2s;
+    }
+    #search-btn svg:hover,
+    #shield-btn svg:hover{
+        background-color: var(--accent-color-half) !important;
+        padding: 9px !important;
+        border-radius: 100% !important;
+        transition: 0.2s;
+    }
     .change-avatar-btn {
         color: var(--text-light);
+    }
+
+    .media-grid {
+        .media-grid-item {
+            border-radius: 16px !important;
+        }
+    }
+    .delete-media-btn {
+        border-radius: 16px !important;
+        background: var(--accent-invert-color) !important;
+        backdrop-filter: blur(4px);
+        color: var(--text-light) !important;
+        height: auto !important;
+        width: auto !important;
     }
 /* ------------- Modal ------------- */
 
@@ -491,6 +593,7 @@
     }
     .chat-body {
         margin-top: 82px !important;
+        padding-bottom: 128px !important;
         border-top-left-radius: 32px !important;
         border-top-right-radius: 32px !important;
         background: var(--chat-body-bg);

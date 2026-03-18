@@ -2352,13 +2352,13 @@ function Chat({ socket, username, room, setRoom, handleLogout }) {
                     <div onClick={() => setActiveModal("notifications")} id="notifications-btn" title="notifications"><Icons.IconBell hasUnread={hasUnreadNotifs} /></div>
                     
                     {globalRole === 'mod' && (
-                       <button className="fab-btn" style={{backgroundColor: '#444', width: 40, height: 40}} onClick={() => setActiveModal("adminPanel")}>
+                       <button className="fab-btn" id="shield-btn" style={{backgroundColor: '#444', width: 40, height: 40}} onClick={() => setActiveModal("adminPanel")}>
                            <Icons.IconShield />
                        </button>
                     )}
 
-                    <button className="fab-btn" onClick={() => setActiveModal("actionMenu")}>
-                        <Icons.IconPlus />
+                    <button className="fab-btn" id="search-btn" onClick={() => setActiveModal("actionMenu")}>
+                        <Icons.IconSearch />
                     </button>
                 </div>
               </div>
@@ -2956,7 +2956,7 @@ function Chat({ socket, username, room, setRoom, handleLogout }) {
         )}
 
         {activeModal === "settings" && (
-          <Modal title="My Profile" onClose={() => setActiveModal(null)}>
+          <Modal title="Profile" onClose={() => setActiveModal(null)}>
             <div className="profile-hero"> 
                 <div className="profile-avatar-background" style={getAvatarStyle(myProfile.avatar_url)}>{!myProfile.avatar_url && username[0].toUpperCase()}
 
@@ -3049,7 +3049,7 @@ function Chat({ socket, username, room, setRoom, handleLogout }) {
                             <div key={idx} className="media-grid-item" onClick={() => setImageModalSrc(item.url)}>
                                 {item.temp && <div className="uploading-overlay"><div className="spinner"></div></div>}
                                 {item.type === 'video' ? <video src={getAuthMediaUrl(item.url)} muted /> : <img src={getAuthMediaUrl(item.url)} alt="media" />}
-                                <button className="delete-media-btn" onClick={(e) => { e.stopPropagation(); /* Logic to delete */ }}>&times;</button>
+                                <button className="delete-media-btn" onClick={(e) => { e.stopPropagation(); /* Logic to delete */ }}>delete</button>
                             </div>
                         ))}
                     </div>
@@ -3283,7 +3283,7 @@ function Chat({ socket, username, room, setRoom, handleLogout }) {
                 </div>
             )}
             
-            <div style={{ marginTop: "10px", background: "#212121", padding: "0 15px" }}>
+            <div class="report-settings-item" style={{ marginTop: "10px", background: "#212121", padding: "0 15px" }}>
               {viewProfileData.isFriend && (<div className="settings-item" onClick={() => removeFriend(viewProfileData.username)} style={{ color: "#ff5959" }}> <span className="settings-icon" style={{ color: "#ff5959" }}><Icons.IconRemoveFriend /></span> Delete Contact </div>)}
               <div className="settings-item" onClick={() => blockUser(viewProfileData.username)} style={{ color: "#ff5959", border: "none" }}> <span className="settings-icon" style={{ color: "#ff5959" }}><Icons.IconBlockUser /></span> Block User </div>
             </div>
