@@ -1196,16 +1196,17 @@ p { margin: 0px; }
   .background-folder-btn { right: 0px; border-radius: 0px; border: 1px solid #000000f0; background: #000000f0; backdrop-filter: blur(2px); z-index: 9; position: fixed; display: flex !important; color: #000; width: 40px; height: 36px; }
   .folder-tab.active { background: #2b95ff; color: white; border-color: #2b95ff; }
   .sidebar-selection-header {
-      height: 63px !important;
-      border-bottom: 1px solid #1a7bd6 !important;
-      background: #252525 !important;
-      padding: 15px !important;
-      display: flex !important;
-      align-items: center !important;
-      gap: 15px !important;
-      width: 100% !important;
-      box-sizing: border-box !important; 
-      border-radius: 0px !important;
+        height: 66px !important;
+        background: #25252500 !important;
+        padding: 15px !important;
+        display: flex !important;
+        align-items: center !important;
+        gap: 15px !important;
+        width: 100% !important;
+        box-sizing: border-box !important;
+        border-radius: 0 !important;
+        margin-top: 64px;
+        margin-bottom: -64px;
   }
 }
 .background-folder-btn { display: none; }
