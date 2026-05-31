@@ -130,7 +130,7 @@
         border-radius: 128px !important;
         width: -webkit-fill-available !important;
         margin-inline: 10px !important;
-        margin-bottom: 5px !important;
+        margin-top: 5px !important;
     }
 
     .chat-list-item .chat-name-text {
