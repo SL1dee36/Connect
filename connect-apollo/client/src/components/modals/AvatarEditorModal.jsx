@@ -51,9 +51,10 @@ const AvatarEditorModal = () => {
     formData.append('username', username);
 
     try {
-      const res = await fetch(`${import.meta.env.VITE_BACKEND_URL || 'http://localhost:3001'}/upload-avatar`, { 
-        method: 'POST', 
-        body: formData 
+      const res = await fetch(`${import.meta.env.VITE_BACKEND_URL || 'http://localhost:3001'}/upload-avatar`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${localStorage.getItem("apollo_token")}` },
+        body: formData
       });
       const data = await res.json();
       if (data.profile) {

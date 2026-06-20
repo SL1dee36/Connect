@@ -96,9 +96,10 @@ const SettingsModal = () => {
       setMyProfile({ ...myProfile, media: [...(myProfile.media || []), tempMediaItem] });
       
       try {
-        const res = await fetch(`${import.meta.env.VITE_BACKEND_URL || 'http://localhost:3001'}/upload-profile-media`, { 
-          method: 'POST', 
-          body: formData 
+        const res = await fetch(`${import.meta.env.VITE_BACKEND_URL || 'http://localhost:3001'}/upload-profile-media`, {
+          method: 'POST',
+          headers: { Authorization: `Bearer ${localStorage.getItem("apollo_token")}` },
+          body: formData
         });
         const data = await res.json();
         if (data.url) {

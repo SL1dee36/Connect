@@ -145,8 +145,8 @@ const SocketManager = () => {
       "group_info_data": (d) => { if(d.room === useChatStore.getState().room) useChatStore.getState().setGroupMembers(d.members); },
       "group_info_updated": (data) => { if(useChatStore.getState().room === data.members?.[0]?.room) useChatStore.getState().setGroupMembers(data.members); },
       "message_deleted": (data) => useChatStore.getState().setMessageList(prev => prev.filter(msg => msg.id !== (data.id || data))),
-      "message_edited": ({ messageId, newText }) => {
-        useChatStore.getState().setMessageList(prev => prev.map(msg => msg.id === messageId ? { ...msg, message: newText, is_edited: true } : msg));
+      "message_edited": ({ id, message }) => {
+        useChatStore.getState().setMessageList(prev => prev.map(msg => msg.id === id ? { ...msg, message, is_edited: true } : msg));
       },
       "display_typing": (d) => {
         const { room, setTypingText } = useChatStore.getState();
