@@ -1,6 +1,6 @@
 .modal-overlay { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(0,0,0,0.72); display: flex; justify-content: center; align-items: center; z-index: 9999; animation: fadeIn 0.18s ease-out forwards; backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px); }
-.modal-content { background: #1e1e1e; width: 680px; height: 1200px; max-width: 92vw; max-height: 86vh; border-radius: var(--r-xl); box-shadow: var(--shadow-lg); border: 1px solid var(--border); display: flex; flex-direction: column; overflow: hidden; position: relative; opacity: 0; transform: scale(0.94); animation: popIn 0.22s cubic-bezier(0.34,1.56,0.64,1) forwards; }
-.modal-header { display: flex; justify-content: space-between; align-items: center; padding: 0 20px 18px; z-index: 2; flex-shrink: 0; border-bottom: 1px solid transparent; }
+.modal-content { background: #1e1e1e; width: 460px; height: auto; max-width: 92vw; max-height: 86vh; border-radius: var(--r-xl); box-shadow: var(--shadow-lg); border: 1px solid var(--border); display: flex; flex-direction: column; overflow: hidden; position: relative; opacity: 0; transform: scale(0.94); animation: popIn 0.22s cubic-bezier(0.34,1.56,0.64,1) forwards; }
+.modal-header { display: flex; justify-content: space-between; align-items: center; padding: 16px 20px 14px; z-index: 2; flex-shrink: 0; border-bottom: 1px solid transparent; }
 .modal-header h2 { font-size: 18px; font-weight: 600; color: var(--text-1); margin: 0; }
 .close-btn { background: transparent; border: none; color: var(--text-2); font-size: 26px; line-height: 1; cursor: pointer; padding: 0; width: 32px; height: 32px; display: flex; align-items: center; justify-content: flex-end; outline: none; transition: color 0.15s; }
 .close-btn:hover { color: var(--text-1); }
@@ -23,7 +23,7 @@
 .change-avatar-btn { border-radius: 8px; background-color: #1111118a; backdrop-filter: blur(2px); padding: 0px; width: 48px; height: 48px; display: flex; align-items: center; justify-content: center; z-index: 100; cursor: pointer }
 .ProfName { padding-inline: 15px; padding-bottom: 5px; display: flex; align-items: flex-start; flex-direction: column; }
 .btns { padding-inline: 15px; padding-top: 10px; padding-bottom: 10px; display: flex; justify-content: space-between; background-color: #ffffff00; backdrop-filter: blur(2px); flex-direction: row; align-items: stretch; }
-.profile-avatar-background { top: 0; width: -webkit-fill-available; height: 50dvw; max-height: 500px; z-index: 100; display: flex; flex-direction: column; justify-content: flex-end; padding: 16px; }
+.profile-avatar-background { top: 0; width: -webkit-fill-available; height: 200px; max-height: 200px; z-index: 100; display: flex; flex-direction: column; align-items: center; justify-content: center; font-size: 64px; font-weight: 600; color: #fff; padding: 16px; }
 
 /* Settings List */
 .settings-list { display: flex; flex-direction: column; gap: 0; }
@@ -119,3 +119,78 @@
 @keyframes slideUpMobile { from { transform: translateY(100%); } to { transform: translateY(0); } }
 @keyframes slideDownMobile { from { transform: translateY(0); } to { transform: translateY(100%); } }
 @media (min-width: 769px) { .modal-handle-bar { display: none; } }
+
+/* ════════════════════════════════════════════
+   Telegram-style profile (UserProfileModal)
+   ════════════════════════════════════════════ */
+.tgp { display: flex; flex-direction: column; margin: 0 -20px -20px; }
+
+.tgp-head { display: flex; flex-direction: column; align-items: center; padding: 4px 20px 20px; }
+.tgp-avatar {
+  width: 100px; height: 100px;
+  border-radius: 50%;
+  background: var(--bg-3) center/cover no-repeat;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 40px; font-weight: 600; color: #fff;
+  margin-bottom: 14px;
+  box-shadow: var(--shadow-md);
+  cursor: pointer;
+  transition: transform 0.15s;
+  flex-shrink: 0;
+}
+.tgp-avatar:hover { transform: scale(1.04); }
+.tgp-name { font-size: 21px; font-weight: 600; color: var(--text-1); text-align: center; line-height: 1.25; }
+.tgp-username { font-size: 14px; color: var(--accent); margin-top: 4px; }
+.tgp-presence { font-size: 13px; color: var(--text-2); margin-top: 2px; }
+.tgp-presence.online { color: var(--text-online); }
+
+.tgp-badges { display: flex; gap: 8px; justify-content: center; margin-top: 10px; flex-wrap: wrap; }
+.tgp-badges > div { width: 24px; height: 24px; }
+
+.tgp-actions { display: flex; gap: 8px; padding: 0 16px 14px; }
+.tgp-action {
+  flex: 1;
+  display: flex; flex-direction: column; align-items: center; gap: 6px;
+  padding: 12px 4px;
+  background: var(--bg-3);
+  border: none; border-radius: var(--r-md);
+  cursor: pointer;
+  transition: background 0.15s, transform 0.1s;
+  font-size: 12px; color: var(--text-2);
+}
+.tgp-action svg { width: 22px; height: 22px; fill: var(--accent); }
+.tgp-action svg path { fill: var(--accent); }
+.tgp-action:hover { background: var(--bg-4); }
+.tgp-action:active { transform: scale(0.95); }
+
+.tgp-section { border-top: 8px solid var(--bg-0); padding: 6px 0; }
+.tgp-row { display: flex; align-items: center; gap: 16px; padding: 11px 20px; }
+.tgp-row--btn { cursor: pointer; transition: background 0.12s; }
+.tgp-row--btn:hover { background: rgba(255,255,255,0.03); }
+.tgp-row-icon { display: flex; flex-shrink: 0; }
+.tgp-row-icon svg { fill: var(--accent); width: 22px; height: 22px; }
+.tgp-row-icon svg path { fill: var(--accent); }
+.tgp-row-main { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.tgp-row-value { font-size: 15px; color: var(--text-1); word-break: break-word; }
+.tgp-row-label { font-size: 12px; color: var(--text-3); }
+
+.tgp-media { border-top: 8px solid var(--bg-0); padding: 12px 20px; }
+.tgp-media h4 { margin: 0 0 10px; font-size: 13px; color: var(--text-2); font-weight: 600; }
+
+.tgp-danger { border-top: 8px solid var(--bg-0); display: flex; flex-direction: column; padding: 4px 0; }
+.tgp-danger button {
+  background: none; border: none;
+  text-align: left;
+  padding: 13px 20px;
+  color: #ff5959; font-size: 15px;
+  cursor: pointer;
+  display: flex; align-items: center; gap: 14px;
+  transition: background 0.12s;
+}
+.tgp-danger button svg { width: 22px; height: 22px; fill: #ff5959; flex-shrink: 0; }
+.tgp-danger button:hover { background: rgba(255,89,89,0.08); }
+
+/* На мобильных шапка модалки абсолютная (80px) — отступаем под неё */
+@media (max-width: 768px) {
+  .tgp-head { padding-top: 96px; }
+}

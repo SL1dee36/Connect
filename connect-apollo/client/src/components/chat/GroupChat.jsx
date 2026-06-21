@@ -50,7 +50,7 @@ const GroupChat = () => {
   };
 
   const forceScrollToBottom = useCallback(() => {
-    virtuosoRef.current?.scrollTo({ top: 9999999, behavior: 'smooth' });
+    virtuosoRef.current?.scrollTo({ top: 9999999, behavior: 'auto' });
     useUIStore.getState().setShowScrollBottomBtn(false);
     useUIStore.getState().setUnreadScrollCount(0);
   }, []);
@@ -132,7 +132,7 @@ const GroupChat = () => {
           initialTopMostItemIndex={messageList.length - 1}
           alignToBottom={true}
           startReached={loadMoreMessages}
-          followOutput={(isAtBottom) => isAtBottom ? 'smooth' : false} 
+          followOutput={(isAtBottom) => isAtBottom ? 'auto' : false} 
           atBottomStateChange={(atBottom) => {
             if (atBottom) {
               useUIStore.getState().setShowScrollBottomBtn(false);

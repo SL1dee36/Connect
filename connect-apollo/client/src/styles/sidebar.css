@@ -157,20 +157,23 @@
 
 /* ── Sidebar icon buttons (header actions) ── */
 .sidebar-icon-btn {
-  width: 34px; height: 34px;
-  border-radius: var(--r-sm);
+  width: 36px; height: 36px;
+  border-radius: var(--r-md);
   background: transparent;
   border: none;
   color: var(--text-1);
   cursor: pointer;
   display: flex; align-items: center; justify-content: center;
-  transition: background 0.15s, opacity 0.15s;
+  transition: background 0.15s, transform 0.1s;
   flex-shrink: 0;
-  opacity: 0.75;
+  padding: 0;
 }
-.sidebar-icon-btn:hover { background: var(--bg-3); opacity: 1; }
-.sidebar-icon-btn--accent { background: var(--accent); color: white; }
-.sidebar-icon-btn--accent:hover { background: var(--accent-hover); color: white; }
+.sidebar-icon-btn svg { display: block; flex-shrink: 0; pointer-events: none; }
+.sidebar-icon-btn:hover { background: var(--bg-3); }
+.sidebar-icon-btn:active { transform: scale(0.9); }
+.sidebar-icon-btn--accent { background: var(--accent); }
+.sidebar-icon-btn--accent:hover { background: var(--accent-hover); }
+.sidebar-icon-btn--accent:active { transform: scale(0.9); }
 
 /* ── Search clear button ── */
 .sidebar-search-clear {

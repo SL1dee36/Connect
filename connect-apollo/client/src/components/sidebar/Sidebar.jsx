@@ -10,22 +10,22 @@ import { useSettingsStore } from '../../stores/settingsStore';
 import { useChatStore } from '../../stores/chatStore';
 
 const IconBellInline = ({ dot }) => (
-  <div style={{ position: 'relative', display: 'flex' }}>
-    <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+  <span style={{ position: 'relative', display: 'flex' }}>
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="#efefef" style={{ display: 'block' }}>
       <path d="M12 22c1.1 0 2-.9 2-2h-4a2 2 0 0 0 2 2zm6-6v-5c0-3.07-1.63-5.64-4.5-6.32V4c0-.83-.67-1.5-1.5-1.5s-1.5.67-1.5 1.5v.68C7.64 5.36 6 7.92 6 11v5l-2 2v1h16v-1l-2-2z"/>
     </svg>
     {dot && <span style={{ position: 'absolute', top: -1, right: -1, width: 7, height: 7, background: '#ff4d4d', borderRadius: '50%', border: '1.5px solid var(--bg-1)' }} />}
-  </div>
+  </span>
 );
 
 const IconCompose = () => (
-  <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
+  <svg width="19" height="19" viewBox="0 0 24 24" fill="#ffffff" style={{ display: 'block' }}>
     <path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34c-.39-.39-1.02-.39-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/>
   </svg>
 );
 
 const IconNewGroup = () => (
-  <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
+  <svg width="20" height="20" viewBox="0 0 24 24" fill="#efefef" style={{ display: 'block' }}>
     <path d="M16 11c1.66 0 2.99-1.34 2.99-3S17.66 5 16 5c-1.66 0-3 1.34-3 3s1.34 3 3 3zm-8 0c1.66 0 2.99-1.34 2.99-3S9.66 5 8 5C6.34 5 5 6.34 5 8s1.34 3 3 3zm0 2c-2.33 0-7 1.17-7 3.5V19h14v-2.5c0-2.33-4.67-3.5-7-3.5zm8 0c-.29 0-.62.02-.97.05 1.16.84 1.97 1.97 1.97 3.45V19h6v-2.5c0-2.33-4.67-3.5-7-3.5z"/>
   </svg>
 );
@@ -144,7 +144,7 @@ const Sidebar = () => {
           </button>
           {globalRole === 'mod' && (
             <button className="sidebar-icon-btn" onClick={() => setActiveModal("adminPanel")} title="Модератор">
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
+              <svg width="19" height="19" viewBox="0 0 24 24" fill="#efefef" style={{ display: 'block' }}>
                 <path d="M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4z"/>
               </svg>
             </button>

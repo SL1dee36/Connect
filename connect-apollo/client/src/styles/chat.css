@@ -239,8 +239,9 @@
 .chat-textarea::placeholder { color: var(--text-3); }
 .chat-textarea::-webkit-scrollbar { display: none; }
 
-.input-toolbar { display: flex; justify-content: space-between; align-items: center; }
+.input-toolbar { display: flex; justify-content: space-between; align-items: center; min-height: 40px; }
 .toolbar-left, .toolbar-right { display: flex; align-items: center; gap: 6px; }
+.toolbar-right { min-width: 44px; justify-content: flex-end; }
 
 .tool-btn {
   background: transparent;
@@ -262,13 +263,15 @@
   background: var(--accent);
   color: white;
   border: none;
-  padding: 8px 16px;
+  height: 36px;
+  padding: 0 16px;
   border-radius: var(--r-sm);
   font-size: 14px;
   font-weight: 600;
   cursor: pointer;
   transition: background 0.2s, transform 0.1s;
-  display: flex; align-items: center; gap: 5px;
+  display: flex; align-items: center; justify-content: center; gap: 5px;
+  white-space: nowrap;
 }
 .send-pill-btn:hover { background: var(--accent-hover); }
 .send-pill-btn:active { transform: scale(0.94); }
