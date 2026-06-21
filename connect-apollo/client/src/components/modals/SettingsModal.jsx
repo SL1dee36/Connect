@@ -139,22 +139,21 @@ const SettingsModal = () => {
 
   return (
     <Modal title="My Profile" onClose={() => setActiveModal(null)}>
-      <div className="profile-hero">
-        <div className="profile-avatar-background" style={{
-          backgroundImage: myProfile.avatar_url ? `url(${myProfile.avatar_url})` : 'none',
-          backgroundColor: '#333'
-        }}>
-          {!myProfile.avatar_url && username[0].toUpperCase()}
-        </div>
-        <div className="ProfName">
-          <div className="profile-name">{myProfile.display_name || username}</div>
-          <div className="profile-status">@{username}</div>
-        </div>
-        <div className="btns">
-          <button className="change-avatar-btn" onClick={() => avatarInputRef.current.click()}>
-            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"><path fill="#ffffff" d="M4 4H2v16h20V4H4zm16 2v12H4V6h16zM8 8H6v2h2V8zm4 0h4v2h-4V8zm-2 2h2v4h-2v-4zm6 4h2v-4h-2v4zm0 0h-4v2h4v-2z"/></svg>
+      <div className="tgp-head">
+        <div className="tgp-avatar-wrap">
+          <div
+            className="tgp-avatar"
+            style={myProfile.avatar_url ? { backgroundImage: `url(${myProfile.avatar_url})` } : {}}
+            onClick={() => myProfile.avatar_url && setImageModalSrc(myProfile.avatar_url)}
+          >
+            {!myProfile.avatar_url && username[0]?.toUpperCase()}
+          </div>
+          <button className="tgp-avatar-edit" onClick={() => avatarInputRef.current.click()} title="Сменить фото">
+            <svg viewBox="0 0 24 24"><path d="M9 2 7.17 4H4a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2h-3.17L15 2H9zm3 15a5 5 0 1 1 0-10 5 5 0 0 1 0 10zm0-2a3 3 0 1 0 0-6 3 3 0 0 0 0 6z"/></svg>
           </button>
         </div>
+        <div className="tgp-name">{myProfile.display_name || username}</div>
+        <div className="tgp-username">@{username}</div>
       </div>
 
       <div style={{ color: "#2b95ff", padding: "15px 10px 5px 10px", fontSize: "13px", fontWeight: "bold", textTransform: "uppercase" }}>Аккаунт</div>

@@ -62,7 +62,7 @@ const PrivateChat = () => {
   const [animateMsgId, setAnimateMsgId] = useState(null);
 
   const forceScrollToBottom = useCallback(() => {
-    virtuosoRef.current?.scrollTo({ top: 9999999, behavior: 'auto' });
+    virtuosoRef.current?.scrollTo({ top: 9999999, behavior: 'smooth' });
     useUIStore.getState().setShowScrollBottomBtn(false);
     useUIStore.getState().setUnreadScrollCount(0);
   }, []);
@@ -70,18 +70,18 @@ const PrivateChat = () => {
   useEffect(() => {
     if (messageList.length > prevMessageCount.current) {
       const lastMsg = messageList[messageList.length - 1];
-      const isMine = lastMsg?.author === username;
 
-      // Анимируем только новое сообщение (не при подгрузке истории сверху)
+      // Анимируем только новое сообщение (не при подгрузке истории сверху).
+      // Прокрутку к низу делает followOutput="smooth" у Virtuoso — отдельный
+      // ручной скролл здесь не нужен (иначе две прокрутки конфликтуют и дёргают).
       setAnimateMsgId(lastMsg?.id || lastMsg?.tempId);
       const t = setTimeout(() => setAnimateMsgId(null), 400);
 
-      if (isMine) setTimeout(forceScrollToBottom, 50);
       prevMessageCount.current = messageList.length;
       return () => clearTimeout(t);
     }
     prevMessageCount.current = messageList.length;
-  }, [messageList, username, forceScrollToBottom]);
+  }, [messageList, username]);
 
   const onContextMenu = (e, msg, x, y) => {
     setContextMenu({ x, y, msg });
@@ -165,7 +165,7 @@ const PrivateChat = () => {
           initialTopMostItemIndex={messageList.length - 1}
           alignToBottom={true}
           startReached={loadMoreMessages}
-          followOutput={(isAtBottom) => isAtBottom ? 'auto' : false}
+          followOutput={(isAtBottom) => isAtBottom ? 'smooth' : false}
           atBottomStateChange={(atBottom) => {
             if (atBottom) {
               useUIStore.getState().setShowScrollBottomBtn(false);
@@ -187,7 +187,7 @@ const PrivateChat = () => {
             const isFirstInGroup = !prev || prev.author !== msg.author;
             const isLastInGroup = !next || next.author !== msg.author;
             return (
-            <div style={{ padding: '0 20px', display: 'flex', flexDirection: 'column' }}>
+            <div className="msg-row">
               <MessageItem
                 msg={msg}
                 username={username}

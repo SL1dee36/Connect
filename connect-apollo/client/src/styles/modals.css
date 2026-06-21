@@ -139,6 +139,19 @@
   flex-shrink: 0;
 }
 .tgp-avatar:hover { transform: scale(1.04); }
+.tgp-avatar-wrap { position: relative; margin-bottom: 14px; }
+.tgp-avatar-wrap .tgp-avatar { margin-bottom: 0; }
+.tgp-avatar-edit {
+  position: absolute; right: -2px; bottom: -2px;
+  width: 34px; height: 34px; border-radius: 50%;
+  background: var(--accent); border: 3px solid #1e1e1e;
+  display: flex; align-items: center; justify-content: center;
+  cursor: pointer; padding: 0;
+  transition: background 0.15s, transform 0.1s;
+}
+.tgp-avatar-edit svg { width: 17px; height: 17px; fill: #fff; }
+.tgp-avatar-edit:hover { background: var(--accent-hover); }
+.tgp-avatar-edit:active { transform: scale(0.9); }
 .tgp-name { font-size: 21px; font-weight: 600; color: var(--text-1); text-align: center; line-height: 1.25; }
 .tgp-username { font-size: 14px; color: var(--accent); margin-top: 4px; }
 .tgp-presence { font-size: 13px; color: var(--text-2); margin-top: 2px; }

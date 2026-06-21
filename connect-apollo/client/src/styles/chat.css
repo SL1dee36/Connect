@@ -85,6 +85,8 @@
 .chat-body [data-virtuoso-scroller]::-webkit-scrollbar-thumb { background: #383838; border-radius: var(--r-full); }
 
 /* ── Messages ── */
+.msg-row { display: flex; flex-direction: column; padding: 0 32px; }
+
 .message {
   display: flex;
   flex-direction: column;
@@ -432,7 +434,8 @@
   .recording-status { font-size: 14px !important; }
 
   .header-left h3 { font-size: 15px; }
-  .bubble-container { max-width: 88%; }
+  .bubble-container { max-width: 80%; }
+  .msg-row { padding: 0 12px; }
 }
 
 /* ── Tablet: tweak body padding ── */
