@@ -1,13 +1,22 @@
 import React, { useState, useEffect, useRef } from 'react';
 import FolderTabs from './FolderTabs';
 import ChatList from './ChatList';
-import { IconBell, IconShield, IconPin, IconFolder, IconTrash } from '../common/Icons';
+import { IconPin, IconFolder, IconTrash } from '../common/Icons';
 
 import { useAuthStore } from '../../stores/authStore';
 import { useUIStore } from '../../stores/uiStore';
 import { useProfileStore } from '../../stores/profileStore';
 import { useSettingsStore } from '../../stores/settingsStore';
 import { useChatStore } from '../../stores/chatStore';
+
+const IconBellInline = ({ dot }) => (
+  <div style={{ position: 'relative', display: 'flex' }}>
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+      <path d="M12 22c1.1 0 2-.9 2-2h-4a2 2 0 0 0 2 2zm6-6v-5c0-3.07-1.63-5.64-4.5-6.32V4c0-.83-.67-1.5-1.5-1.5s-1.5.67-1.5 1.5v.68C7.64 5.36 6 7.92 6 11v5l-2 2v1h16v-1l-2-2z"/>
+    </svg>
+    {dot && <span style={{ position: 'absolute', top: -1, right: -1, width: 7, height: 7, background: '#ff4d4d', borderRadius: '50%', border: '1.5px solid var(--bg-1)' }} />}
+  </div>
+);
 
 const IconCompose = () => (
   <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
@@ -41,6 +50,10 @@ const Sidebar = () => {
 
   const globalRole = useChatStore(s => s.globalRole);
   const hasUnreadNotifs = useSettingsStore(s => s.hasUnreadNotifs);
+  const notifications = useSettingsStore(s => s.notifications);
+  const setNotifications = useSettingsStore(s => s.setNotifications);
+
+  const pendingRequests = notifications.filter(n => n.type === 'friend_request');
 
   const isSearchActive = search.trim().length >= 2;
 
@@ -127,11 +140,13 @@ const Sidebar = () => {
 
         <div className="actMenu">
           <button className="sidebar-icon-btn" onClick={() => setActiveModal("notifications")} title="Уведомления">
-            <IconBell hasUnread={hasUnreadNotifs} />
+            <IconBellInline dot={hasUnreadNotifs} />
           </button>
           {globalRole === 'mod' && (
             <button className="sidebar-icon-btn" onClick={() => setActiveModal("adminPanel")} title="Модератор">
-              <IconShield />
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
+                <path d="M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4z"/>
+              </svg>
             </button>
           )}
           <button className="sidebar-icon-btn" onClick={() => setActiveModal("createGroup")} title="Создать группу">
@@ -186,6 +201,41 @@ const Sidebar = () => {
                   <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
                     <path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/>
                   </svg>
+                </button>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* Плашка входящих заявок в друзья */}
+        {!isSelectionMode && pendingRequests.length > 0 && (
+          <div className="friend-requests-banner">
+            <div className="friend-requests-banner-text">
+              {pendingRequests.length === 1
+                ? <><b>{pendingRequests[0].content}</b> хочет добавить вас в друзья</>
+                : <><b>{pendingRequests.length}</b> входящих заявки в друзья</>}
+            </div>
+            <div style={{ display: 'flex', gap: 6, flexShrink: 0 }}>
+              {pendingRequests.length === 1 ? (
+                <>
+                  <button
+                    className="frb-btn frb-btn--accept"
+                    onClick={() => {
+                      socket?.emit("accept_friend_request", { notifId: pendingRequests[0].id, fromUsername: pendingRequests[0].content });
+                      setNotifications(prev => prev.filter(n => n.id !== pendingRequests[0].id));
+                    }}
+                  >Принять</button>
+                  <button
+                    className="frb-btn frb-btn--decline"
+                    onClick={() => {
+                      socket?.emit("decline_friend_request", { notifId: pendingRequests[0].id });
+                      setNotifications(prev => prev.filter(n => n.id !== pendingRequests[0].id));
+                    }}
+                  >✕</button>
+                </>
+              ) : (
+                <button className="frb-btn frb-btn--accept" onClick={() => setActiveModal("notifications")}>
+                  Посмотреть
                 </button>
               )}
             </div>

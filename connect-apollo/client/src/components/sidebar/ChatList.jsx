@@ -239,7 +239,12 @@ const ChatList = ({ search = '' }) => {
                 <span className="preview-time">{chat.preview?.time}</span>
               </div>
               <div className="chat-preview">
-                {renderPreview(chat)}
+                <span className="preview-content-wrap">{renderPreview(chat)}</span>
+                {chat.unread_count > 0 && (
+                  <span className="chat-unread-badge">
+                    {chat.unread_count > 99 ? '99+' : chat.unread_count}
+                  </span>
+                )}
               </div>
             </div>
             <div

@@ -6,7 +6,7 @@ export const useChatStore = create((set, get) => ({
   room: localStorage.getItem("apollo_room") || "",
   setRoom: (room) => {
     localStorage.setItem("apollo_room", room);
-    set({ room, messageList: [] });
+    set(state => ({ room, messageList: [], chatUnreads: { ...state.chatUnreads, [room]: 0 } }));
     get().loadCachedMessages(room);
   },
 
@@ -79,6 +79,11 @@ export const useChatStore = create((set, get) => ({
 
   forwardingMessage: null,
   setForwardingMessage: (forwardingMessage) => set({ forwardingMessage }),
+
+  // Счётчики непрочитанных по комнатам
+  chatUnreads: {},
+  setChatUnread: (roomId, count) => set(state => ({ chatUnreads: { ...state.chatUnreads, [roomId]: count } })),
+  clearChatUnread: (roomId) => set(state => ({ chatUnreads: { ...state.chatUnreads, [roomId]: 0 } })),
 
   chatReads: {},
   setChatRead: (room, readUsername, lastReadId) => set((state) => ({

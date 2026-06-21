@@ -13,6 +13,7 @@ export const useUnifiedChatList = () => {
   const pinnedChats = useSettingsStore(s => s.pinnedChats);
   const customChatOrder = useSettingsStore(s => s.customChatOrder);
   const chatPreviews = useChatStore(s => s.chatPreviews ?? {});
+  const chatUnreads = useChatStore(s => s.chatUnreads ?? {});
 
   return useMemo(() => {
     let all = [
@@ -22,6 +23,7 @@ export const useUnifiedChatList = () => {
         type: 'group',
         name: c,
         avatar: null,
+        unread_count: chatUnreads[c] || 0,
       })),
       ...friends.map(f => {
         const friendUsername = f.username || f;
@@ -34,6 +36,7 @@ export const useUnifiedChatList = () => {
           avatar: f.avatar_url,
           is_online: f.is_online || false,
           last_seen: f.last_seen || null,
+          unread_count: chatUnreads[roomId] || 0,
         };
       }),
     ];
@@ -83,6 +86,7 @@ export const useUnifiedChatList = () => {
     folders,
     customChatOrder,
     chatPreviews,
+    chatUnreads,
     username,
   ]);
 };

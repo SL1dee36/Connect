@@ -75,8 +75,35 @@ const SocketManager = () => {
       "avatar_history_data": (data) => useProfileStore.getState().setAvatarHistory(data),
       
       // Списки и поиск
-      "user_groups": (groups) => { if(Array.isArray(groups)) useProfileStore.getState().setMyChats(groups); },
-      "friends_list": (list) => { if(Array.isArray(list)) useProfileStore.getState().setFriends(list); },
+      "user_groups": (groups) => {
+        if (!Array.isArray(groups)) return;
+        // Поддержка как старого формата (строки), так и нового (объекты с preview/unread_count)
+        const roomNames = groups.map(g => typeof g === 'string' ? g : g.room);
+        useProfileStore.getState().setMyChats(roomNames);
+        const chatStore = useChatStore.getState();
+        const previews = {};
+        groups.forEach(g => {
+          if (typeof g === 'object' && g.room) {
+            if (g.preview) previews[g.room] = g.preview;
+            if (g.unread_count !== undefined) chatStore.setChatUnread(g.room, g.unread_count);
+          }
+        });
+        if (Object.keys(previews).length) chatStore.setChatPreviews(prev => ({ ...prev, ...previews }));
+      },
+      "friends_list": (list) => {
+        if (!Array.isArray(list)) return;
+        useProfileStore.getState().setFriends(list);
+        const chatStore = useChatStore.getState();
+        const myUser = username;
+        const previews = {};
+        list.forEach(f => {
+          const fUser = f.username || f;
+          const room = [myUser, fUser].sort().join('_');
+          if (f.preview) previews[room] = f.preview;
+          if (f.unread_count !== undefined) chatStore.setChatUnread(room, f.unread_count);
+        });
+        if (Object.keys(previews).length) chatStore.setChatPreviews(prev => ({ ...prev, ...previews }));
+      },
       "search_results": (results) => { 
         useProfileStore.getState().setSearchResults(Array.isArray(results) ? results.filter(u => u.username !== username) : []); 
         useProfileStore.getState().setIsSearching(false); 
@@ -181,7 +208,12 @@ const SocketManager = () => {
             if (document.hidden) { playNotificationSound(); sendSystemNotification(data.author, data.message, 'dm', data.room, null); }
           }
         } else {
-          if (data.author !== username) { playNotificationSound(); sendSystemNotification(data.author, data.message, 'dm', data.room, null); }
+          if (data.author !== username) {
+            const cur = chatStore.chatUnreads[data.room] || 0;
+            chatStore.setChatUnread(data.room, cur + 1);
+            playNotificationSound();
+            sendSystemNotification(data.author, data.message, 'dm', data.room, null);
+          }
         }
       },
       "chat_history": (h) => { 
