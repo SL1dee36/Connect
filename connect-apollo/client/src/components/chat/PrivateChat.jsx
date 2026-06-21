@@ -6,7 +6,19 @@ import ChatInput from './ChatInput';
 import { useAuthStore } from '../../stores/authStore';
 import { useUIStore } from '../../stores/uiStore';
 import { useChatStore } from '../../stores/chatStore';
+import { useProfileStore } from '../../stores/profileStore';
 import { useCallLogic } from '../../hooks/useCallLogic';
+
+const formatLastSeen = (lastSeen) => {
+  if (!lastSeen) return 'Личный чат';
+  const date = new Date(lastSeen.endsWith('Z') ? lastSeen : lastSeen + 'Z');
+  const diffMins = Math.floor((Date.now() - date) / 60000);
+  if (diffMins < 2) return 'только что в сети';
+  if (diffMins < 60) return `был(а) ${diffMins} мин. назад`;
+  const h = Math.floor(diffMins / 60);
+  if (h < 24) return `был(а) ${h} ч. назад`;
+  return `был(а) ${Math.floor(h / 24)} дн. назад`;
+};
 
 const PrivateChat = () => {
   const username = useAuthStore(s => s.username);
@@ -18,6 +30,14 @@ const PrivateChat = () => {
   const typingText = useChatStore(s => s.typingText);
   const hasMore = useChatStore(s => s.hasMore);
   
+  const friends = useProfileStore(s => s.friends);
+  const chatReads = useChatStore(s => s.chatReads);
+
+  const partnerFriend = friends.find(f => (f.username || f) === partnerUsername);
+  const isPartnerOnline = partnerFriend?.is_online || false;
+  const partnerLastSeen = partnerFriend?.last_seen;
+  const partnerLastReadId = chatReads[room]?.[partnerUsername] || 0;
+
   const isEmojiPickerOpen = useUIStore(s => s.isEmojiPickerOpen);
   const showMenu = useUIStore(s => s.showMenu);
   const setShowMenu = useUIStore(s => s.setShowMenu);
@@ -75,8 +95,8 @@ const PrivateChat = () => {
             onClick={() => socket.emit("get_user_profile", partnerUsername)}
           >
             <h3 style={{ margin: 0 }}>{partnerUsername}</h3>
-            <span style={{ fontSize: 12, color: "#777" }}>
-              {typingText || "Личный чат"}
+            <span style={{ fontSize: 12, color: isPartnerOnline ? '#4caf50' : '#777' }}>
+              {typingText || (isPartnerOnline ? 'в сети' : formatLastSeen(partnerLastSeen))}
             </span>
           </div>
         </div>
@@ -150,6 +170,8 @@ const PrivateChat = () => {
                 onContextMenu={onContextMenu}
                 onReplyTrigger={(msg) => useChatStore.getState().setReplyingTo(msg)}
                 onMentionClick={(user) => socket.emit("get_user_profile", user)}
+                onReaction={(msgId, msgRoom, emoji) => socket.emit("toggle_reaction", { messageId: msgId, room: msgRoom, emoji })}
+                partnerLastReadId={partnerLastReadId}
                 scrollToMessage={(id) => {
                   const msgIndex = messageList.findIndex(m => m.id === id);
                   if (msgIndex !== -1) {

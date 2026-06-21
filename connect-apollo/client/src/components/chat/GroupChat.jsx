@@ -132,6 +132,7 @@ const GroupChat = () => {
                 onContextMenu={onContextMenu}
                 onReplyTrigger={(msg) => useChatStore.getState().setReplyingTo(msg)}
                 onMentionClick={(user) => socket.emit("get_user_profile", user)}
+                onReaction={(msgId, msgRoom, emoji) => socket.emit("toggle_reaction", { messageId: msgId, room: msgRoom, emoji })}
                 scrollToMessage={(id) => {
                   const msgIndex = messageList.findIndex(m => m.id === id);
                   if (msgIndex !== -1) {

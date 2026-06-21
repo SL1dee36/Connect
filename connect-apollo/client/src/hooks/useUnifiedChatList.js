@@ -32,6 +32,8 @@ export const useUnifiedChatList = () => {
           type: 'dm',
           name: f.display_name || friendUsername,
           avatar: f.avatar_url,
+          is_online: f.is_online || false,
+          last_seen: f.last_seen || null,
         };
       }),
     ];

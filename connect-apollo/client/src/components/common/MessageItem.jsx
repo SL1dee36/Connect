@@ -6,10 +6,20 @@ import rehypeSanitize from 'rehype-sanitize';
 import CustomAudioPlayer from "./CustomAudioPlayer";
 import CustomVideoPlayer from "./CustomVideoPlayer";
 import InlineAnimatedEmoji from "./InlineAnimatedEmoji";
-import { IconReply, IconCheck } from "./Icons";
+import { IconReply, IconCheck, IconDoubleCheck } from "./Icons";
 import { getNotoEmojiUrls } from "./EmojiPickerPanel";
 
-const MessageItem = React.memo(({ msg, username, display_name, setImageModalSrc, onContextMenu, onReplyTrigger, scrollToMessage, onMentionClick }) => {
+const groupReactions = (reactions) => {
+    const map = {};
+    reactions.forEach(r => {
+        if (!map[r.emoji]) map[r.emoji] = { emoji: r.emoji, count: 0, users: [] };
+        map[r.emoji].count++;
+        map[r.emoji].users.push(r.username);
+    });
+    return Object.values(map);
+};
+
+const MessageItem = React.memo(({ msg, username, display_name, setImageModalSrc, onContextMenu, onReplyTrigger, scrollToMessage, onMentionClick, onReaction, partnerLastReadId }) => {
     const isMine = msg.author === username;
     const [translateX, setTranslateX] = useState(0);
     const [isLongPress, setIsLongPress] = useState(false);
@@ -215,17 +225,18 @@ const MessageItem = React.memo(({ msg, username, display_name, setImageModalSrc,
         );
     };
 
+    const isRead = isMine && partnerLastReadId && msg.id && partnerLastReadId >= msg.id;
+    const grouped = msg.reactions?.length > 0 ? groupReactions(msg.reactions) : null;
+
     return (
-        <div 
+        <div
             id={`message-${msg.id}`}
-            className={`message ${isMine ? "mine" : "theirs"}`} 
+            className={`message ${isMine ? "mine" : "theirs"}`}
             style={{ opacity: msg.status === 'pending' || msg.status === 'uploading' ? 0.7 : 1, position: 'relative' }}
             onTouchStart={handleTouchStart}
             onTouchMove={handleTouchMove}
             onTouchEnd={handleTouchEnd}
-            
         >
-  
             <div style={{
                 position: 'absolute', left: isMine ? 'auto' : -40, right: isMine ? -40 : 'auto', top: '50%', transform: 'translateY(-50%)',
                 opacity: Math.min(translateX / 80, 1), transition: 'opacity 0.2s', color: '#888'
@@ -235,7 +246,7 @@ const MessageItem = React.memo(({ msg, username, display_name, setImageModalSrc,
 
             <div className={`bubble-container ${isLongPress ? 'long-press-active' : ''}`} style={{ transform: `translateX(${translateX}px)`, transition: translateX === 0 ? 'transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275)' : 'none' }}>
                 <div className={`bubble ${msg.type === 'video' ? 'video-bubble' : ''} ${isTransparentBubble ? 'transparent-bubble' : ''}`}
-                onContextMenu={handleRightClick}
+                    onContextMenu={handleRightClick}
                 >
                     <span className="meta-name" style={{display:'flex', alignItems:'center', gap: '4px'}}>
                         {msg.author_display_name || msg.author}
@@ -243,6 +254,11 @@ const MessageItem = React.memo(({ msg, username, display_name, setImageModalSrc,
                             <span key={i} title={b.name} style={{width: '14px', height: '14px', display:'inline-flex'}} dangerouslySetInnerHTML={{__html: b.svg_content}} />
                         ))}
                     </span>
+                    {msg.forwarded_from_author && (
+                        <div className="forwarded-banner">
+                            ↗ Переслано от <span style={{color:'#2b95ff'}}>@{msg.forwarded_from_author}</span>
+                        </div>
+                    )}
                     {msg.reply_to_id && (
                         <div className="reply-preview-bubble" onClick={() => scrollToMessage(msg.reply_to_id)}>
                             <div className="reply-content">
@@ -255,16 +271,38 @@ const MessageItem = React.memo(({ msg, username, display_name, setImageModalSrc,
                     )}
                     {msg.status === 'uploading' ? (
                         <div style={{display: 'flex', alignItems: 'center', gap: 10, padding: 10}}>
-                             <div className="spinner" style={{width: 14, height: 14, borderWidth: 2}}></div>
-                             <span>Загрузка...</span>
+                            <div className="spinner" style={{width: 14, height: 14, borderWidth: 2}}></div>
+                            <span>Загрузка...</span>
                         </div>
                     ) : content}
                     <span className="meta">
                         {msg.time}
                         {msg.is_edited && <span style={{ marginLeft: 4, fontStyle: 'italic', opacity: 0.7 }}>изм.</span>}
-                        {isMine && msg.status === 'sent' && <IconCheck />}
+                        {isMine && msg.status === 'sent' && (
+                            isRead
+                                ? <IconDoubleCheck color="#2b95ff" />
+                                : <IconCheck />
+                        )}
                     </span>
                 </div>
+
+                {grouped && (
+                    <div className={`reactions-row ${isMine ? 'mine' : 'theirs'}`}>
+                        {grouped.map(({ emoji, count, users }) => {
+                            const iReacted = users.includes(username);
+                            return (
+                                <button
+                                    key={emoji}
+                                    className={`reaction-badge ${iReacted ? 'reacted' : ''}`}
+                                    onClick={() => onReaction?.(msg.id, msg.room, emoji)}
+                                    title={users.join(', ')}
+                                >
+                                    {emoji}{count > 1 ? ` ${count}` : ''}
+                                </button>
+                            );
+                        })}
+                    </div>
+                )}
             </div>
         </div>
     );

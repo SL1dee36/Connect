@@ -214,11 +214,20 @@ const ChatList = () => {
             {isSelected && (
               <div className="check-icon-container"><IconCheckCircle /></div>
             )}
-            <div className="friend-avatar" style={{
-              backgroundImage: chat.avatar ? `url(${chat.avatar})` : 'none',
-              backgroundColor: '#333'
-            }}>
-              {!chat.avatar && (chat.name[0] ? chat.name[0].toUpperCase() : "?")}
+            <div style={{ position: 'relative', flexShrink: 0 }}>
+              <div className="friend-avatar" style={{
+                backgroundImage: chat.avatar ? `url(${chat.avatar})` : 'none',
+                backgroundColor: '#333'
+              }}>
+                {!chat.avatar && (chat.name[0] ? chat.name[0].toUpperCase() : "?")}
+              </div>
+              {chat.type === 'dm' && chat.is_online && (
+                <span style={{
+                  position: 'absolute', bottom: 1, right: 1,
+                  width: 10, height: 10, borderRadius: '50%',
+                  background: '#4caf50', border: '2px solid #111'
+                }} />
+              )}
             </div>
             <div className="chat-info-mobile">
               <div className="chat-name chat-name-row">

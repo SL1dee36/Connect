@@ -1,8 +1,10 @@
 import React, { useLayoutEffect, useEffect, useRef, useState } from 'react';
 import ReactDOM from 'react-dom';
-import { IconReply, IconCopy, IconTrash, IconEdit } from '../common/Icons';
+import { IconReply, IconCopy, IconTrash, IconEdit, IconForward } from '../common/Icons';
 
-const ContextMenu = ({ x, y, msg, onClose, onReply, onCopy, onDeleteRequest, canDelete, onEditRequest, canEdit }) => {
+const REACTION_EMOJIS = ['👍', '❤️', '😂', '😮', '😢', '😡'];
+
+const ContextMenu = ({ x, y, msg, onClose, onReply, onCopy, onDeleteRequest, canDelete, onEditRequest, canEdit, onReact, onForward }) => {
   const menuRef = useRef(null);
   const [position, setPosition] = useState({ left: x, top: y, opacity: 0 });
 
@@ -71,23 +73,41 @@ const ContextMenu = ({ x, y, msg, onClose, onReply, onCopy, onDeleteRequest, can
       onContextMenu={(e) => { e.preventDefault(); e.stopPropagation(); }}
       onTouchStart={(e) => e.stopPropagation()}
     >
+      <div style={{ display: 'flex', gap: 4, padding: '8px 10px', borderBottom: '1px solid #333' }}>
+        {REACTION_EMOJIS.map(emoji => (
+          <button
+            key={emoji}
+            onClick={() => { onReact?.(emoji); onClose(); }}
+            style={{ background: 'none', border: 'none', fontSize: 22, cursor: 'pointer', padding: '2px 4px', borderRadius: 8, transition: 'transform 0.1s' }}
+            onMouseEnter={e => e.currentTarget.style.transform = 'scale(1.3)'}
+            onMouseLeave={e => e.currentTarget.style.transform = 'scale(1)'}
+          >
+            {emoji}
+          </button>
+        ))}
+      </div>
+
       <div className="menu-item" onClick={onReply} style={itemStyle}>
         <IconReply/> Ответить
+      </div>
+
+      <div className="menu-item" onClick={onForward} style={itemStyle}>
+        <IconForward/> Переслать
       </div>
 
       <div className="menu-item" onClick={onCopy} style={itemStyle}>
         <IconCopy/> Копировать
       </div>
 
-      {canDelete && (
-        <div className="menu-item" onClick={onDeleteRequest} style={{...itemStyle, color: '#ff4d4d'}}>
-          <IconTrash/> Удалить
-        </div>
-      )}
-
       {canEdit && (
         <div className="menu-item" onClick={onEditRequest} style={itemStyle}>
           <IconEdit/> Изменить
+        </div>
+      )}
+
+      {canDelete && (
+        <div className="menu-item" onClick={onDeleteRequest} style={{...itemStyle, color: '#ff4d4d'}}>
+          <IconTrash/> Удалить
         </div>
       )}
 

@@ -148,6 +148,15 @@ const SocketManager = () => {
       "message_edited": ({ id, message }) => {
         useChatStore.getState().setMessageList(prev => prev.map(msg => msg.id === id ? { ...msg, message, is_edited: true } : msg));
       },
+      "reaction_updated": ({ messageId, reactions }) => {
+        useChatStore.getState().setMessageList(prev => prev.map(msg => msg.id === messageId ? { ...msg, reactions } : msg));
+      },
+      "chat_read_update": ({ room: r, username: readUser, last_read_id }) => {
+        useChatStore.getState().setChatRead(r, readUser, last_read_id);
+      },
+      "chat_read_history": ({ room: r, reads }) => {
+        reads.forEach(({ username: u, last_read_id }) => useChatStore.getState().setChatRead(r, u, last_read_id));
+      },
       "display_typing": (d) => {
         const { room, setTypingText } = useChatStore.getState();
         if(d.room === room) { 
@@ -161,15 +170,18 @@ const SocketManager = () => {
         chatStore.setChatPreviews(prev => ({ ...prev, [data.room]: { text: data.message, sender: data.author, time: data.time, timestamp: data.timestamp, type: data.type } }));
         if (data.room === chatStore.room) {
           chatStore.setMessageList(list => {
-            if (data.author === username && data.tempId) { 
-              const exists = list.find(m => m.tempId === data.tempId); 
-              if (exists) return list.map(m => m.tempId === data.tempId ? { ...data, status: 'sent' } : m); 
+            if (data.author === username && data.tempId) {
+              const exists = list.find(m => m.tempId === data.tempId);
+              if (exists) return list.map(m => m.tempId === data.tempId ? { ...data, status: 'sent' } : m);
             }
             return [...list, data];
           });
-          if (data.author !== username && document.hidden) { playNotificationSound(); sendSystemNotification(data.author, data.message, 'dm', data.room, null); }
-        } else { 
-          if (data.author !== username) { playNotificationSound(); sendSystemNotification(data.author, data.message, 'dm', data.room, null); } 
+          if (data.author !== username) {
+            socket.emit("mark_messages_read", { room: data.room, lastMessageId: data.id });
+            if (document.hidden) { playNotificationSound(); sendSystemNotification(data.author, data.message, 'dm', data.room, null); }
+          }
+        } else {
+          if (data.author !== username) { playNotificationSound(); sendSystemNotification(data.author, data.message, 'dm', data.room, null); }
         }
       },
       "chat_history": (h) => { 

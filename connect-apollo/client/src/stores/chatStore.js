@@ -77,6 +77,17 @@ export const useChatStore = create((set, get) => ({
   editingMessage: null,
   setEditingMessage: (editingMessage) => set({ editingMessage }),
 
+  forwardingMessage: null,
+  setForwardingMessage: (forwardingMessage) => set({ forwardingMessage }),
+
+  chatReads: {},
+  setChatRead: (room, readUsername, lastReadId) => set((state) => ({
+    chatReads: {
+      ...state.chatReads,
+      [room]: { ...(state.chatReads[room] || {}), [readUsername]: lastReadId }
+    }
+  })),
+
   // Ввод сообщения и запись (ввод)
   currentMessage: "",
   setCurrentMessage: (currentMessage) => set({ currentMessage }),
