@@ -1,6 +1,6 @@
-import React from 'react';
+import React, { useState } from 'react';
 import FolderTabs from './FolderTabs';
-import ChatList from './ChatList'; // Его мы перепишем на следующем шаге
+import ChatList from './ChatList';
 import { IconBell, IconShield, IconPin, IconFolder, IconTrash } from '../common/Icons';
 
 // Импортируем наши сторы
@@ -11,6 +11,8 @@ import { useSettingsStore } from '../../stores/settingsStore';
 import { useChatStore } from '../../stores/chatStore';
 
 const Sidebar = () => {
+  const [search, setSearch] = useState('');
+
   // Auth & Profile
   const username = useAuthStore(s => s.username);
   const socket = useAuthStore(s => s.socket);
@@ -115,8 +117,28 @@ const Sidebar = () => {
 
       {/* Вывод папок и списка чатов */}
       <div className="friends-list">
-        {!isSelectionMode && <FolderTabs />}
-        <ChatList />
+        {!isSelectionMode && (
+          <>
+            <div className="sidebar-search">
+              <div className="sidebar-search-wrap">
+                <span className="sidebar-search-icon">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M15.5 14h-.79l-.28-.27A6.47 6.47 0 0 0 16 9.5 6.5 6.5 0 1 0 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/>
+                  </svg>
+                </span>
+                <input
+                  className="sidebar-search-input"
+                  type="text"
+                  placeholder="Поиск чатов..."
+                  value={search}
+                  onChange={e => setSearch(e.target.value)}
+                />
+              </div>
+            </div>
+            <FolderTabs />
+          </>
+        )}
+        <ChatList search={search} />
       </div>
     </div>
   );

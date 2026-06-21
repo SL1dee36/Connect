@@ -1,8 +1,8 @@
 import { create } from 'zustand';
 
 export const useUIStore = create((set, get) => ({
-  // Мобильный вид
-  isMobile: window.innerWidth <= 768,
+  // Мобильный вид (≤640px — полноэкранные панели, 641+ — два столбца)
+  isMobile: window.innerWidth <= 640,
   showMobileChat: false,
   swipeX: 0,
   isSwiping: false,

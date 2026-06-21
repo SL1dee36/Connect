@@ -7,7 +7,7 @@ import { useUIStore } from '../../stores/uiStore';
 import { useChatStore } from '../../stores/chatStore';
 import { useSettingsStore } from '../../stores/settingsStore';
 
-const ChatList = () => {
+const ChatList = ({ search = '' }) => {
   // Сторы
   const username = useAuthStore(s => s.username);
   
@@ -31,7 +31,10 @@ const ChatList = () => {
   const customChatOrder = useSettingsStore(s => s.customChatOrder);
   const setCustomChatOrder = useSettingsStore(s => s.setCustomChatOrder);
 
-  const unifiedChatList = useUnifiedChatList();
+  const rawChatList = useUnifiedChatList();
+  const unifiedChatList = search.trim()
+    ? rawChatList.filter(c => c.name.toLowerCase().includes(search.toLowerCase()))
+    : rawChatList;
 
   // Рефы для drag & drop и долгого нажатия
   const dragItemRef = useRef(null);

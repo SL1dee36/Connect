@@ -9,6 +9,12 @@ import { useChatStore } from '../../stores/chatStore';
 import { useProfileStore } from '../../stores/profileStore';
 import { useCallLogic } from '../../hooks/useCallLogic';
 
+const BackIcon = () => (
+  <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor">
+    <path d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2z"/>
+  </svg>
+);
+
 const formatLastSeen = (lastSeen) => {
   if (!lastSeen) return 'Личный чат';
   const date = new Date(lastSeen.endsWith('Z') ? lastSeen : lastSeen + 'Z');
@@ -33,11 +39,7 @@ const PrivateChat = () => {
   const friends = useProfileStore(s => s.friends);
   const chatReads = useChatStore(s => s.chatReads);
 
-  const partnerFriend = friends.find(f => (f.username || f) === partnerUsername);
-  const isPartnerOnline = partnerFriend?.is_online || false;
-  const partnerLastSeen = partnerFriend?.last_seen;
-  const partnerLastReadId = chatReads[room]?.[partnerUsername] || 0;
-
+  const isMobile = useUIStore(s => s.isMobile);
   const isEmojiPickerOpen = useUIStore(s => s.isEmojiPickerOpen);
   const showMenu = useUIStore(s => s.showMenu);
   const setShowMenu = useUIStore(s => s.setShowMenu);
@@ -49,6 +51,11 @@ const PrivateChat = () => {
   const { startCall } = useCallLogic();
 
   const partnerUsername = room.split('_').find(u => u !== username) || "???";
+  const partnerFriend = friends.find(f => (f.username || f) === partnerUsername);
+  const isPartnerOnline = partnerFriend?.is_online || false;
+  const partnerLastSeen = partnerFriend?.last_seen;
+  const partnerAvatarUrl = partnerFriend?.avatar_url;
+  const partnerLastReadId = chatReads[room]?.[partnerUsername] || 0;
 
   const virtuosoRef = useRef(null);
   const prevMessageCount = useRef(messageList.length);
@@ -86,16 +93,24 @@ const PrivateChat = () => {
     <>
       <div className="chat-header">
         <div className="header-left">
-          <div 
-            style={{ 
-              cursor: "pointer", 
-              display: "flex", 
-              flexDirection: "column" 
-            }}
+          {isMobile && (
+            <button className="back-btn" onClick={() => useUIStore.getState().setShowMobileChat(false)}>
+              <BackIcon />
+            </button>
+          )}
+          <div
+            className="header-avatar"
+            style={partnerAvatarUrl ? { backgroundImage: `url(${partnerAvatarUrl})` } : {}}
+            onClick={() => socket.emit("get_user_profile", partnerUsername)}
+          >
+            {!partnerAvatarUrl && partnerUsername[0]?.toUpperCase()}
+          </div>
+          <div
+            style={{ cursor: 'pointer', display: 'flex', flexDirection: 'column', gap: 1 }}
             onClick={() => socket.emit("get_user_profile", partnerUsername)}
           >
             <h3 style={{ margin: 0 }}>{partnerUsername}</h3>
-            <span style={{ fontSize: 12, color: isPartnerOnline ? '#4caf50' : '#777' }}>
+            <span style={{ fontSize: 12, color: isPartnerOnline ? 'var(--text-online)' : 'var(--text-2)' }}>
               {typingText || (isPartnerOnline ? 'в сети' : formatLastSeen(partnerLastSeen))}
             </span>
           </div>

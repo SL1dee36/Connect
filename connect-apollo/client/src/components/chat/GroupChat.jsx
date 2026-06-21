@@ -3,6 +3,12 @@ import { Virtuoso } from 'react-virtuoso';
 import MessageItem from "../common/MessageItem";
 import ChatInput from './ChatInput';
 
+const BackIcon = () => (
+  <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor">
+    <path d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2z"/>
+  </svg>
+);
+
 import { useAuthStore } from '../../stores/authStore';
 import { useUIStore } from '../../stores/uiStore';
 import { useChatStore } from '../../stores/chatStore';
@@ -21,6 +27,7 @@ const GroupChat = () => {
   const globalRole = useChatStore(s => s.globalRole);
   const hasMore = useChatStore(s => s.hasMore);
   
+  const isMobile = useUIStore(s => s.isMobile);
   const isEmojiPickerOpen = useUIStore(s => s.isEmojiPickerOpen);
   const showMenu = useUIStore(s => s.showMenu);
   const setShowMenu = useUIStore(s => s.setShowMenu);
@@ -74,10 +81,22 @@ const GroupChat = () => {
     <>
       <div className="chat-header">
         <div className="header-left">
-          <div onClick={() => setActiveModal("groupInfo")} style={{ cursor: "pointer", display: "flex", flexDirection: "column" }}>
+          {isMobile && (
+            <button className="back-btn" onClick={() => useUIStore.getState().setShowMobileChat(false)}>
+              <BackIcon />
+            </button>
+          )}
+          <div
+            className="header-avatar"
+            style={{ background: 'linear-gradient(135deg, #2b95ff, #8774e1)' }}
+            onClick={() => setActiveModal("groupInfo")}
+          >
+            {room[0]?.toUpperCase()}
+          </div>
+          <div onClick={() => setActiveModal("groupInfo")} style={{ cursor: 'pointer', display: 'flex', flexDirection: 'column', gap: 1 }}>
             <h3 style={{ margin: 0 }}>{room}</h3>
-            <span style={{ fontSize: 12, color: "#777" }}>
-              {typingText || `${groupMembers?.length} участников`}
+            <span style={{ fontSize: 12, color: 'var(--text-2)' }}>
+              {typingText || `${groupMembers?.length || 0} участников`}
             </span>
           </div>
         </div>
