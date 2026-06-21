@@ -19,8 +19,10 @@ const groupReactions = (reactions) => {
     return Object.values(map);
 };
 
-const MessageItem = React.memo(({ msg, username, display_name, setImageModalSrc, onContextMenu, onReplyTrigger, scrollToMessage, onMentionClick, onReaction, partnerLastReadId }) => {
+const MessageItem = React.memo(({ msg, username, display_name, setImageModalSrc, onContextMenu, onReplyTrigger, scrollToMessage, onMentionClick, onReaction, partnerLastReadId, isFirstInGroup = true, isLastInGroup = true, animateIn = false }) => {
     const isMine = msg.author === username;
+    const isGroupChat = msg.room && !msg.room.includes('_');
+    const showName = isGroupChat && !isMine && isFirstInGroup;
     const [translateX, setTranslateX] = useState(0);
     const [isLongPress, setIsLongPress] = useState(false);
     
@@ -231,7 +233,7 @@ const MessageItem = React.memo(({ msg, username, display_name, setImageModalSrc,
     return (
         <div
             id={`message-${msg.id}`}
-            className={`message ${isMine ? "mine" : "theirs"}`}
+            className={`message ${isMine ? "mine" : "theirs"} ${isFirstInGroup ? "group-start" : ""} ${isLastInGroup ? "group-end" : ""} ${animateIn ? "animate-in" : ""}`}
             style={{ opacity: msg.status === 'pending' || msg.status === 'uploading' ? 0.7 : 1, position: 'relative' }}
             onTouchStart={handleTouchStart}
             onTouchMove={handleTouchMove}
@@ -248,12 +250,14 @@ const MessageItem = React.memo(({ msg, username, display_name, setImageModalSrc,
                 <div className={`bubble ${msg.type === 'video' ? 'video-bubble' : ''} ${isTransparentBubble ? 'transparent-bubble' : ''}`}
                     onContextMenu={handleRightClick}
                 >
-                    <span className="meta-name" style={{display:'flex', alignItems:'center', gap: '4px'}}>
-                        {msg.author_display_name || msg.author}
-                        {msg.author_badges && msg.author_badges.map((b, i) => (
-                            <span key={i} title={b.name} style={{width: '14px', height: '14px', display:'inline-flex'}} dangerouslySetInnerHTML={{__html: b.svg_content}} />
-                        ))}
-                    </span>
+                    {showName && (
+                        <span className="meta-name" style={{display:'flex', alignItems:'center', gap: '4px'}}>
+                            {msg.author_display_name || msg.author}
+                            {msg.author_badges && msg.author_badges.map((b, i) => (
+                                <span key={i} title={b.name} style={{width: '14px', height: '14px', display:'inline-flex'}} dangerouslySetInnerHTML={{__html: b.svg_content}} />
+                            ))}
+                        </span>
+                    )}
                     {msg.forwarded_from_author && (
                         <div className="forwarded-banner">
                             ↗ Переслано от <span style={{color:'#2b95ff'}}>@{msg.forwarded_from_author}</span>

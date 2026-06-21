@@ -1,4 +1,4 @@
-import React, { useRef, useCallback, useEffect } from 'react';
+import React, { useRef, useCallback, useEffect, useState } from 'react';
 import { Virtuoso } from 'react-virtuoso';
 import MessageItem from "../common/MessageItem";
 import ChatInput from './ChatInput';
@@ -41,6 +41,7 @@ const GroupChat = () => {
 
   const virtuosoRef = useRef(null);
   const prevMessageCount = useRef(messageList.length);
+  const [animateMsgId, setAnimateMsgId] = useState(null);
 
   const leaveGroup = () => {
     if (window.confirm(myRole === "owner" ? "Удалить группу?" : "Выйти из группы?")) {
@@ -59,9 +60,12 @@ const GroupChat = () => {
       const lastMsg = messageList[messageList.length - 1];
       const isMine = lastMsg?.author === username;
 
-      if (isMine) {
-        setTimeout(forceScrollToBottom, 50); 
-      }
+      setAnimateMsgId(lastMsg?.id || lastMsg?.tempId);
+      const t = setTimeout(() => setAnimateMsgId(null), 400);
+
+      if (isMine) setTimeout(forceScrollToBottom, 50);
+      prevMessageCount.current = messageList.length;
+      return () => clearTimeout(t);
     }
     prevMessageCount.current = messageList.length;
   }, [messageList, username, forceScrollToBottom]);
@@ -142,7 +146,12 @@ const GroupChat = () => {
               <div style={{ textAlign: "center", fontSize: 12, color: "#666", padding: 10 }}>Загрузка истории...</div>
             ) : null
           }}
-          itemContent={(index, msg) => (
+          itemContent={(index, msg) => {
+            const prev = messageList[index - 1];
+            const next = messageList[index + 1];
+            const isFirstInGroup = !prev || prev.author !== msg.author;
+            const isLastInGroup = !next || next.author !== msg.author;
+            return (
             <div style={{ padding: '0 20px', display: 'flex', flexDirection: 'column' }}>
               <MessageItem
                 msg={msg}
@@ -152,6 +161,9 @@ const GroupChat = () => {
                 onReplyTrigger={(msg) => useChatStore.getState().setReplyingTo(msg)}
                 onMentionClick={(user) => socket.emit("get_user_profile", user)}
                 onReaction={(msgId, msgRoom, emoji) => socket.emit("toggle_reaction", { messageId: msgId, room: msgRoom, emoji })}
+                isFirstInGroup={isFirstInGroup}
+                isLastInGroup={isLastInGroup}
+                animateIn={(msg.id || msg.tempId) === animateMsgId}
                 scrollToMessage={(id) => {
                   const msgIndex = messageList.findIndex(m => m.id === id);
                   if (msgIndex !== -1) {
@@ -164,7 +176,8 @@ const GroupChat = () => {
                 }}
               />
             </div>
-          )}
+          );
+          }}
         />
       </div>
 

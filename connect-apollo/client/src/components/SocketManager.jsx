@@ -81,11 +81,12 @@ const SocketManager = () => {
         const roomNames = groups.map(g => typeof g === 'string' ? g : g.room);
         useProfileStore.getState().setMyChats(roomNames);
         const chatStore = useChatStore.getState();
+        const activeRoom = chatStore.room;
         const previews = {};
         groups.forEach(g => {
           if (typeof g === 'object' && g.room) {
             if (g.preview) previews[g.room] = g.preview;
-            if (g.unread_count !== undefined) chatStore.setChatUnread(g.room, g.unread_count);
+            if (g.unread_count !== undefined) chatStore.setChatUnread(g.room, g.room === activeRoom ? 0 : g.unread_count);
           }
         });
         if (Object.keys(previews).length) chatStore.setChatPreviews(prev => ({ ...prev, ...previews }));
@@ -94,13 +95,13 @@ const SocketManager = () => {
         if (!Array.isArray(list)) return;
         useProfileStore.getState().setFriends(list);
         const chatStore = useChatStore.getState();
-        const myUser = username;
+        const activeRoom = chatStore.room;
         const previews = {};
         list.forEach(f => {
           const fUser = f.username || f;
-          const room = [myUser, fUser].sort().join('_');
+          const room = [username, fUser].sort().join('_');
           if (f.preview) previews[room] = f.preview;
-          if (f.unread_count !== undefined) chatStore.setChatUnread(room, f.unread_count);
+          if (f.unread_count !== undefined) chatStore.setChatUnread(room, room === activeRoom ? 0 : f.unread_count);
         });
         if (Object.keys(previews).length) chatStore.setChatPreviews(prev => ({ ...prev, ...previews }));
       },
@@ -194,7 +195,7 @@ const SocketManager = () => {
       },
       "receive_message": (data) => {
         const chatStore = useChatStore.getState();
-        chatStore.setChatPreviews(prev => ({ ...prev, [data.room]: { text: data.message, sender: data.author, time: data.time, timestamp: data.timestamp, type: data.type } }));
+        chatStore.setChatPreviews(prev => ({ ...prev, [data.room]: { text: data.message, sender: data.author, time: data.time, timestamp: data.id ?? Date.now(), type: data.type } }));
         if (data.room === chatStore.room) {
           chatStore.setMessageList(list => {
             if (data.author === username && data.tempId) {

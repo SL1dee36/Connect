@@ -1,4 +1,4 @@
-import React, { useRef, useCallback, useEffect } from 'react';
+import React, { useRef, useCallback, useEffect, useState } from 'react';
 import { Virtuoso } from 'react-virtuoso';
 import MessageItem from "../common/MessageItem";
 import ChatInput from './ChatInput';
@@ -59,6 +59,7 @@ const PrivateChat = () => {
 
   const virtuosoRef = useRef(null);
   const prevMessageCount = useRef(messageList.length);
+  const [animateMsgId, setAnimateMsgId] = useState(null);
 
   const forceScrollToBottom = useCallback(() => {
     virtuosoRef.current?.scrollTo({ top: 9999999, behavior: 'smooth' });
@@ -71,9 +72,13 @@ const PrivateChat = () => {
       const lastMsg = messageList[messageList.length - 1];
       const isMine = lastMsg?.author === username;
 
-      if (isMine) {
-        setTimeout(forceScrollToBottom, 50);
-      }
+      // Анимируем только новое сообщение (не при подгрузке истории сверху)
+      setAnimateMsgId(lastMsg?.id || lastMsg?.tempId);
+      const t = setTimeout(() => setAnimateMsgId(null), 400);
+
+      if (isMine) setTimeout(forceScrollToBottom, 50);
+      prevMessageCount.current = messageList.length;
+      return () => clearTimeout(t);
     }
     prevMessageCount.current = messageList.length;
   }, [messageList, username, forceScrollToBottom]);
@@ -176,7 +181,12 @@ const PrivateChat = () => {
               </div>
             ) : null
           }}
-          itemContent={(index, msg) => (
+          itemContent={(index, msg) => {
+            const prev = messageList[index - 1];
+            const next = messageList[index + 1];
+            const isFirstInGroup = !prev || prev.author !== msg.author;
+            const isLastInGroup = !next || next.author !== msg.author;
+            return (
             <div style={{ padding: '0 20px', display: 'flex', flexDirection: 'column' }}>
               <MessageItem
                 msg={msg}
@@ -187,13 +197,16 @@ const PrivateChat = () => {
                 onMentionClick={(user) => socket.emit("get_user_profile", user)}
                 onReaction={(msgId, msgRoom, emoji) => socket.emit("toggle_reaction", { messageId: msgId, room: msgRoom, emoji })}
                 partnerLastReadId={partnerLastReadId}
+                isFirstInGroup={isFirstInGroup}
+                isLastInGroup={isLastInGroup}
+                animateIn={(msg.id || msg.tempId) === animateMsgId}
                 scrollToMessage={(id) => {
                   const msgIndex = messageList.findIndex(m => m.id === id);
                   if (msgIndex !== -1) {
-                    virtuosoRef.current?.scrollToIndex({ 
-                      index: msgIndex, 
-                      align: 'center', 
-                      behavior: 'smooth' 
+                    virtuosoRef.current?.scrollToIndex({
+                      index: msgIndex,
+                      align: 'center',
+                      behavior: 'smooth'
                     });
                     setTimeout(() => {
                       const el = document.getElementById(`message-${id}`);
@@ -206,7 +219,8 @@ const PrivateChat = () => {
                 }}
               />
             </div>
-          )}
+          );
+          }}
         />
       </div>
 
