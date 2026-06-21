@@ -1,47 +1,88 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import FolderTabs from './FolderTabs';
 import ChatList from './ChatList';
 import { IconBell, IconShield, IconPin, IconFolder, IconTrash } from '../common/Icons';
 
-// Импортируем наши сторы
 import { useAuthStore } from '../../stores/authStore';
 import { useUIStore } from '../../stores/uiStore';
 import { useProfileStore } from '../../stores/profileStore';
 import { useSettingsStore } from '../../stores/settingsStore';
 import { useChatStore } from '../../stores/chatStore';
 
+const IconCompose = () => (
+  <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
+    <path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34c-.39-.39-1.02-.39-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/>
+  </svg>
+);
+
+const IconNewGroup = () => (
+  <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
+    <path d="M16 11c1.66 0 2.99-1.34 2.99-3S17.66 5 16 5c-1.66 0-3 1.34-3 3s1.34 3 3 3zm-8 0c1.66 0 2.99-1.34 2.99-3S9.66 5 8 5C6.34 5 5 6.34 5 8s1.34 3 3 3zm0 2c-2.33 0-7 1.17-7 3.5V19h14v-2.5c0-2.33-4.67-3.5-7-3.5zm8 0c-.29 0-.62.02-.97.05 1.16.84 1.97 1.97 1.97 3.45V19h6v-2.5c0-2.33-4.67-3.5-7-3.5z"/>
+  </svg>
+);
+
 const Sidebar = () => {
   const [search, setSearch] = useState('');
+  const searchInputRef = useRef(null);
 
-  // Auth & Profile
   const username = useAuthStore(s => s.username);
   const socket = useAuthStore(s => s.socket);
   const myProfile = useProfileStore(s => s.myProfile);
+  const searchResults = useProfileStore(s => s.searchResults);
+  const isSearching = useProfileStore(s => s.isSearching);
+  const friends = useProfileStore(s => s.friends);
 
-  // Ui State
   const isMobile = useUIStore(s => s.isMobile);
   const showMobileChat = useUIStore(s => s.showMobileChat);
   const setActiveModal = useUIStore(s => s.setActiveModal);
   const isSelectionMode = useUIStore(s => s.isSelectionMode);
   const selectedChats = useUIStore(s => s.selectedChats);
-  const setIsSelectionMode = useUIStore(s => s.setIsSelectionMode);
   const clearSelection = useUIStore(s => s.clearSelection);
 
-  // Settings & Chat
   const globalRole = useChatStore(s => s.globalRole);
   const hasUnreadNotifs = useSettingsStore(s => s.hasUnreadNotifs);
+
+  const isSearchActive = search.trim().length >= 2;
+
+  // Дебоунс поиска пользователей
+  useEffect(() => {
+    const trimmed = search.trim();
+    if (trimmed.length < 2) {
+      useProfileStore.getState().setSearchResults([]);
+      useProfileStore.getState().setIsSearching(false);
+      return;
+    }
+    useProfileStore.getState().setIsSearching(true);
+    const timer = setTimeout(() => {
+      socket?.emit("search_users", trimmed);
+    }, 350);
+    return () => clearTimeout(timer);
+  }, [search, socket]);
+
+  const clearSearch = () => {
+    setSearch('');
+    useProfileStore.getState().setSearchResults([]);
+    useProfileStore.getState().setIsSearching(false);
+  };
+
+  const handleOpenProfile = (user) => {
+    socket?.emit("get_user_profile", user.username);
+    clearSearch();
+  };
+
+  const isFriend = (uname) => friends.some(f => (f.username || f) === uname);
 
   const openSettings = () => {
     if (socket) {
       socket.emit("get_my_profile", username);
       socket.emit("get_avatar_history", username);
     }
-    useProfileStore.getState().setProfileForm({ 
-      bio: myProfile.bio || "", 
-      phone: myProfile.phone || "", 
-      display_name: myProfile.display_name || username, 
-      username: username, 
-      notifications_enabled: myProfile.notifications_enabled 
+    useProfileStore.getState().setProfileForm({
+      bio: myProfile.bio || "",
+      phone: myProfile.phone || "",
+      display_name: myProfile.display_name || username,
+      username,
+      notifications_enabled: myProfile.notifications_enabled,
     });
     setActiveModal("settings");
   };
@@ -59,7 +100,7 @@ const Sidebar = () => {
   };
 
   const handleDeleteSelected = () => {
-    if (!window.confirm(`Удалить выбранные чаты?`)) return;
+    if (!window.confirm('Удалить выбранные чаты?')) return;
     selectedChats.forEach(chatId => {
       const originalId = chatId.split('_').find(u => u !== username) || chatId;
       if (!chatId.includes('_')) socket.emit("leave_group", { room: originalId });
@@ -68,77 +109,155 @@ const Sidebar = () => {
     clearSelection();
   };
 
-  const getAvatarStyle = (imgUrl) => {
-    return imgUrl 
-      ? { backgroundImage: `url(${imgUrl})`, backgroundSize: 'cover', backgroundPosition: 'center', backgroundColor: '#333', color: 'transparent' } 
-      : { backgroundColor: '#333' };
-  };
+  const getAvatarStyle = (imgUrl) => imgUrl
+    ? { backgroundImage: `url(${imgUrl})`, backgroundSize: 'cover', backgroundPosition: 'center', backgroundColor: '#333', color: 'transparent' }
+    : { backgroundColor: '#333' };
 
   return (
     <div className={`left-panel ${isMobile && showMobileChat ? "hidden" : ""}`}>
-      {/* Sidebar Header */}
+
+      {/* ── Header ── */}
       <div className="sidebar-top">
         <div className="sidebar-header-content">
           <div className="my-avatar" style={getAvatarStyle(myProfile.avatar_url)} onClick={openSettings}>
             {!myProfile.avatar_url && username?.[0]?.toUpperCase()}
           </div>
-          {isMobile && <div className="mobile-app-title">Connect</div>}
+          {isMobile && <span className="mobile-app-title">Connect</span>}
         </div>
-        
-        <div className="actMenu" style={{display: 'flex', gap: 15, alignItems: 'center'}}>
-          <div onClick={() => setActiveModal("notifications")} title="Уведомления">
+
+        <div className="actMenu">
+          <button className="sidebar-icon-btn" onClick={() => setActiveModal("notifications")} title="Уведомления">
             <IconBell hasUnread={hasUnreadNotifs} />
-          </div>
+          </button>
           {globalRole === 'mod' && (
-            <button className="fab-btn" style={{backgroundColor: '#444', width: 40, height: 40}} onClick={() => setActiveModal("adminPanel")}>
+            <button className="sidebar-icon-btn" onClick={() => setActiveModal("adminPanel")} title="Модератор">
               <IconShield />
             </button>
           )}
-          <button className="fab-btn" onClick={() => setActiveModal("actionMenu")}>
-            <svg id="plus-icon" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="#ffffff">
-              <path fill="#ffffff" d="M11 4h2v7h7v2h-7v7h-2v-7H4v-2h7V4z"/>
-            </svg>
+          <button className="sidebar-icon-btn" onClick={() => setActiveModal("createGroup")} title="Создать группу">
+            <IconNewGroup />
+          </button>
+          <button
+            className="sidebar-icon-btn sidebar-icon-btn--accent"
+            onClick={() => searchInputRef.current?.focus()}
+            title="Написать"
+          >
+            <IconCompose />
           </button>
         </div>
       </div>
 
-      {/* Selection Mode Header */}
+      {/* ── Selection Mode ── */}
       {isSelectionMode && (
         <div className="sidebar-selection-header">
-          <button className="back-btn" onClick={clearSelection}>&times;</button>
+          <button
+            onClick={clearSelection}
+            style={{ background: 'none', border: 'none', color: 'var(--text-1)', fontSize: 20, cursor: 'pointer', lineHeight: 1 }}
+          >✕</button>
           <span className="selection-title">Выбрано: {selectedChats.length}</span>
           <div className="selection-actions">
-            <button className="tool-btn" onClick={handlePinSelected} title="Закрепить/Открепить"><IconPin /></button>
+            <button className="tool-btn" onClick={handlePinSelected} title="Закрепить"><IconPin /></button>
             <button className="tool-btn" onClick={() => setActiveModal("addToFolder")} title="В папку"><IconFolder /></button>
-            <button className="tool-btn" style={{color: '#ff4d4d'}} onClick={handleDeleteSelected} title="Удалить"><IconTrash /></button>
+            <button className="tool-btn" style={{ color: '#ff4d4d' }} onClick={handleDeleteSelected} title="Удалить"><IconTrash /></button>
           </div>
         </div>
       )}
 
-      {/* Вывод папок и списка чатов */}
+      {/* ── Search + Results ── */}
       <div className="friends-list">
         {!isSelectionMode && (
-          <>
-            <div className="sidebar-search">
-              <div className="sidebar-search-wrap">
-                <span className="sidebar-search-icon">
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
-                    <path d="M15.5 14h-.79l-.28-.27A6.47 6.47 0 0 0 16 9.5 6.5 6.5 0 1 0 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/>
+          <div className="sidebar-search">
+            <div className="sidebar-search-wrap">
+              <span className="sidebar-search-icon">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                  <path d="M15.5 14h-.79l-.28-.27A6.47 6.47 0 0 0 16 9.5 6.5 6.5 0 1 0 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/>
+                </svg>
+              </span>
+              <input
+                ref={searchInputRef}
+                className="sidebar-search-input"
+                type="text"
+                placeholder="Поиск чатов и людей..."
+                value={search}
+                onChange={e => setSearch(e.target.value)}
+              />
+              {search && (
+                <button className="sidebar-search-clear" onClick={clearSearch} title="Очистить">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/>
                   </svg>
-                </span>
-                <input
-                  className="sidebar-search-input"
-                  type="text"
-                  placeholder="Поиск чатов..."
-                  value={search}
-                  onChange={e => setSearch(e.target.value)}
-                />
-              </div>
+                </button>
+              )}
             </div>
-            <FolderTabs />
-          </>
+          </div>
+        )}
+
+        {/* Folder tabs — скрываем при поиске */}
+        {!isSelectionMode && !isSearchActive && <FolderTabs />}
+
+        {/* Секция "Чаты" */}
+        {isSearchActive && (
+          <div className="divider" style={{ margin: '10px 14px 2px' }}>Чаты</div>
         )}
         <ChatList search={search} />
+
+        {/* Секция "Люди" — только при активном поиске */}
+        {isSearchActive && (
+          <div className="people-search-section">
+            <div className="divider">Люди</div>
+
+            {isSearching && (
+              <div className="people-search-loading">
+                <span className="spinner" style={{ width: 14, height: 14, marginRight: 8, flexShrink: 0 }} />
+                Поиск пользователей...
+              </div>
+            )}
+
+            {!isSearching && searchResults.length === 0 && (
+              <div className="people-search-empty">Пользователи не найдены</div>
+            )}
+
+            {searchResults.map(user => (
+              <div
+                key={user.username}
+                className="user-search-item"
+                onClick={() => handleOpenProfile(user)}
+              >
+                <div style={{ position: 'relative', flexShrink: 0 }}>
+                  <div
+                    className="friend-avatar"
+                    style={user.avatar_url ? { backgroundImage: `url(${user.avatar_url})` } : {}}
+                  >
+                    {!user.avatar_url && (user.display_name || user.username)[0]?.toUpperCase()}
+                  </div>
+                  {user.isOnline && <span className="online-dot" />}
+                </div>
+                <div className="user-search-info">
+                  <span className="user-search-name">{user.display_name || user.username}</span>
+                  <span className="user-search-username">@{user.username}</span>
+                </div>
+                <div className="user-search-badge">
+                  {isFriend(user.username)
+                    ? <span className="user-friend-tag">Друг</span>
+                    : (
+                      <button
+                        className="user-add-btn"
+                        title="Добавить в друзья"
+                        onClick={e => {
+                          e.stopPropagation();
+                          socket?.emit("send_friend_request_by_name", { toUsername: user.username });
+                          e.currentTarget.textContent = '✓';
+                          e.currentTarget.disabled = true;
+                          e.currentTarget.style.color = 'var(--accent)';
+                        }}
+                      >+</button>
+                    )
+                  }
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
     </div>
   );

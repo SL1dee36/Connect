@@ -155,6 +155,85 @@
 .drag-handle { display: none; width: 32px; height: 32px; align-items: center; justify-content: center; color: var(--text-3); cursor: grab; margin-left: auto; touch-action: none; flex-shrink: 0; }
 .selection-mode-active .drag-handle { display: flex; }
 
+/* ── Sidebar icon buttons (header actions) ── */
+.sidebar-icon-btn {
+  width: 34px; height: 34px;
+  border-radius: var(--r-sm);
+  background: transparent;
+  border: none;
+  color: var(--text-2);
+  cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  transition: background 0.15s, color 0.15s;
+  flex-shrink: 0;
+}
+.sidebar-icon-btn:hover { background: var(--bg-3); color: var(--text-1); }
+.sidebar-icon-btn--accent { background: var(--accent); color: white; }
+.sidebar-icon-btn--accent:hover { background: var(--accent-hover); color: white; }
+
+/* ── Search clear button ── */
+.sidebar-search-clear {
+  position: absolute;
+  right: 10px; top: 50%;
+  transform: translateY(-50%);
+  background: none; border: none;
+  color: var(--text-3);
+  cursor: pointer;
+  display: flex;
+  padding: 3px;
+  border-radius: 50%;
+  transition: color 0.15s, background 0.15s;
+}
+.sidebar-search-clear:hover { color: var(--text-1); background: var(--bg-4); }
+
+/* ── People search section ── */
+.people-search-section {
+  display: flex;
+  flex-direction: column;
+  padding-bottom: 8px;
+  border-top: 1px solid var(--border);
+  margin-top: 4px;
+}
+.people-search-loading {
+  display: flex; align-items: center;
+  padding: 10px 14px;
+  color: var(--text-3); font-size: 13px;
+}
+.people-search-empty {
+  padding: 10px 14px;
+  color: var(--text-3); font-size: 13px;
+}
+
+/* ── User search result item ── */
+.user-search-item {
+  display: flex; align-items: center; gap: 12px;
+  padding: 8px 14px;
+  cursor: pointer;
+  transition: background 0.12s;
+}
+.user-search-item:hover { background: rgba(255,255,255,0.04); }
+.user-search-item:active { background: var(--bg-3); transition: none; }
+
+.user-search-info { display: flex; flex-direction: column; gap: 2px; overflow: hidden; flex: 1; min-width: 0; }
+.user-search-name { font-size: 14.5px; font-weight: 500; color: var(--text-1); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.user-search-username { font-size: 12px; color: var(--text-3); }
+
+.user-search-badge { flex-shrink: 0; display: flex; align-items: center; }
+.user-friend-tag { font-size: 11px; font-weight: 500; color: var(--accent); background: var(--accent-dim); padding: 2px 8px; border-radius: var(--r-full); }
+.user-add-btn { width: 28px; height: 28px; border-radius: 50%; border: 1.5px solid var(--accent); background: transparent; color: var(--accent); font-size: 18px; cursor: pointer; display: flex; align-items: center; justify-content: center; line-height: 1; transition: background 0.15s, color 0.15s; }
+.user-add-btn:hover { background: var(--accent); color: white; }
+.user-add-btn:disabled { border-color: var(--text-3); cursor: default; }
+
+/* ── Online dot ── */
+.online-dot {
+  position: absolute; bottom: 1px; right: 1px;
+  width: 10px; height: 10px;
+  border-radius: 50%;
+  background: var(--text-online);
+  border: 2px solid var(--bg-1);
+  pointer-events: none;
+}
+
 /* ── Mobile overrides (≤640px) ── */
 @media (max-width: 640px) {
   .sidebar-top {
