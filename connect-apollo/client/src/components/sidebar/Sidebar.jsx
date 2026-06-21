@@ -83,7 +83,7 @@ const Sidebar = () => {
     clearSearch();
   };
 
-  const isFriend = (uname) => friends.some(f => (f.username || f) === uname);
+  const isFriend = (uname) => friends.some(f => (f.username || f) === uname && f.isFriend !== false);
 
   const openSettings = () => {
     if (socket) {
