@@ -8,9 +8,23 @@
   --bg-4: #2a2a2a;
 
   --accent: #2b95ff;
+  --accent-2: #5eb3ff;
   --accent-hover: #1a7bd6;
   --accent-dim: rgba(43, 149, 255, 0.14);
   --accent-dim2: rgba(43, 149, 255, 0.28);
+  --accent-grad: linear-gradient(135deg, #3aa0ff, #1f7ae6);
+
+  /* Полотно чата: тёмный градиент с лёгким синим свечением сверху и снизу */
+  --chat-bg:
+    radial-gradient(110% 60% at 50% -12%, rgba(43,149,255,0.10), transparent 60%),
+    radial-gradient(110% 55% at 50% 112%, rgba(43,149,255,0.06), transparent 58%),
+    linear-gradient(180deg, #0e0f12 0%, #0a0a0b 100%);
+
+  /* Пузыри */
+  --bubble-out: linear-gradient(135deg, #3aa0ff 0%, #2b7fe6 100%);
+  --bubble-out-text: #ffffff;
+  --bubble-in: #1c1d21;
+  --bubble-in-text: var(--text-1);
 
   --text-1: #efefef;
   --text-2: #8a8a8a;

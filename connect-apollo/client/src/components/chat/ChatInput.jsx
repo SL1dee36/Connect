@@ -187,12 +187,11 @@ const ChatInput = () => {
                 <IconPaperclip />
               </button>
               <button
-                className="tool-btn"
+                className={`tool-btn ${isEmojiPickerOpen ? 'active' : ''}`}
                 onMouseDown={handleEmojiButtonClick}
                 title="Эмодзи"
-                style={{background: isEmojiPickerOpen ? '#444' : '#33333390'}}
               >
-                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"><path fill="#aaa" d="M5 3h14v2H5V3zm0 16H3V5h2v14zm14 0v2H5v-2h14zm0 0h2V5h-2v14zM10 8H8v2h2V8zm4 0h2v2h-2V8zm-5 6v-2H7v2h2zm6 0v2H9v-2h6zm0 0h2v-2h-2v2z"/></svg>
+                <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24"><path d="M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20zm0 18a8 8 0 1 1 0-16 8 8 0 0 1 0 16zM8.5 11a1.5 1.5 0 1 0 0-3 1.5 1.5 0 0 0 0 3zm7 0a1.5 1.5 0 1 0 0-3 1.5 1.5 0 0 0 0 3zM12 17.5c2.03 0 3.8-1.11 4.75-2.75a.75.75 0 0 0-1.3-.75A3.99 3.99 0 0 1 12 16a3.99 3.99 0 0 1-3.45-2 .75.75 0 0 0-1.3.75A5.49 5.49 0 0 0 12 17.5z"/></svg>
               </button>
             </div>
             <div className="toolbar-right">

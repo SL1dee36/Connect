@@ -9,6 +9,8 @@ import InlineAnimatedEmoji from "./InlineAnimatedEmoji";
 import { IconReply, IconCheck, IconDoubleCheck } from "./Icons";
 import { getNotoEmojiUrls } from "./EmojiPickerPanel";
 
+const QUICK_REACTIONS = ['👍', '❤️', '🔥', '😂', '😮', '😢', '🙏'];
+
 const groupReactions = (reactions) => {
     const map = {};
     reactions.forEach(r => {
@@ -25,6 +27,7 @@ const MessageItem = React.memo(({ msg, username, display_name, setImageModalSrc,
     const showName = isGroupChat && !isMine && isFirstInGroup;
     const [translateX, setTranslateX] = useState(0);
     const [isLongPress, setIsLongPress] = useState(false);
+    const [quickReact, setQuickReact] = useState(false);
     
     const touchStartRef = useRef(null);
     const touchCurrentRef = useRef(null);
@@ -230,6 +233,23 @@ const MessageItem = React.memo(({ msg, username, display_name, setImageModalSrc,
     const isRead = isMine && partnerLastReadId && msg.id && partnerLastReadId >= msg.id;
     const grouped = msg.reactions?.length > 0 ? groupReactions(msg.reactions) : null;
 
+    // Быстрые действия при наведении (десктоп). Открывают то же контекстное меню.
+    const openMenuFromBtn = (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        const rect = e.currentTarget.getBoundingClientRect();
+        onContextMenu(e, msg, rect.left + rect.width / 2, rect.bottom + 4);
+    };
+    const replyFromBtn = (e) => {
+        e.stopPropagation();
+        onReplyTrigger(msg);
+    };
+    const pickQuickReaction = (e, emoji) => {
+        e.stopPropagation();
+        onReaction?.(msg.id, msg.room, emoji);
+        setQuickReact(false);
+    };
+
     return (
         <div
             id={`message-${msg.id}`}
@@ -238,6 +258,7 @@ const MessageItem = React.memo(({ msg, username, display_name, setImageModalSrc,
             onTouchStart={handleTouchStart}
             onTouchMove={handleTouchMove}
             onTouchEnd={handleTouchEnd}
+            onMouseLeave={() => quickReact && setQuickReact(false)}
         >
             <div style={{
                 position: 'absolute', left: isMine ? 'auto' : -40, right: isMine ? -40 : 'auto', top: '50%', transform: 'translateY(-50%)',
@@ -247,6 +268,24 @@ const MessageItem = React.memo(({ msg, username, display_name, setImageModalSrc,
             </div>
 
             <div className={`bubble-container ${isLongPress ? 'long-press-active' : ''}`} style={{ transform: `translateX(${translateX}px)`, transition: translateX === 0 ? 'transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275)' : 'none' }}>
+                <div className="msg-hover-actions">
+                    <button className={`msg-hover-btn ${quickReact ? 'active' : ''}`} onClick={(e) => { e.stopPropagation(); setQuickReact(v => !v); }} title="Реакция">
+                        <svg width="15" height="15" viewBox="0 0 24 24" fill="#c8c8c8"><path d="M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20zm0 18a8 8 0 1 1 0-16 8 8 0 0 1 0 16zM8.5 11a1.5 1.5 0 1 0 0-3 1.5 1.5 0 0 0 0 3zm7 0a1.5 1.5 0 1 0 0-3 1.5 1.5 0 0 0 0 3zM12 17.5c2.03 0 3.8-1.11 4.75-2.75a.75.75 0 0 0-1.3-.75A3.99 3.99 0 0 1 12 16a3.99 3.99 0 0 1-3.45-2 .75.75 0 0 0-1.3.75A5.49 5.49 0 0 0 12 17.5z"/></svg>
+                    </button>
+                    <button className="msg-hover-btn" onClick={replyFromBtn} title="Ответить">
+                        <svg width="15" height="15" viewBox="0 0 24 24" fill="#c8c8c8"><path d="M10 9V5l-7 7 7 7v-4.1c5 0 8.5 1.6 11 5.1-1-5-4-10-11-11z"/></svg>
+                    </button>
+                    <button className="msg-hover-btn" onClick={openMenuFromBtn} title="Ещё">
+                        <svg width="15" height="15" viewBox="0 0 24 24" fill="#c8c8c8"><path d="M6 10a2 2 0 1 0 0 4 2 2 0 0 0 0-4zm6 0a2 2 0 1 0 0 4 2 2 0 0 0 0-4zm6 0a2 2 0 1 0 0 4 2 2 0 0 0 0-4z"/></svg>
+                    </button>
+                </div>
+                {quickReact && (
+                    <div className={`quick-react-bar ${isMine ? 'mine' : 'theirs'}`}>
+                        {QUICK_REACTIONS.map(em => (
+                            <button key={em} className="quick-react-emoji" onClick={(e) => pickQuickReaction(e, em)}>{em}</button>
+                        ))}
+                    </div>
+                )}
                 <div className={`bubble ${msg.type === 'video' ? 'video-bubble' : ''} ${isTransparentBubble ? 'transparent-bubble' : ''}`}
                     onContextMenu={handleRightClick}
                 >
