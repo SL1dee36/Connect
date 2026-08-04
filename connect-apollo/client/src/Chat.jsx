@@ -12,6 +12,7 @@ import rehypeSanitize from 'rehype-sanitize';
 import AdminPanel from "./AdminPanel";
 import EmojiPickerPanel, { getNotoEmojiUrls } from "./custom/EmojiPickerPanel";
 import Icons from './custom/svgmanager/icons.jsx';
+import { ProfileHero, SettingsItem, MediaGallery, ToggleSwitch } from "./custom/ProfileComponents";
 
 const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || "http://localhost:3001";
 
@@ -942,7 +943,7 @@ function Chat({ socket, username, room, setRoom, handleLogout }) {
 
     useEffect(() => {
         const preventDefault = (e) => e.preventDefault();
-        document.body.addEventListener('contextmenu', preventDefault);
+        // document.body.addEventListener('contextmenu', preventDefault);
         const preventZoom = (e) => { if (e.ctrlKey) e.preventDefault(); };
         window.addEventListener('wheel', preventZoom, { passive: false });
         window.addEventListener('keydown', (e) => { if (e.ctrlKey && (e.key === '+' || e.key === '-' || e.key === '=')) e.preventDefault(); });
@@ -2072,6 +2073,50 @@ function Chat({ socket, username, room, setRoom, handleLogout }) {
         }
     }
 
+    // Буфер для кандидатов (Убирает сбои соединения)
+    const iceCandidatesQueueRef = useRef([]);
+
+    // Переключение камеры на лету (Front / Back)
+    const switchCamera = async (newFacingMode) => {
+        if (!peerRef.current) return;
+        try {
+            const newStream = await navigator.mediaDevices.getUserMedia({
+                audio: true,
+                video: { facingMode: { exact: newFacingMode } }
+            });
+            const newVideoTrack = newStream.getVideoTracks()[0];
+
+            // Заменяем трек в текущем соединения WebRTC
+            const sender = peerRef.current.getSenders().find(s => s.track && s.track.kind === 'video');
+            if (sender) {
+                await sender.replaceTrack(newVideoTrack);
+            }
+
+            // Обновляем локальный стрим
+            if (connectionRef.current) {
+                const oldTrack = connectionRef.current.getVideoTracks()[0];
+                if (oldTrack) {
+                    oldTrack.stop();
+                    connectionRef.current.removeTrack(oldTrack);
+                }
+                connectionRef.current.addTrack(newVideoTrack);
+            }
+
+            if (localVideoRef.current) {
+                localVideoRef.current.srcObject = connectionRef.current;
+            }
+        } catch (e) {
+            console.error("Ошибка смены камеры:", e);
+            // Фолбэк, если exact facingMode не поддерживается браузером
+            try {
+                const fallbackStream = await navigator.mediaDevices.getUserMedia({ audio: true, video: true });
+                const fallbackTrack = fallbackStream.getVideoTracks()[0];
+                const sender = peerRef.current.getSenders().find(s => s.track && s.track.kind === 'video');
+                if (sender) await sender.replaceTrack(fallbackTrack);
+            } catch (err) {}
+        }
+    };
+
     const startCall = async (isVideo) => {
         if (!room.includes("_")) return alert("Звонки доступны только в личных сообщениях");
         
@@ -2081,47 +2126,19 @@ function Chat({ socket, username, room, setRoom, handleLogout }) {
 
         setCallStatus('calling');
         setCallerName(userToCall);
-
-        const localStream = new MediaStream();
-        
-        const peer = new RTCPeerConnection(servers);
-        peerRef.current = peer;
+        iceCandidatesQueueRef.current = [];
 
         try {
-            const audioStream = await navigator.mediaDevices.getUserMedia({ audio: true });
-            audioStream.getTracks().forEach(track => {
-                localStream.addTrack(track);
-                peer.addTrack(track, localStream);
-            });
-        } catch (err) {
-            console.log("Audio permission denied or device missing", err);
-            alert("Микрофон недоступен. Вы будете только слышать собеседника.");
-        }
+            // 1. Получаем медиапоток ДО создания описания
+            const localStream = await navigator.mediaDevices.getUserMedia({ audio: true, video: isVideo });
+            connectionRef.current = localStream;
+            if (localVideoRef.current) localVideoRef.current.srcObject = localStream;
 
-        if (isVideo) {
-            try {
-                const videoStream = await navigator.mediaDevices.getUserMedia({ video: true });
-                videoStream.getTracks().forEach(track => {
-                    localStream.addTrack(track);
-                    peer.addTrack(track, localStream);
-                });
-            } catch (err) {
-                console.log("Video permission denied or device missing", err);
-                alert("Камера недоступна. Звонок продолжится без видео.");
-            }
-        }
+            // 2. Создаем PeerConnection
+            const peer = new RTCPeerConnection(servers);
+            peerRef.current = peer;
 
-        if (localVideoRef.current) {
-             localVideoRef.current.srcObject = localStream;
-        }
-        connectionRef.current = localStream;
-
-        try {
-            peer.onicecandidate = (event) => {
-                if (event.candidate) {
-                    socket.emit("ice-candidate", { to: userToCall, candidate: event.candidate });
-                }
-            };
+            localStream.getTracks().forEach(track => peer.addTrack(track, localStream));
 
             peer.ontrack = (event) => {
                 if (remoteVideoRef.current) {
@@ -2129,10 +2146,13 @@ function Chat({ socket, username, room, setRoom, handleLogout }) {
                 }
             };
 
-            const offer = await peer.createOffer({
-                offerToReceiveAudio: true,
-                offerToReceiveVideo: true
-            });
+            peer.onicecandidate = (event) => {
+                if (event.candidate) {
+                    socket.emit("ice-candidate", { to: userToCall, candidate: event.candidate });
+                }
+            };
+
+            const offer = await peer.createOffer({ offerToReceiveAudio: true, offerToReceiveVideo: true });
             await peer.setLocalDescription(offer);
 
             socket.emit("callUser", { 
@@ -2143,8 +2163,8 @@ function Chat({ socket, username, room, setRoom, handleLogout }) {
             });
 
         } catch (err) {
-            console.error("Call Error:", err);
-            alert("Ошибка соединения.");
+            console.error("Call Start Error:", err);
+            alert("Не удалось получить доступ к медиаустройствам.");
             endCallProcess();
         }
     };
@@ -2152,36 +2172,17 @@ function Chat({ socket, username, room, setRoom, handleLogout }) {
     const answerCall = async () => {
         setCallStatus('connected');
         
-        const localStream = new MediaStream();
-        const peer = new RTCPeerConnection(servers);
-        peerRef.current = peer;
-
         try {
-            const audioStream = await navigator.mediaDevices.getUserMedia({ audio: true });
-            audioStream.getTracks().forEach(track => {
-                localStream.addTrack(track);
-                peer.addTrack(track, localStream);
-            });
-        } catch (err) {
-            console.log("Audio permission denied on answer", err);
-        }
+            // 1. Получаем стрим
+            const localStream = await navigator.mediaDevices.getUserMedia({ audio: true, video: true });
+            connectionRef.current = localStream;
+            if (localVideoRef.current) localVideoRef.current.srcObject = localStream;
 
-        try {
-            const videoStream = await navigator.mediaDevices.getUserMedia({ video: true });
-            videoStream.getTracks().forEach(track => {
-                localStream.addTrack(track);
-                peer.addTrack(track, localStream);
-            });
-        } catch (err) {
-             console.log("Video permission denied on answer", err);
-        }
+            const peer = new RTCPeerConnection(servers);
+            peerRef.current = peer;
 
-        if (localVideoRef.current) {
-             localVideoRef.current.srcObject = localStream;
-        }
-        connectionRef.current = localStream;
+            localStream.getTracks().forEach(track => peer.addTrack(track, localStream));
 
-        try {
             peer.ontrack = (event) => {
                 if (remoteVideoRef.current) {
                     remoteVideoRef.current.srcObject = event.streams[0];
@@ -2194,8 +2195,16 @@ function Chat({ socket, username, room, setRoom, handleLogout }) {
                 }
             };
 
+            // 2. Устанавливаем удаленный оффер
             await peer.setRemoteDescription(new RTCSessionDescription(callSignal));
+
+            // 3. Добавляем накопленных кандидатов из очереди
+            while (iceCandidatesQueueRef.current.length > 0) {
+                const cand = iceCandidatesQueueRef.current.shift();
+                await peer.addIceCandidate(new RTCIceCandidate(cand)).catch(e => console.error(e));
+            }
             
+            // 4. Отвечаем
             const answer = await peer.createAnswer();
             await peer.setLocalDescription(answer);
 
@@ -2219,12 +2228,56 @@ function Chat({ socket, username, room, setRoom, handleLogout }) {
         if (localVideoRef.current) localVideoRef.current.srcObject = null;
         if (remoteVideoRef.current) remoteVideoRef.current.srcObject = null;
         
+        iceCandidatesQueueRef.current = [];
         setCallStatus('idle');
         setCallSignal(null);
         setCaller("");
         setIsMuted(false);
         setIsVideoOff(false);
     };
+
+    useEffect(() => {
+        if (!socket) return;
+
+        socket.on("callUser", (data) => {
+            setCallStatus('receiving');
+            setCaller(data.from);
+            setCallerName(data.name || data.from);
+            setCallSignal(data.signal);
+        });
+
+        socket.on("callAccepted", async (signal) => {
+            setCallStatus('connected');
+            if (peerRef.current) {
+                await peerRef.current.setRemoteDescription(new RTCSessionDescription(signal));
+                // Применяем очереди при принятии
+                while (iceCandidatesQueueRef.current.length > 0) {
+                    const cand = iceCandidatesQueueRef.current.shift();
+                    await peerRef.current.addIceCandidate(new RTCIceCandidate(cand)).catch(e => console.error(e));
+                }
+            }
+        });
+
+        socket.on("ice-candidate", async (candidate) => {
+            if (peerRef.current && peerRef.current.remoteDescription) {
+                await peerRef.current.addIceCandidate(new RTCIceCandidate(candidate)).catch(e => console.error(e));
+            } else {
+                // Если remoteDescription еще не готов - сохраняем кандидат в очередь
+                iceCandidatesQueueRef.current.push(candidate);
+            }
+        });
+
+        socket.on("callEnded", endCallProcess);
+        socket.on("call_failed", (d) => { alert(d.msg); endCallProcess(); });
+
+        return () => {
+            socket.off("callUser");
+            socket.off("callAccepted");
+            socket.off("ice-candidate");
+            socket.off("callEnded");
+            socket.off("call_failed");
+        };
+    }, [socket]);
 
     const endCall = () => {
         const target = callStatus === 'receiving' ? caller : callerName;
@@ -2522,10 +2575,10 @@ function Chat({ socket, username, room, setRoom, handleLogout }) {
                     </span>
                     </div>
                 </div>
-                <div style={{display: 'flex', gap: 10, alignItems: 'center'}}>
+                <div className="header-right">
                     {room.includes("_") && (
                         <button className="menu-btn" onClick={() => startCall(true)} title="Видеозвонок">
-                            <Icons.IconPlay />
+                            <Icons.IconCamera />
                         </button>
                     )}
                     <div style={{ position: "relative" }}>
@@ -2965,10 +3018,10 @@ function Chat({ socket, username, room, setRoom, handleLogout }) {
                     <div className="profile-status"><Icons.IconProfileStatus />{username}</div>
                 </div>
                 <div className="btns">
-                    <button className="change-avatar-btn" onClick={() => avatarInputRef.current.click()}><Icons.IconAvatar1 /></button>
-                    <button className="change-avatar-btn" ><Icons.IconAvatar2 /></button>
-                    <button className="change-avatar-btn" ><Icons.IconAvatar3 /></button>
-                    <button className="change-avatar-btn" ><Icons.IconAvatar4 /></button>
+                    <button className="change-avatar-btn" onClick={() => avatarInputRef.current.click()}><Icons.IconPhoto /></button>
+                    <button className="change-avatar-btn" ><Icons.IconTheme /></button>
+                    <button className="change-avatar-btn" ><Icons.IconEditParams /></button>
+                    <button className="change-avatar-btn" ><Icons.IconBoost /></button>
                 </div>
                 </div>
             </div>
@@ -3233,7 +3286,7 @@ function Chat({ socket, username, room, setRoom, handleLogout }) {
                             <Icons.IconCall />
                         </button>
                         <button className="change-avatar-btn" title="Boost">
-                            <Icons.IconLightning />
+                            <Icons.IconBoost />
                         </button>
                         <button className="change-avatar-btn" title="Еще" onClick={() => {
                             setFriendOverrideForm({
@@ -3243,7 +3296,7 @@ function Chat({ socket, username, room, setRoom, handleLogout }) {
                             });
                             setActiveModal('editFriendProfile');
                         }}>
-                            <Icons.IconMore />
+                            <Icons.IconEditParams />
                         </button>
                     </div>
                 </div>
@@ -3302,6 +3355,7 @@ function Chat({ socket, username, room, setRoom, handleLogout }) {
             isMuted={isMuted}
             isVideoOff={isVideoOff}
             isIncoming={callStatus === 'receiving'}
+            onSwitchCamera={switchCamera}
         />
       </div>
     );

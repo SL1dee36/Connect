@@ -3,72 +3,205 @@
     position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
     background: #000; z-index: 99999;
     display: flex; flex-direction: column;
+    transition: width 0.25s ease, height 0.25s ease, border-radius 0.25s ease;
+}
+
+/* КОГДА ЗВОНОК СВЕРНУТ В ПЛАВАЮЩЕЕ ОКОШКО НАД ЧАТОМ */
+.call-modal-overlay.minimized {
+    top: auto; left: auto;
+    width: 145px; height: 195px;
+    border-radius: 18px;
+    border: 1px solid #3a3a3a;
+    box-shadow: 0 12px 35px rgba(0, 0, 0, 0.85);
+    overflow: hidden;
+    touch-action: none;
+    cursor: grab;
+    z-index: 99999;
+}
+
+.call-modal-overlay.minimized:active {
+    cursor: grabbing;
+    border-color: #2b95ff;
+}
+
+/* В свернутом режиме скрываем внутреннюю малую вебку, показываем только активную главную */
+.call-modal-overlay.minimized .video-wrapper.pip-view {
+    display: none !important;
 }
 
 .call-content {
-    flex: 1; position: relative; display: flex; flex-direction: column;
+    flex: 1; position: relative; display: flex; flex-direction: column; height: 100%;
 }
 
 .video-grid {
-    flex: 1; position: relative; background: #111;
+    flex: 1; position: relative; background: #0a0a0a;
     display: flex; justify-content: center; align-items: center;
+    overflow: hidden;
 }
 
-.remote-video-wrapper {
-    width: 100%; height: 100%; display: flex; justify-content: center; align-items: center;
+.video-wrapper {
+    transition: all 0.3s cubic-bezier(0.2, 0.8, 0.2, 1);
 }
 
-.remote-video {
-    width: 100%; height: 100%; object-fit: cover;
+.video-wrapper.main-view {
+    position: absolute; inset: 0; width: 100%; height: 100%; z-index: 1;
 }
 
-/* Мое видео (PIP) */
-.local-video-wrapper {
-    position: absolute; bottom: 120px; right: 20px;
-    width: 120px; height: 160px;
-    background: #333; border-radius: 12px;
-    overflow: hidden; box-shadow: 0 5px 15px rgba(0,0,0,0.5);
-    z-index: 10; border: 2px solid #444;
+.video-wrapper.pip-view {
+    position: absolute;
+    width: 125px; height: 165px;
+    background: #1c1c1c; border-radius: 16px;
+    overflow: hidden; z-index: 10;
+    border: 1px solid #333;
+    touch-action: none; cursor: pointer;
+    user-select: none;
 }
 
-.local-video {
-    width: 100%; height: 100%; object-fit: cover; transform: scaleX(-1);
+.video-element {
+    width: 100%; height: 100%; object-fit: cover; pointer-events: none;
 }
+
+.video-element.mirrored {
+    transform: scaleX(-1);
+}
+
+/* Кнопка смены камер */
+.pip-camera-flip-btn {
+    position: absolute; bottom: 8px; right: 8px;
+    background: #2a2a2a; border: 1px solid #3a3a3a;
+    border-radius: 50%; width: 32px; height: 32px;
+    display: flex; align-items: center; justify-content: center;
+    cursor: pointer; z-index: 15; pointer-events: auto;
+    transition: background 0.15s;
+    display: none;
+}
+
+.pip-camera-flip-btn:active {
+    background: #444;
+}
+
+/* Кнопки поверх плавающего мини-окошка над чатом */
+.mini-floating-controls {
+    position: absolute; top: 8px; left: 8px; right: 8px;
+    display: flex; justify-content: space-between;
+    z-index: 25; pointer-events: auto;
+}
+
+.mini-action-btn {
+    border: none;
+    border-radius: 100px;
+    width: -webkit-fill-available;
+    height: auto;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    backdrop-filter: blur(4px);
+    transition: transform 0.15s;
+}
+
+.mini-action-btn:active { transform: scale(0.85); }
+.mini-action-btn.expand { background: rgba(0, 0, 0, 0.65); }
+.mini-action-btn.end { background: #d32f2f; }
 
 .calling-placeholder {
+    position: absolute; z-index: 2;
     display: flex; flex-direction: column; align-items: center; gap: 20px;
-    animation: pulse 2s infinite;
 }
 
 .calling-avatar {
-    width: 120px; height: 120px; border-radius: 50%;
-    background: #2b95ff; color: white; font-size: 48px;
+    width: 110px; height: 110px; border-radius: 50%;
+    background: #2b95ff; color: white; font-size: 44px;
     display: flex; align-items: center; justify-content: center;
-    border: 4px solid #1e1e1e;
 }
 
 .calling-status {
     font-size: 20px; color: white; font-weight: 500;
 }
 
-/* Кнопки управления */
-.call-controls {
-    height: 100px; background: #1e1e1e; display: flex;
-    align-items: center; justify-content: center; gap: 20px;
-    padding-bottom: env(safe-area-inset-bottom);
+/* --- ПАНЕЛЬ УПРАВЛЕНИЯ СНИЗУ --- */
+.call-controls-container {
+    background: #141414;
+    padding: 16px 20px calc(16px + env(safe-area-inset-bottom)) 20px;
+    display: flex; flex-direction: column; gap: 16px;
+    z-index: 20; border-top: 1px solid #222;
 }
 
-.call-btn {
-    width: 60px; height: 60px; border-radius: 50%;
-    border: none; background: #333; color: white;
-    cursor: pointer; display: flex; align-items: center; justify-content: center;
-    font-size: 12px; transition: 0.2s;
+.controls-top-row {
+    display: flex; justify-content: space-around; align-items: center; gap: 10px;
 }
 
-.call-btn.accept { background: #4caf50; }
-.call-btn.decline { background: #ff4d4d; }
-.call-btn.active { background: #fff; color: #000; }
+.control-row-btn {
+    background: #222; border: 1px solid #2a2a2a; color: #ccc;
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    gap: 6px; padding: 10px 12px; border-radius: 14px;
+    flex: 1; cursor: pointer; transition: background 0.15s, color 0.15s;
+    font-size: 11px; font-weight: 500;
+}
+
+.control-row-btn:active { background: #333; }
+
+.control-row-btn.active {
+    background: #2b95ff; color: #fff; border-color: #2b95ff;
+}
+
+.control-row-btn.off {
+    background: #2a1a1a; color: #ff4d4d; border-color: #3a2222;
+}
+
+.controls-bottom-row {
+    display: flex; width: 100%;
+}
+
+.big-call-btn {
+    height: 52px; border-radius: 26px; border: none;
+    color: white; font-size: 15px; font-weight: 600;
+    display: flex; align-items: center; justify-content: center; gap: 10px;
+    cursor: pointer; transition: background 0.15s;
+}
+
+.big-call-btn.full-width { width: 100%; }
+.big-call-btn.decline { background: #d32f2f; }
+.big-call-btn.decline:active { background: #b71c1c; }
+
+/* --- СВАЙПЕР ОТВЕТА --- */
+.incoming-swipe-container {
+    display: flex; width: 100%; gap: 12px; align-items: center;
+}
+
+.swipe-track {
+    flex: 1; height: 54px; background: #222;
+    border-radius: 27px; position: relative;
+    display: flex; align-items: center; justify-content: center;
+    overflow: hidden; border: 1px solid #2a2a2a;
+}
+
+.swipe-thumb {
+    position: absolute; left: 3px; top: 3px;
+    width: 48px; height: 48px; border-radius: 50%;
+    background: #2e7d32; display: flex;
+    align-items: center; justify-content: center;
+    cursor: grab; touch-action: none;
+    transition: transform 0.1s ease-out; z-index: 5;
+}
+
+.swipe-thumb:active { cursor: grabbing; background: #1b5e20; }
+
+.swipe-text {
+    font-size: 13px; font-weight: 500; color: #888;
+    user-select: none; pointer-events: none; transition: opacity 0.15s;
+}
+
+.decline-square-btn {
+    width: 54px; height: 54px; border-radius: 27px;
+    background: #d32f2f; border: none;
+    display: flex; align-items: center; justify-content: center;
+    cursor: pointer; flex-shrink: 0; transition: background 0.15s;
+}
+
+.decline-square-btn:active { background: #b71c1c; }
 
 @media (max-width: 768px) {
-    .local-video-wrapper { bottom: 140px; right: 15px; width: 100px; height: 133px; }
+    .video-wrapper.pip-view { width: 105px; height: 145px; }
+    .control-row-btn span { font-size: 10px; }
 }
