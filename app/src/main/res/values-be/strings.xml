@@ -1,0 +1,36 @@
+<resources>
+    <string name="app_name">Connect</string>
+    <string name="tab_chats">Чаты</string>
+    <string name="tab_contacts">Кантакты</string>
+    <string name="tab_profile">Профіль</string>
+    <string name="tab_settings">Налады</string>
+    <string name="admin_panel">Адмін-панэль</string>
+
+    <string name="search_chats">Пошук па чатах і карыстальніках...</string>
+    <string name="no_chats_yet">У вас пакуль няма чатаў</string>
+    <string name="no_chats_hint">Націсніце аловак унізе альбо знайдзіце суразмоўцу ў Кантактах</string>
+    <string name="create_group">Стварыць групу</string>
+    <string name="group_name">Назва групы</string>
+    <string name="create">Стварыць</string>
+    <string name="cancel">Адмена</string>
+    <string name="save">Захаваць</string>
+    <string name="delete">Выдаліць</string>
+    <string name="ok">Добра</string>
+
+    <string name="online">у сеціве</string>
+    <string name="group">група</string>
+    <string name="typing">друкуе...</string>
+    <string name="reply">Адказаць</string>
+    <string name="copy">Капіяваць</string>
+    <string name="delete_for_everyone">Выдаліць для ўсіх</string>
+
+    <string name="settings">Налады</string>
+    <string name="appearance">Выгляд</string>
+    <string name="theme">Тэма афармлення</string>
+    <string name="language">Мова праграмы</string>
+    <string name="server_address">Адрас сервера</string>
+    <string name="app_version">Версія праграмы</string>
+    <string name="check_updates">Праверыць абнаўленні</string>
+    <string name="clear_cache">Ачысціць кэш</string>
+    <string name="logout">Выйсці з акаўнта</string>
+</resources>

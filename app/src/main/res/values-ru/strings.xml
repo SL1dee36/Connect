@@ -1,0 +1,36 @@
+<resources>
+    <string name="app_name">Connect</string>
+    <string name="tab_chats">Чаты</string>
+    <string name="tab_contacts">Контакты</string>
+    <string name="tab_profile">Профиль</string>
+    <string name="tab_settings">Настройки</string>
+    <string name="admin_panel">Админ-панель</string>
+
+    <string name="search_chats">Поиск по чатам и людям...</string>
+    <string name="no_chats_yet">У вас пока нет чатов</string>
+    <string name="no_chats_hint">Нажмите карандаш снизу или найдите собеседника во вкладке Контакты</string>
+    <string name="create_group">Создать группу</string>
+    <string name="group_name">Название группы</string>
+    <string name="create">Создать</string>
+    <string name="cancel">Отмена</string>
+    <string name="save">Сохранить</string>
+    <string name="delete">Удалить</string>
+    <string name="ok">ОК</string>
+
+    <string name="online">в сети</string>
+    <string name="group">группа</string>
+    <string name="typing">печатает...</string>
+    <string name="reply">Ответить</string>
+    <string name="copy">Копировать</string>
+    <string name="delete_for_everyone">Удалить для всех</string>
+
+    <string name="settings">Настройки</string>
+    <string name="appearance">Внешний вид</string>
+    <string name="theme">Тема оформления</string>
+    <string name="language">Язык приложения</string>
+    <string name="server_address">Адрес сервера</string>
+    <string name="app_version">Версия приложения</string>
+    <string name="check_updates">Проверить обновления</string>
+    <string name="clear_cache">Очистить кэш</string>
+    <string name="logout">Выйти из аккаунта</string>
+</resources>

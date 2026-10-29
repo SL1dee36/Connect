@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <group
+        android:scaleX="0.163855"
+        android:scaleY="0.163855"
+        android:translateX="20"
+        android:translateY="20">
+        <!-- Layer 1: Base -->
+        <path
+            android:fillColor="#000000"
+            android:pathData="M 207.5,0 A 207.5,207.5 0 1,0 207.5,415 A 207.5,207.5 0 1,0 207.5,0 Z" />
+        <!-- Layer 2: Outer Crescent -->
+        <path
+            android:fillColor="#FFFFFF"
+            android:pathData="M67,207.5 C67,131.561 128.561,70 204.5,70 C280.439,70 342,131.561 342,207.5 C342,283.439 280.439,345 204.5,345 C128.561,345 67,283.439 67,207.5 Z" />
+        <!-- Layer 3: Middle Cutout -->
+        <path
+            android:fillColor="#000000"
+            android:pathData="M 239,98 A 110,110 0 1,0 239,318 A 110,110 0 1,0 239,98 Z" />
+        <!-- Layer 4: Inner Crescent -->
+        <path
+            android:fillColor="#FFFFFF"
+            android:pathData="M 238.5,103 A 104.5,104.5 0 1,0 238.5,312 A 104.5,104.5 0 1,0 238.5,103 Z" />
+        <!-- Layer 5: Center Core Cutout -->
+        <path
+            android:fillColor="#000000"
+            android:pathData="M 230.5,103 A 85,85 0 1,0 230.5,273 A 85,85 0 1,0 230.5,103 Z" />
+    </group>
+</vector>

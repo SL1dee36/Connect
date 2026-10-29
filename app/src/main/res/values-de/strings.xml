@@ -1,0 +1,36 @@
+<resources>
+    <string name="app_name">Connect</string>
+    <string name="tab_chats">Chats</string>
+    <string name="tab_contacts">Kontakte</string>
+    <string name="tab_profile">Profil</string>
+    <string name="tab_settings">Einstellungen</string>
+    <string name="admin_panel">Admin-Bereich</string>
+
+    <string name="search_chats">Chats und Benutzer suchen...</string>
+    <string name="no_chats_yet">Noch keine Chats vorhanden</string>
+    <string name="no_chats_hint">Tippen Sie unten auf das Symbol oder suchen Sie in Kontakten</string>
+    <string name="create_group">Gruppe erstellen</string>
+    <string name="group_name">Gruppenname</string>
+    <string name="create">Erstellen</string>
+    <string name="cancel">Abbrechen</string>
+    <string name="save">Speichern</string>
+    <string name="delete">Löschen</string>
+    <string name="ok">OK</string>
+
+    <string name="online">online</string>
+    <string name="group">Gruppe</string>
+    <string name="typing">tippt...</string>
+    <string name="reply">Antworten</string>
+    <string name="copy">Kopieren</string>
+    <string name="delete_for_everyone">Für alle löschen</string>
+
+    <string name="settings">Einstellungen</string>
+    <string name="appearance">Erscheinungsbild</string>
+    <string name="theme">Farbschema</string>
+    <string name="language">Sprache</string>
+    <string name="server_address">Serveradresse</string>
+    <string name="app_version">App-Version</string>
+    <string name="check_updates">Nach Updates suchen</string>
+    <string name="clear_cache">Cache leeren</string>
+    <string name="logout">Abmelden</string>
+</resources>
